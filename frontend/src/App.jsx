@@ -1,0 +1,43 @@
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./pages/Auth/Login";
+import Signup from "./pages/Auth/Signup";
+import Home from "./pages/Dashboard/Home";
+import Ingredient from "./pages/Inventory/Ingredient";
+import ItemMovement from "./pages/Inventory/ItemMovement";
+import Product from "./pages/Inventory/Product";
+import Spoilage from "./pages/Inventory/Spoilage";
+import StockIn from "./pages/Inventory/StockIn";
+import POS from "./pages/POS/POS";
+import Sales from "./pages/Reports/Sales";
+import Transactions from "./pages/Reports/Transactions";
+import Settings from "./pages/Settings/Settings";
+import Logs from "./pages/Users/Logs";
+import UserManagement from "./pages/Users/UserManagement";
+
+const App = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+        <Route path="/inventory/ingredients" element={<ProtectedRoute><Ingredient /></ProtectedRoute>} />
+        <Route path="/inventory/item-movement" element={<ProtectedRoute><ItemMovement /></ProtectedRoute>} />
+        <Route path="/inventory/products" element={<ProtectedRoute><Product /></ProtectedRoute>} />
+        <Route path="/inventory/spoilages" element={<ProtectedRoute><Spoilage /></ProtectedRoute>} />
+        <Route path="/inventory/stock-in" element={<ProtectedRoute><StockIn /></ProtectedRoute>} />
+        <Route path="/pos" element={<ProtectedRoute><POS /></ProtectedRoute>} />
+        <Route path="/reports/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+        <Route path="/reports/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/users/logs" element={<ProtectedRoute requiredRole="admin"><Logs /></ProtectedRoute>} />
+        <Route path="/users/user-management" element={<ProtectedRoute requiredRole="admin"><UserManagement /></ProtectedRoute>} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export default App;
