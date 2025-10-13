@@ -18,6 +18,7 @@ import salesRoutes from "./routes/sales.route.js";
 import activityLogRoutes from "./routes/activitylog.route.js";
 import itemTrackerRoutes from "./routes/itemmovement.route.js";
 import notificationRoutes from "./routes/notification.route.js";
+import dashboardRoutes from "./routes/dashboard.route.js";
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/activitylogs", activityLogRoutes);
 app.use("/api/itemtracker", itemTrackerRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -6,6 +6,7 @@ import AlertDialog from "../../components/AlertDialog";
 import IngredientModal from "../../components/modals/IngredientModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { Pencil, Trash2 } from "lucide-react";
+import ExportButtons from "../../components/ExportButtons";
 
 const Ingredient = () => {
   const [ingredients, setIngredients] = useState([]);
@@ -115,114 +116,116 @@ const Ingredient = () => {
 
   return (
     <DashboardLayout>
-    <div className="p-4">
-      <ToastContainer
-        position="bottom-right"
-        autoClose={2000}
-        hideProgressBar
-      />
+      <div className="p-4">
+        <ToastContainer
+          position="bottom-right"
+          autoClose={2000}
+          hideProgressBar
+        />
 
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Ingredients & Materials</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setEditingId(null);
-            setShowModal(true);
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          + Add Ingredient
-        </button>
-      </div>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Ingredients & Materials</h1>
+          <button
+            onClick={() => {
+              resetForm();
+              setEditingId(null);
+              setShowModal(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            + Add Ingredient
+          </button>
+        </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <table className="min-w-full border text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border px-4 py-2 text-left">Name</th>
-              <th className="border px-4 py-2 text-left">Quantity</th>
-              <th className="border px-4 py-2 text-left">Unit</th>
-              <th className="border px-4 py-2 text-left">Stock Status</th>
-              <th className="border px-4 py-2 text-left">Alert Level</th>
-              <th className="border px-4 py-2 text-left">Expiration</th>
-              <th className="border px-4 py-2 text-left">Remarks</th>
-              <th className="border px-4 py-2 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ingredients.length > 0 ? (
-              ingredients.map((i) => (
-                <tr key={i._id}>
-                  <td className="border px-4 py-2">{i.name}</td>
-                  <td className="border px-4 py-2">{i.quantity}</td>
-                  <td className="border px-4 py-2">{i.unit}</td>
-                  <td className="border px-4 py-2">
-                    {getStockStatus(i.quantity, i.alert)}
-                  </td>
-                  <td className="border px-4 py-2">{i.alert}</td>
-                  <td className="border px-4 py-2">
-                    {i.expiration
-                      ? new Date(i.expiration).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })
-                      : "—"}
-                  </td>
-                  <td className="border px-4 py-2">{i.remarks}</td>
-                  <td className="border px-4 py-2 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => handleEdit(i)}
-                        className="inline-flex items-center gap-1 text-blue-600 hover:underline mr-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(i._id)}
-                        className="inline-flex items-center gap-1 text-red-600 hover:underline ml-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
-                    </div>
+        <ExportButtons data={ingredients} fileName="Ingredients Report" />
+
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <table className="min-w-full border text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border px-4 py-2 text-left">Name</th>
+                <th className="border px-4 py-2 text-left">Quantity</th>
+                <th className="border px-4 py-2 text-left">Unit</th>
+                <th className="border px-4 py-2 text-left">Stock Status</th>
+                <th className="border px-4 py-2 text-left">Alert Level</th>
+                <th className="border px-4 py-2 text-left">Expiration</th>
+                <th className="border px-4 py-2 text-left">Remarks</th>
+                <th className="border px-4 py-2 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ingredients.length > 0 ? (
+                ingredients.map((i) => (
+                  <tr key={i._id}>
+                    <td className="border px-4 py-2">{i.name}</td>
+                    <td className="border px-4 py-2">{i.quantity}</td>
+                    <td className="border px-4 py-2">{i.unit}</td>
+                    <td className="border px-4 py-2">
+                      {getStockStatus(i.quantity, i.alert)}
+                    </td>
+                    <td className="border px-4 py-2">{i.alert}</td>
+                    <td className="border px-4 py-2">
+                      {i.expiration
+                        ? new Date(i.expiration).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="border px-4 py-2">{i.remarks}</td>
+                    <td className="border px-4 py-2 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => handleEdit(i)}
+                          className="inline-flex items-center gap-1 text-blue-600 hover:underline mr-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(i._id)}
+                          className="inline-flex items-center gap-1 text-red-600 hover:underline ml-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="text-center py-4">
+                    No ingredients found.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="8" className="text-center py-4">
-                  No ingredients found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
+              )}
+            </tbody>
+          </table>
+        )}
 
-      {/* Add/Edit Modal */}
-      <IngredientModal
-        show={showModal}
-        onClose={() => setShowModal(false)}
-        onSubmit={handleSubmit}
-        form={form}
-        setForm={setForm}
-        editingId={editingId}
-      />
+        {/* Add/Edit Modal */}
+        <IngredientModal
+          show={showModal}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleSubmit}
+          form={form}
+          setForm={setForm}
+          editingId={editingId}
+        />
 
-      {/* Custom Alert Dialog */}
-      <AlertDialog
-        show={showAlert}
-        title="Delete this ingredient?"
-        message="Do you really want to delete this ingredient? This action cannot be undone."
-        onCancel={() => setShowAlert(false)}
-        onConfirm={confirmDelete}
-      />
-    </div>
+        {/* Custom Alert Dialog */}
+        <AlertDialog
+          show={showAlert}
+          title="Delete this ingredient?"
+          message="Do you really want to delete this ingredient? This action cannot be undone."
+          onCancel={() => setShowAlert(false)}
+          onConfirm={confirmDelete}
+        />
+      </div>
     </DashboardLayout>
   );
 };
