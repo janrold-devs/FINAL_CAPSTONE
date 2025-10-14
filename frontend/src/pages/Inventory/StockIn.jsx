@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "../../api/axios";
-import StockInModal from "../../components/modals/StockinModal";
+import StockInModal from "../../components/modals/StockInModal";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import DashboardLayout from "../../layouts/DashboardLayout";
