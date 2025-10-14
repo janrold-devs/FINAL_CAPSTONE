@@ -3,6 +3,7 @@ import api from "../../api/axios";
 import { Eye } from "lucide-react";
 import TransactionModal from "../../components/modals/TransactionModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import ExportButtons from "../../components/ExportButtons"
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -29,6 +30,17 @@ const Transactions = () => {
     <DashboardLayout>
     <div className="p-6 min-h-screen">
       <h1 className="text-2xl font-bold mb-6">Transactions Report</h1>
+
+        <ExportButtons data={transactions} fileName="Transactions" 
+        columns={[
+          {key: "transactionDate", label: "Date" },
+          {key: "cashier.firstName", label: "Cashier" },
+          {key: "modeOfPayment", label: "Payment" },
+          {key: "referenceNumber", label: "Reference Number" },
+          {key: "totalAmount", label: "Total Amount" },
+        ]}
+        />
+
       {loading ? (
         <div className="py-12 text-center text-gray-500">Loading...</div>
       ) : transactions.length === 0 ? (

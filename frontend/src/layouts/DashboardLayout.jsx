@@ -81,6 +81,8 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const { logout } = useContext(AuthContext);
+
   const toggleSidebar = () => setSidebarCollapsed((v) => !v);
 
   const navItems = [
@@ -100,7 +102,7 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
     { href: "/users/logs", label: "Activity Log", icon: <Activity size={20} /> },
     { divider: true },
     { href: "/settings", label: "Settings", icon: <Settings size={20} /> },
-    { href: "/login", label: "Logout", icon: <LogOut size={20} /> },
+    { href: "#logout", label: "Logout", icon: <LogOut size={20} onClick={logout}/> },
   ];
 
   return (
@@ -142,7 +144,9 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
               icon={item.icon}
               collapsed={sidebarCollapsed}
               active={location.pathname === item.href}
-              onClick={() => navigate(item.href)}
+              onClick={
+                item.label === "Logout" ? logout : () => navigate(item.href)
+              }
             />
           )
         )}

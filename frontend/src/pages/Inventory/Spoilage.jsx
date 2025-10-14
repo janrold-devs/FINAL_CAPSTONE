@@ -5,6 +5,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { Eye } from "lucide-react";
+import ExportButtons from "../../components/ExportButtons"
 
 const Spoilage = () => {
   const [spoilages, setSpoilages] = useState([]);
@@ -105,6 +106,15 @@ const Spoilage = () => {
         </button>
       </div>
 
+      <ExportButtons data={spoilages} fileName="Spoilages" 
+      columns={[
+        {key: "personInCharge.firstName", label: "Person In Charge" },
+        {key: "createdAt", label: "Date" },
+        {key: "ingredients.length", label: "Ingredients" },
+        {key: "totalWaste", label: "Total Waste" },
+        {key: "remarks", label: "Remarks" },
+      ]}
+      />
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full border text-sm">

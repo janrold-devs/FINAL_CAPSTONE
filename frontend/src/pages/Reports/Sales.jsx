@@ -5,6 +5,7 @@ import { Eye, RefreshCw } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import SalesModal from "../../components/modals/SalesModal";
+import ExportButtons from "../../components/ExportButtons"
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
@@ -94,6 +95,15 @@ const Sales = () => {
             <RefreshCw size={18} /> Refresh
           </button>
         </div>
+
+        <ExportButtons data={sales} fileName="Sales" 
+        columns={[
+          {key: "batchNumber", label: "Batch Number" },
+          {key: "transactionDate", label: "Date" },
+          {key: "transactionsCount", label: "Transactions" },
+          {key: "totalSales", label: "Total Sales" },
+        ]}
+        />
 
         {loading ? (
           <p>Loading...</p>

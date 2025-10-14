@@ -5,6 +5,8 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { Eye } from "lucide-react";
+import ExportButtons from "../../components/ExportButtons";
+
 
 const StockIn = () => {
   const [stockIns, setStockIns] = useState([]);
@@ -104,6 +106,17 @@ const StockIn = () => {
             + New Stock-In
           </button>
         </div>
+
+        <ExportButtons
+          data={stockIns}
+          fileName="Stock-In"
+          columns={[
+            { key: "batchNumber", label: "Batch Number" },
+            { key: "stockman.firstName", label: "Stockman" },
+            { key: "date", label: "Date" },
+            { key: "ingredients.length", label: "Ingredients" },
+          ]}
+        />
 
         {/* Table */}
         <div className="overflow-x-auto">

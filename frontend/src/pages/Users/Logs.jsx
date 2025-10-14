@@ -39,26 +39,18 @@ const Logs = () => {
     fetchUsers();
   }, []);
 
-  // Extract unique actions from logs
-  const actionOptions = [
-    ...new Set(
-      logs
-        .map((log) =>
-          log.action
-            ? log.action
-                .replace(/_/g, " ")
-                .replace(/(CREATE|ADD)/i, "Add")
-                .replace(/(DELETE|REMOVE)/i, "Delete")
-                .replace(/(UPDATE|EDIT)/i, "Update")
-                .replace(/(LOGIN)/i, "Login")
-                .replace(/(LOGOUT)/i, "Logout")
-                .replace(/(VIEW)/i, "View")
-                .replace(/(STOCK)/i, "Stock")
-            : ""
-        )
-        .filter(Boolean)
-    ),
-  ];
+  // Simplified action options
+  const actionOptions = ["Create", "Update", "Delete"];
+
+  // Helper function to categorize action
+  const getCategoryFromAction = (action) => {
+    if (!action) return null;
+    const upper = action.toUpperCase();
+    if (upper.includes("CREATE") || upper.includes("ADD")) return "Create";
+    if (upper.includes("UPDATE") || upper.includes("EDIT")) return "Update";
+    if (upper.includes("DELETE") || upper.includes("REMOVE")) return "Delete";
+    return null;
+  };
 
   // Filtering logic
   const filteredLogs = logs.filter((log) => {
@@ -77,13 +69,11 @@ const Logs = () => {
       matchesUser = logUserId === selectedUser;
     }
 
-    // Action filter
+    // Action filter - simplified
     let matchesAction = true;
     if (selectedAction !== "all") {
-      matchesAction =
-        log.action &&
-        (log.action.toLowerCase() === selectedAction.toLowerCase() ||
-          log.action.replace(/_/g, " ").toLowerCase() === selectedAction.toLowerCase());
+      const logCategory = getCategoryFromAction(log.action);
+      matchesAction = logCategory === selectedAction;
     }
 
     // Date range filter
@@ -140,7 +130,7 @@ const Logs = () => {
               </option>
             ))}
           </select>
-          {/* Actions */}
+          {/* Actions - Simplified */}
           <select
             className="border border-gray-300 text-sm rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500"
             value={selectedAction}

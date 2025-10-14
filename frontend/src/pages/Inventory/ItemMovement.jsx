@@ -4,6 +4,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ItemMovementModal from "../../components/modals/ItemMovementModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import ExportButtons from "../../components/ExportButtons";
 
 const ItemMovement = () => {
   const [movements, setMovements] = useState([]);
@@ -91,97 +92,114 @@ const ItemMovement = () => {
 
   return (
     <DashboardLayout>
-    <div className="p-4">
-      <ToastContainer
-        position="bottom-right"
-        autoClose={2000}
-        hideProgressBar
-      />
+      <div className="p-4">
+        <ToastContainer
+          position="bottom-right"
+          autoClose={2000}
+          hideProgressBar
+        />
 
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Item Movements</h1>
-        <button
-          onClick={handleOpenModal}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          + Add Movement
-        </button>
-      </div>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Item Movements</h1>
+          <button
+            onClick={handleOpenModal}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            + Add Movement
+          </button>
+        </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <table className="min-w-full border text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border px-4 py-2 text-left">Batch Number</th>
-              <th className="border px-4 py-2 text-left">Name</th>
-              <th className="border px-4 py-2 text-left">Item Name</th>
-              <th className="border px-4 py-2 text-left">Quantity</th>
-              <th className="border px-4 py-2 text-left">Purpose</th>
-              <th className="border px-4 py-2 text-left">Action</th>
-              <th className="border px-4 py-2 text-left">Destination</th>
-              <th className="border px-4 py-2 text-left">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movements.length > 0 ? (
-              movements.map((m, idx) => (
-                <tr key={m._id || idx}>
-                  <td className="border px-4 py-2">{m.batchNumber}</td>
-                  <td className="border px-4 py-2">
-                    {m.movedBy?.firstName} {m.movedBy?.lastName}
-                  </td>
-                  <td className="border px-4 py-2">
-                    {m.ingredient?.name || m.ingredient?._id || m.ingredient}
-                  </td>
-                  <td className="border px-4 py-2">
-                    {m.quantity}
-                    {m.unit}
-                  </td>
-                  <td className="border px-4 py-2">{m.purpose}</td>
-                  <td className="border px-4 py-2">{m.actionType}</td>
-                  <td className="border px-4 py-2">
-                    {m.actionType === "Transfer" &&
-                    m.destination &&
-                    m.destination !== "N/A"
-                      ? m.destination
-                      : "N/A"}
-                  </td>
-                  <td className="border px-4 py-2">
-                    {m.date
-                      ? new Date(m.date).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })
-                      : "—"}
+        <ExportButtons
+          fileName="Item tracker"
+          columns={[
+            { key: "batchNumber", label: "Batch Number" },
+            { key: "movedBy.firstName", label: "First Name" },
+            { key: "movedBy.lastName", label: "Last Name" },
+            { key: "ingredient.name", label: "Item Name" },
+            { key: "quantity", label: "Quantity" },
+            { key: "unit", label: "Unit" },
+            { key: "purpose", label: "Purpose" },
+            { key: "actionType", label: "Action Type" },
+            { key: "destination", label: "Destination" },
+            { key: "date", label: "Date" },
+          ]}
+          data={movements}
+        />
+
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <table className="min-w-full border text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border px-4 py-2 text-left">Batch Number</th>
+                <th className="border px-4 py-2 text-left">Name</th>
+                <th className="border px-4 py-2 text-left">Item Name</th>
+                <th className="border px-4 py-2 text-left">Quantity</th>
+                <th className="border px-4 py-2 text-left">Purpose</th>
+                <th className="border px-4 py-2 text-left">Action</th>
+                <th className="border px-4 py-2 text-left">Destination</th>
+                <th className="border px-4 py-2 text-left">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.length > 0 ? (
+                movements.map((m, idx) => (
+                  <tr key={m._id || idx}>
+                    <td className="border px-4 py-2">{m.batchNumber}</td>
+                    <td className="border px-4 py-2">
+                      {m.movedBy?.firstName} {m.movedBy?.lastName}
+                    </td>
+                    <td className="border px-4 py-2">
+                      {m.ingredient?.name || m.ingredient?._id || m.ingredient}
+                    </td>
+                    <td className="border px-4 py-2">
+                      {m.quantity}
+                      {m.unit}
+                    </td>
+                    <td className="border px-4 py-2">{m.purpose}</td>
+                    <td className="border px-4 py-2">{m.actionType}</td>
+                    <td className="border px-4 py-2">
+                      {m.actionType === "Transfer" &&
+                      m.destination &&
+                      m.destination !== "N/A"
+                        ? m.destination
+                        : "N/A"}
+                    </td>
+                    <td className="border px-4 py-2">
+                      {m.date
+                        ? new Date(m.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : "—"}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="9" className="text-center py-4">
+                    No item movements found.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="9" className="text-center py-4">
-                  No item movements found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
+              )}
+            </tbody>
+          </table>
+        )}
 
-      <ItemMovementModal
-        show={showModal}
-        onClose={handleCloseModal}
-        onSubmit={handleModalSubmit}
-        form={form}
-        setForm={setForm}
-        ingredients={ingredients}
-        users={users}
-        editingId={null}
-        maxQty={maxQty}
-      />
-    </div>
+        <ItemMovementModal
+          show={showModal}
+          onClose={handleCloseModal}
+          onSubmit={handleModalSubmit}
+          form={form}
+          setForm={setForm}
+          ingredients={ingredients}
+          users={users}
+          editingId={null}
+          maxQty={maxQty}
+        />
+      </div>
     </DashboardLayout>
   );
 };

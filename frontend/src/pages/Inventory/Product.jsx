@@ -5,6 +5,7 @@ import ProductModal from "../../components/modals/ProductModal";
 import AlertDialog from "../../components/AlertDialog";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { Pencil, Trash2 } from "lucide-react";
+import ExportButtons from "../../components/ExportButtons"
 
 const Product = () => {
   const BACKEND_URL = "http://localhost:8000";
@@ -98,6 +99,17 @@ const Product = () => {
             + Add Product
           </button>
         </div>
+
+        <ExportButtons data={products} fileName="Products" 
+        columns={[
+          {key: "productName", label: "Product Name" },
+          {key: "size", label: "Size" },
+          {key: "price", label: "Price" },
+          {key: "category", label: "Category" },
+          {key: "ingredients.length", label: "Ingredients" },
+          {key: "status", label: "Status" },
+        ]}
+        />
 
         {/* Table */}
         {loading ? (

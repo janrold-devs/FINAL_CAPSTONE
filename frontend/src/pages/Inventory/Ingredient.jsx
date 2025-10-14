@@ -137,7 +137,18 @@ const Ingredient = () => {
           </button>
         </div>
 
-        <ExportButtons data={ingredients} fileName="Ingredients Report" />
+        <ExportButtons
+          data={ingredients}
+          fileName="Ingredients & Materials"
+          columns={[
+            { key: "name", label: "Name" },
+            { key: "quantity", label: "Quantity" },
+            { key: "unit", label: "Unit" },
+            { key: "alert", label: "Alert Level" },
+            { key: "expiration", label: "Expiration" },
+            { key: "remarks", label: "Remarks" },
+          ]}
+        />
 
         {loading ? (
           <p>Loading...</p>
