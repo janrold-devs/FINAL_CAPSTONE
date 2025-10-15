@@ -7,7 +7,7 @@ import LoaderModal from "../../components/modals/LoaderModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 
 const POS = () => {
-  const BACKEND_URL = "http://localhost:8000";
+  const BACKEND_URL = "https://final-capstone-kb79.onrender.com";
 
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
