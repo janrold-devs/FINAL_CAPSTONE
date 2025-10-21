@@ -17,7 +17,7 @@ const router = express.Router();
 router.post("/", auth, role("admin"), createUser);
 
 // GET /api/users
-router.get("/", auth, role("admin"), getUsers);
+router.get("/", auth, getUsers);
 
 // GET /api/users/:id
 router.get("/:id", auth, getUser);
