@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, DollarSign, Package, AlertTriangle } from 'lucide-react';
+import { TrendingUp, DollarSign, Package, AlertTriangle, ArrowRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import axios from '../../api/axios';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
-  const [activeTab, setActiveTab] = useState('weekly');
+  const [activeTab, setActiveTab] = useState('daily');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
+  
   const [dashboardData, setDashboardData] = useState({
     stats: {
       transactions: { count: 0, change: '0%' },
@@ -18,7 +21,13 @@ const Home = () => {
     dailySales: [],
     weeklySales: [],
     monthlySales: [],
-    bestSelling: []
+    bestSelling: {
+      coffee: [],
+      milktea: [],
+      frappe: [],
+      choco: [],
+      fruitTea: []
+    }
   });
 
   useEffect(() => {
@@ -42,18 +51,25 @@ const Home = () => {
     }
   };
 
-  const StatCard = ({ icon: Icon, title, value, change, color, isNegative }) => {
+  // Updated StatCard with navigation
+  const StatCard = ({ icon: Icon, title, value, change, color, isNegative, navigateTo }) => {
     const changeColor = isNegative 
       ? (change.includes('+') || change.includes('-') ? 'text-red-600' : 'text-green-600')
       : (change.includes('-') ? 'text-red-600' : 'text-green-600');
 
     return (
-      <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+      <div 
+        className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group"
+        onClick={() => navigateTo && navigate(navigateTo)}
+      >
         <div className="flex items-start justify-between mb-4">
           <div className={`p-3 rounded-lg ${color}`}>
             <Icon className="w-6 h-6 text-white" />
           </div>
-          <span className={`text-sm font-medium ${changeColor}`}>{change} this month</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-medium ${changeColor}`}>{change} today</span>
+            <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+          </div>
         </div>
         <h3 className="text-3xl font-bold text-gray-800 mb-1">
           {loading ? '...' : value}
@@ -81,7 +97,7 @@ const Home = () => {
       case 'monthly':
         return dashboardData.monthlySales;
       default:
-        return dashboardData.weeklySales;
+        return dashboardData.dailySales;
     }
   };
 
@@ -94,7 +110,7 @@ const Home = () => {
       case 'monthly':
         return 'Monthly Sales';
       default:
-        return 'Weekly Sales';
+        return 'Daily Sales';
     }
   };
 
@@ -107,11 +123,35 @@ const Home = () => {
       case 'monthly':
         return 'month';
       default:
-        return 'week';
+        return 'date';
     }
   };
 
   const chartData = getChartData();
+
+  // Best Selling Categories Component
+  const BestSellingCategory = ({ title, products, color }) => {
+    if (!products || products.length === 0) return null;
+
+    return (
+      <div className="mb-6 last:mb-0">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${color}`}></div>
+          {title}
+        </h3>
+        <div className="space-y-2">
+          {products.slice(0, 5).map((product, index) => (
+            <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+              <span className="text-gray-700 font-medium text-sm">{product.name}</span>
+              <span className="text-gray-900 font-semibold text-sm bg-white px-2 py-1 rounded">
+                {product.units} units
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -129,39 +169,45 @@ const Home = () => {
           </div>
         )}
 
+        {/* Updated Stat Cards with Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             icon={TrendingUp}
-            title="Product Transaction"
+            title="Today's Transactions"
             value={dashboardData.stats.transactions.count}
             change={dashboardData.stats.transactions.change}
             color="bg-blue-500"
+            navigateTo="/reports/transactions"
           />
           <StatCard
             icon={DollarSign}
-            title="Sales"
+            title="Today's Sales"
             value={formatCurrency(dashboardData.stats.sales.amount)}
             change={dashboardData.stats.sales.change}
             color="bg-green-500"
+            navigateTo="/reports/sales"
           />
           <StatCard
             icon={Package}
-            title="Number of Stock In"
+            title="Stock In Today"
             value={dashboardData.stats.stockIns.count}
             change={dashboardData.stats.stockIns.change}
             color="bg-purple-500"
+            navigateTo="/inventory/stock-in"
           />
           <StatCard
             icon={AlertTriangle}
-            title="Spoiled & Damaged Ingredients"
+            title="Spoiled Today"
             value={dashboardData.stats.spoilage.count}
             change={dashboardData.stats.spoilage.change}
             color="bg-red-500"
             isNegative={true}
+            navigateTo="/inventory/stock-in"
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Sales Chart */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-800">Sales Overview</h2>
@@ -256,24 +302,40 @@ const Home = () => {
             )}
           </div>
 
+          {/* Best Selling Products by Category */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">Best Selling Products</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-6">Best Sellers</h2>
             {loading ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-gray-400">Loading products...</div>
               </div>
-            ) : dashboardData.bestSelling.length === 0 ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">No product sales data available</div>
-              </div>
             ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {dashboardData.bestSelling.map((product, index) => (
-                  <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <span className="text-gray-700 font-medium">{product.name}</span>
-                    <span className="text-gray-900 font-semibold">{product.units} units</span>
-                  </div>
-                ))}
+              <div className="max-h-96 overflow-y-auto">
+                <BestSellingCategory
+                  title="Coffee Series"
+                  products={dashboardData.bestSelling.coffee}
+                  color="bg-amber-500"
+                />
+                <BestSellingCategory
+                  title="Milktea Series"
+                  products={dashboardData.bestSelling.milktea}
+                  color="bg-violet-500"
+                />
+                <BestSellingCategory
+                  title="Frappe Series"
+                  products={dashboardData.bestSelling.frappe}
+                  color="bg-blue-500"
+                />
+                <BestSellingCategory
+                  title="Choco Series"
+                  products={dashboardData.bestSelling.choco}
+                  color="bg-brown-500"
+                />
+                <BestSellingCategory
+                  title="Fruit Tea Series"
+                  products={dashboardData.bestSelling.fruitTea}
+                  color="bg-green-500"
+                />
               </div>
             )}
           </div>

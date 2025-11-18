@@ -8,7 +8,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons"
 
 const Product = () => {
-  const BACKEND_URL = "https://final-capstone-kb79.onrender.com";
+  const BACKEND_URL =  import.meta.env.MODE === "development" ? "http://localhost:8000" : "https://final-capstone-kb79.onrender.com";
 
   const [products, setProducts] = useState([]);
   const [ingredientsList, setIngredientsList] = useState([]);

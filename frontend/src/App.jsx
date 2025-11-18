@@ -27,7 +27,7 @@ const App = () => {
         <Route path="/inventory/ingredients" element={<ProtectedRoute><Ingredient /></ProtectedRoute>} />
         <Route path="/inventory/item-movement" element={<ProtectedRoute><ItemMovement /></ProtectedRoute>} />
         <Route path="/inventory/products" element={<ProtectedRoute><Product /></ProtectedRoute>} />
-        <Route path="/inventory/spoilages" element={<ProtectedRoute><Spoilage /></ProtectedRoute>} />
+        <Route path="/inventory/stock-in" element={<ProtectedRoute><Spoilage /></ProtectedRoute>} />
         <Route path="/inventory/stock-in" element={<ProtectedRoute><StockIn /></ProtectedRoute>} />
         <Route path="/pos" element={<ProtectedRoute><POS /></ProtectedRoute>} />
         <Route path="/reports/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />

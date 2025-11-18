@@ -1,11 +1,11 @@
 //server.js
 
-import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
+import { ENV } from "./lib/env.js";
 
 import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
@@ -20,24 +20,20 @@ import itemTrackerRoutes from "./routes/itemmovement.route.js";
 import notificationRoutes from "./routes/notification.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
 app.use(
-    cors({
-        origin: "*",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-    })
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
 );
 
 app.use(express.json());
-
-connectDB();
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoutes);
@@ -53,5 +49,8 @@ app.use("/api/itemtracker", itemTrackerRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = ENV.PORT || 8000;
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+  connectDB();
+});

@@ -3,7 +3,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://final-capstone-kb79.onrender.com/api",
+  baseURL: import.meta.env.MODE === "development" ? "http://localhost:8000/api" : "https://final-capstone-kb79.onrender.com/api",
   headers: { "Content-Type": "application/json" },
 });
 

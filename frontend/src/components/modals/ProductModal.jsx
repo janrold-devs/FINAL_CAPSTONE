@@ -46,9 +46,9 @@ const ProductModal = ({
       });
       const imageUrl = editingProduct.image
         ? // adjust host if needed
-          (editingProduct.image.startsWith("http")
-            ? editingProduct.image
-            : `${window.location.origin}${editingProduct.image}`)
+          editingProduct.image.startsWith("http")
+          ? editingProduct.image
+          : `${window.location.origin}${editingProduct.image}`
         : "";
       setImagePreview(imageUrl);
     } else {
@@ -244,6 +244,22 @@ const ProductModal = ({
           </div>
 
           <div>
+            <label className="block font-semibold text-sm mb-1">Category</label>
+            <select
+              className="w-full border px-3 py-2 rounded"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            >
+              <option value="Iced Latte">Iced Latte</option>
+              <option value="Fruit Tea">Fruit Tea</option>
+              <option value="Amerikano">Amerikano</option>
+              <option value="Bubble Tea">Bubble Tea</option>
+              <option value="Non Caffeine">Non Caffeine</option>
+              <option value="Frappe">Frappe</option>
+            </select>
+          </div>
+
+          <div>
             <label className="block font-semibold text-sm mb-1">
               Product Name *
             </label>
@@ -287,22 +303,6 @@ const ProductModal = ({
               step="0.01"
               required
             />
-          </div>
-
-          <div>
-            <label className="block font-semibold text-sm mb-1">Category</label>
-            <select
-              className="w-full border px-3 py-2 rounded"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-            >
-              <option value="Iced Latte">Iced Latte</option>
-              <option value="Fruit Tea">Fruit Tea</option>
-              <option value="Amerikano">Amerikano</option>
-              <option value="Bubble Tea">Bubble Tea</option>
-              <option value="Non Caffeine">Non Caffeine</option>
-              <option value="Frappe">Frappe</option>
-            </select>
           </div>
 
           <div>

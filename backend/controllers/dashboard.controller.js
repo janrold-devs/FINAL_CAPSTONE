@@ -8,31 +8,40 @@ import Product from "../models/Product.js";
 export const getDashboardStats = async (req, res) => {
   try {
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
     const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
 
-    // 1. Product Transactions this month
-    const transactionsThisMonth = await Transaction.countDocuments({
-      transactionDate: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+    // Helper function to calculate percentage change
+    const calculateChange = (current, previous) => {
+      if (previous === 0) {
+        return current > 0 ? '+100%' : '0%';
+      }
+      const change = ((current - previous) / previous) * 100;
+      return `${change >= 0 ? '+' : ''}${change.toFixed(0)}%`;
+    };
+
+    // 1. TODAY'S Transactions
+    const transactionsToday = await Transaction.countDocuments({
+      transactionDate: { $gte: today }
     });
 
-    // Previous month for comparison
-    const firstDayOfLastMonth = new Date(currentYear, currentMonth - 1, 1);
-    const lastDayOfLastMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
-    const transactionsLastMonth = await Transaction.countDocuments({
-      transactionDate: { $gte: firstDayOfLastMonth, $lte: lastDayOfLastMonth }
+    const transactionsYesterday = await Transaction.countDocuments({
+      transactionDate: { $gte: yesterday, $lt: today }
     });
-    const transactionChange = transactionsLastMonth > 0 
-      ? `${((transactionsThisMonth - transactionsLastMonth) / transactionsLastMonth * 100).toFixed(0)}%`
-      : '+100%';
 
-    // 2. Total Sales this month
-    const salesThisMonth = await Sales.aggregate([
+    const transactionChange = calculateChange(transactionsToday, transactionsYesterday);
+
+    // 2. TODAY'S Sales
+    const salesToday = await Sales.aggregate([
       {
         $match: {
-          transactionDate: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+          transactionDate: { $gte: today }
         }
       },
       {
@@ -42,12 +51,12 @@ export const getDashboardStats = async (req, res) => {
         }
       }
     ]);
-    const totalSalesAmount = salesThisMonth.length > 0 ? salesThisMonth[0].total : 0;
+    const todaySalesAmount = salesToday.length > 0 ? salesToday[0].total : 0;
 
-    const salesLastMonth = await Sales.aggregate([
+    const salesYesterday = await Sales.aggregate([
       {
         $match: {
-          transactionDate: { $gte: firstDayOfLastMonth, $lte: lastDayOfLastMonth }
+          transactionDate: { $gte: yesterday, $lt: today }
         }
       },
       {
@@ -57,28 +66,24 @@ export const getDashboardStats = async (req, res) => {
         }
       }
     ]);
-    const lastMonthSales = salesLastMonth.length > 0 ? salesLastMonth[0].total : 0;
-    const salesChange = lastMonthSales > 0
-      ? `${((totalSalesAmount - lastMonthSales) / lastMonthSales * 100).toFixed(0)}%`
-      : '+100%';
+    const yesterdaySales = salesYesterday.length > 0 ? salesYesterday[0].total : 0;
+    const salesChange = calculateChange(todaySalesAmount, yesterdaySales);
 
-    // 3. Number of Stock In this month
-    const stockInsThisMonth = await StockIn.countDocuments({
-      date: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+    // 3. TODAY'S Stock In
+    const stockInsToday = await StockIn.countDocuments({
+      date: { $gte: today }
     });
 
-    const stockInsLastMonth = await StockIn.countDocuments({
-      date: { $gte: firstDayOfLastMonth, $lte: lastDayOfLastMonth }
+    const stockInsYesterday = await StockIn.countDocuments({
+      date: { $gte: yesterday, $lt: today }
     });
-    const stockInChange = stockInsLastMonth > 0
-      ? `${((stockInsThisMonth - stockInsLastMonth) / stockInsLastMonth * 100).toFixed(0)}%`
-      : '+100%';
+    const stockInChange = calculateChange(stockInsToday, stockInsYesterday);
 
-    // 4. Spoiled & Damaged Ingredients count this month
-    const spoilagesThisMonth = await Spoilage.aggregate([
+    // 4. TODAY'S Spoiled & Damaged Ingredients
+    const spoilagesToday = await Spoilage.aggregate([
       {
         $match: {
-          createdAt: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+          createdAt: { $gte: today }
         }
       },
       {
@@ -91,12 +96,12 @@ export const getDashboardStats = async (req, res) => {
         }
       }
     ]);
-    const spoiledItemsCount = spoilagesThisMonth.length > 0 ? spoilagesThisMonth[0].totalItems : 0;
+    const spoiledItemsToday = spoilagesToday.length > 0 ? spoilagesToday[0].totalItems : 0;
 
-    const spoilagesLastMonth = await Spoilage.aggregate([
+    const spoilagesYesterday = await Spoilage.aggregate([
       {
         $match: {
-          createdAt: { $gte: firstDayOfLastMonth, $lte: lastDayOfLastMonth }
+          createdAt: { $gte: yesterday, $lt: today }
         }
       },
       {
@@ -109,12 +114,10 @@ export const getDashboardStats = async (req, res) => {
         }
       }
     ]);
-    const lastMonthSpoiled = spoilagesLastMonth.length > 0 ? spoilagesLastMonth[0].totalItems : 0;
-    const spoilageChange = lastMonthSpoiled > 0
-      ? `${((spoiledItemsCount - lastMonthSpoiled) / lastMonthSpoiled * 100).toFixed(0)}%`
-      : spoiledItemsCount > 0 ? '+100%' : '0%';
+    const spoiledItemsYesterday = spoilagesYesterday.length > 0 ? spoilagesYesterday[0].totalItems : 0;
+    const spoilageChange = calculateChange(spoiledItemsToday, spoiledItemsYesterday);
 
-    // 5. Daily sales for this month
+    // 5. Daily sales for this month (for chart)
     const dailySales = await Sales.aggregate([
       {
         $match: {
@@ -224,8 +227,8 @@ export const getDashboardStats = async (req, res) => {
       });
     }
 
-    // 8. Best Selling Products
-    const bestSelling = await Transaction.aggregate([
+    // 8. BEST SELLING PRODUCTS BY CATEGORY (Updated)
+    const bestSellingByCategory = await Transaction.aggregate([
       {
         $match: {
           transactionDate: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
@@ -239,7 +242,6 @@ export const getDashboardStats = async (req, res) => {
         }
       },
       { $sort: { totalUnits: -1 } },
-      { $limit: 10 },
       {
         $lookup: {
           from: "products",
@@ -252,34 +254,71 @@ export const getDashboardStats = async (req, res) => {
       {
         $project: {
           name: "$productInfo.productName",
+          category: "$productInfo.category",
           units: "$totalUnits"
         }
       }
     ]);
 
+    // Categorize best selling products
+    const categorizedBestSellers = {
+      coffee: [],
+      milktea: [],
+      frappe: [],
+      choco: [],
+      fruitTea: []
+    };
+
+    // Map your product categories to the expected categories
+    bestSellingByCategory.forEach(product => {
+      const category = product.category?.toLowerCase() || '';
+      
+      if (category.includes('coffee') || category.includes('brew')) {
+        categorizedBestSellers.coffee.push(product);
+      } else if (category.includes('milktea') || category.includes('milk tea')) {
+        categorizedBestSellers.milktea.push(product);
+      } else if (category.includes('frappe')) {
+        categorizedBestSellers.frappe.push(product);
+      } else if (category.includes('choco') || category.includes('chocolate')) {
+        categorizedBestSellers.choco.push(product);
+      } else if (category.includes('fruit') || category.includes('tea')) {
+        categorizedBestSellers.fruitTea.push(product);
+      } else {
+        // Default to coffee if no category matches
+        categorizedBestSellers.coffee.push(product);
+      }
+    });
+
+    // Sort each category by units sold and limit to top 5
+    Object.keys(categorizedBestSellers).forEach(category => {
+      categorizedBestSellers[category] = categorizedBestSellers[category]
+        .sort((a, b) => b.units - a.units)
+        .slice(0, 5);
+    });
+
     res.json({
       stats: {
         transactions: {
-          count: transactionsThisMonth,
+          count: transactionsToday,
           change: transactionChange
         },
         sales: {
-          amount: totalSalesAmount,
+          amount: todaySalesAmount,
           change: salesChange
         },
         stockIns: {
-          count: stockInsThisMonth,
+          count: stockInsToday,
           change: stockInChange
         },
         spoilage: {
-          count: spoiledItemsCount,
+          count: spoiledItemsToday,
           change: spoilageChange
         }
       },
       dailySales: dailySalesData,
       weeklySales: weeklySalesData,
       monthlySales: monthlySalesData,
-      bestSelling
+      bestSelling: categorizedBestSellers
     });
   } catch (err) {
     console.error("Dashboard stats error:", err);
