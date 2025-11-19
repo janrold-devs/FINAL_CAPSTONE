@@ -202,7 +202,7 @@ const Home = () => {
             change={dashboardData.stats.spoilage.change}
             color="bg-red-500"
             isNegative={true}
-            navigateTo="/inventory/stock-in"
+            navigateTo="/inventory/spoilages"
           />
         </div>
 
