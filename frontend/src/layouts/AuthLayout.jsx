@@ -6,6 +6,7 @@ const AuthLayout = ({ children, title = "Welcome" }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat bg-fixed relative" style={{ backgroundImage: `url(${bgImage})` }}>
       {/* Store Name - Upper Left */}
+      {/* todo: Store name must be centered */}
       <div className="absolute top-6 left-6">
         <Link to="/">
           <h2 className="text-3xl font-bold text-white drop-shadow-lg hover:text-gray-200 transition cursor-pointer">

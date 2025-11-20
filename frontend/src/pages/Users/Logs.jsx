@@ -92,7 +92,8 @@ const Logs = () => {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout>{/**todo: Remove the status */}
+    {/**todo: Improve UI must be modern */}
       <div className="p-6 bg-gray-50 min-h-screen">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Activity Logs</h1>

@@ -90,7 +90,8 @@ const StockIn = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout> {/**todo: arrange the table it should be batch number, ingredients, stockman then date */}
+    {/**todo: Improve the UI must be modern*/}
       <div className="p-6">
         <ToastContainer
           position="bottom-right"
@@ -98,7 +99,7 @@ const StockIn = () => {
           hideProgressBar
         />
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-semibold">Stock-In Records</h1>
+          <h1 className="text-xl font-semibold">Inventory Records</h1>
           <button
             onClick={handleCreateNew}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"

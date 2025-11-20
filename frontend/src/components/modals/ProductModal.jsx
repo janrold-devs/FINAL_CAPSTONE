@@ -184,6 +184,7 @@ const ProductModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-[1px]">
+      {/**todo: asterisk should be red */}
       <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">
           {editingProduct ? "Edit Product" : "Add Product"}

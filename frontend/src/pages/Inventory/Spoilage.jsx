@@ -89,7 +89,7 @@ const Spoilage = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout> {/**todo: Improve UI must be modern */}
     <div className="p-6">
       <ToastContainer
         position="bottom-right"

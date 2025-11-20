@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, DollarSign, Package, AlertTriangle, ArrowRight } from 'lucide-react';
+import { TrendingUp, PhilippinePeso, Package, AlertTriangle, ArrowRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import axios from '../../api/axios';
 import DashboardLayout from '../../layouts/DashboardLayout';
@@ -155,6 +155,8 @@ const Home = () => {
 
   return (
     <DashboardLayout>
+      {/*todo: Improve UI, remove units in best sellers, 
+      stat card must change based on user preference (if daily then show daily and if weekly change it to weekly same for monthly)*/}
       <div className="p-6">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -180,7 +182,7 @@ const Home = () => {
             navigateTo="/reports/transactions"
           />
           <StatCard
-            icon={DollarSign}
+            icon={PhilippinePeso}
             title="Today's Sales"
             value={formatCurrency(dashboardData.stats.sales.amount)}
             change={dashboardData.stats.sales.change}

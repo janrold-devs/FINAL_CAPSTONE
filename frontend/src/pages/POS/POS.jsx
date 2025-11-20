@@ -318,7 +318,10 @@ const POS = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout> {/*todo: fix the price it should reflect based on the change price in the products*/}
+    {/*todo: add ons should be changeable due to price actions*/}
+    {/*todo: cashier should be automatic if whos the current user logged in*/}
+    {/*use context: backend/controllers/product.controller.js, Product.jsx*/}
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-rose-50">
         <ToastContainer
           position="bottom-right"
@@ -654,7 +657,6 @@ const POS = () => {
                     >
                       <option value="Cash">Cash</option>
                       <option value="GCash">GCash</option>
-                      <option value="Card">Card</option>
                     </select>
                   </div>
 

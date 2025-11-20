@@ -27,8 +27,9 @@ const Transactions = () => {
   }, []);
 
   return (
-    <DashboardLayout>
+    <DashboardLayout> {/*todo: past transactions/sales must retain its value and cannot be changeable if the future user wants to change the product price*/}
     <div className="p-6 min-h-screen">
+      {/**todo: Improve UI must be modern */}
       <h1 className="text-2xl font-bold mb-6">Transactions Report</h1>
 
         <ExportButtons data={transactions} fileName="Transactions" 

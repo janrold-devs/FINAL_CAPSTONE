@@ -1,3 +1,4 @@
+// layouts/DashboardLayout.jsx
 import React, { useState, useEffect, useContext } from "react";
 import {
   Bell,
@@ -19,6 +20,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import NotificationDropdown from "../components/dropdowns/NotificationDropdown";
+import Container from "../components/Container";
 
 function TopNav({ sidebarCollapsed }) {
   const { user } = useContext(AuthContext);
@@ -51,30 +53,31 @@ function TopNav({ sidebarCollapsed }) {
       className="h-20 bg-[#ed9e7f] text-white flex justify-between items-center px-6 shadow-md border-b border-black/10 fixed top-0 right-0 z-30 transition-all duration-300"
       style={{ left: sidebarCollapsed ? '80px' : '288px' }}
     >
-      <div className="text-lg font-semibold">
-        {user ? (
-          <span>
-            Welcome,{" "}
-            <span className="font-bold">
-              {user.firstName} {user.lastName}
-            </span>
-            !
-          </span>
-        ) : (
-          "Welcome!"
-        )}
-      </div>
+        <div className="flex justify-between items-center w-full">
+          <div className="text-lg font-semibold">
+            {user ? (
+              <span>
+                Welcome,{" "}
+                <span className="font-bold">
+                  {user.firstName} {user.lastName}
+                </span>
+                !
+              </span>
+            ) : (
+              "Welcome!"
+            )}
+          </div>
 
-      <nav className="relative flex items-center space-x-6">
-        <NotificationDropdown />
-        <Link to="/settings" className="hover:opacity-80 transition-opacity" title="Settings">
-          <Settings className="w-6 h-6" />
-        </Link>
-      </nav>
+          <nav className="relative flex items-center space-x-6">
+            <NotificationDropdown />
+            <Link to="/settings" className="hover:opacity-80 transition-opacity" title="Settings">
+              <Settings className="w-6 h-6" />
+            </Link>
+          </nav>
+        </div>
     </header>
   );
 }
-
 
 function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
   const { user } = useContext(AuthContext);
@@ -87,15 +90,14 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Gauge size={20} /> },
-    { href: "/pos", label: "POS", icon: <Monitor size={20} /> },
+    { href: "/pos", label: "Kiosk", icon: <Monitor size={20} /> },
     { divider: true },
     { href: "/inventory/products", label: "Products", icon: <CupSoda size={20} /> },
     { href: "/inventory/ingredients", label: "Ingredients & Materials", icon: <Utensils size={20} /> },
-    { href: "/inventory/stock-in", label: "Stock In", icon: <MonitorCheck size={20} /> },
-    { href: "/inventory/spoilages", label: "Spoiled & Damaged", icon: <MilkOff size={20} /> },
-    { href: "/inventory/item-movement", label: "Item Tracker", icon: <ArrowLeftRight size={20} /> },
+    { href: "/inventory/stock-in", label: "Inventory in", icon: <MonitorCheck size={20} /> },
+    { href: "/inventory/spoilages", label: "Spoiled & damaged", icon: <MilkOff size={20} /> },
     { divider: true },
-    { href: "/reports/transactions", label: "Transactions", icon: <ArrowLeftRight size={20} /> },
+    { href: "/reports/transactions", label: "Records", icon: <ArrowLeftRight size={20} /> },
     { href: "/reports/sales", label: "Sales", icon: <Receipt size={20} /> },
     { divider: true },
     { href: "/users/user-management", label: "Users", icon: <UserIcon size={20} /> },
@@ -195,7 +197,9 @@ const DashboardLayout = ({ children }) => {
       >
         <TopNav sidebarCollapsed={sidebarCollapsed} />
         <main className="flex-1 mt-20" style={{ minHeight: "calc(100vh - 5rem)" }}>
-          {children}
+          <Container maxWidth="full">
+            {children}
+          </Container>
         </main>
       </div>
     </div>

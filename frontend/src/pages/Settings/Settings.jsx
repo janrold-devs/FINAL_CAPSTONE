@@ -150,6 +150,7 @@ const Settings = () => {
 
   return (
     <DashboardLayout>
+      {/**todo: Improve UI must be modern */}
       <div className="p-6 bg-gray-100 min-h-screen">
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
           {/* Header */}

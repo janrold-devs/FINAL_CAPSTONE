@@ -16,7 +16,8 @@ const IngredientModal = ({
         <h2 className="text-xl font-semibold mb-4 text-gray-800">
           {editingId ? "Edit Ingredient" : "Add Ingredient"}
         </h2>
-
+{/*todo: change the unit to dropdown it should contain L, mL, kg, g, pcs */}
+{/*todo: remove remarks*/}
         <form onSubmit={onSubmit} className="space-y-3">
           <label className="block font-semibold text-sm mb-1">Ingredient Name</label>
           <input

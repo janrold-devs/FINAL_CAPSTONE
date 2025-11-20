@@ -79,12 +79,14 @@ const Sales = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout> {/*todo: past transactions/sales must retain its value and cannot be changeable if the future user wants to change the product price*/}
       <ToastContainer
         position="bottom-right"
         autoClose={2000}
         hideProgressBar
-      />
+      /> {/**todo: it should be filtered by monthly, weekly, or daily*/}
+      {/**todo: must have a before and after sales report*/}
+      {/**todo: Improve UI must be modern */}
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">Sales Overview</h1>

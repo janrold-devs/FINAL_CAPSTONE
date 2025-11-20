@@ -85,7 +85,7 @@ const Product = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout> {/**todo: Improve UI must be modern */}
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">Products</h1>

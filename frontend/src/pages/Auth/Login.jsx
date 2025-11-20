@@ -28,7 +28,7 @@ const Login = () => {
   };
 
   return (
-    <AuthLayout title="Login to your account">
+    <AuthLayout title="">  {/*todo: Add logo*/}
       <ToastContainer
         position="bottom-right"
         autoClose={2000}
@@ -80,9 +80,9 @@ const Login = () => {
         </button>
 
         <p className="text-center text-gray-600 text-sm mt-3">
-          Don't have an account?{" "}
           <Link to="/signup" className="text-blue-600 hover:underline">
-            Create one
+          {/*todo: Improve UI*/}
+            Sign up
           </Link>
         </p>
       </form>

@@ -42,7 +42,7 @@ const Signup = () => {
   };
 
   return (
-    <AuthLayout title="Create your account">
+    <AuthLayout title=""> {/*todo: Add logo*/}
       <ToastContainer
         position="bottom-right"
         autoClose={2000}

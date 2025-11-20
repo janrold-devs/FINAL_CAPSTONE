@@ -5,8 +5,9 @@ import "react-toastify/dist/ReactToastify.css";
 import AlertDialog from "../../components/AlertDialog";
 import IngredientModal from "../../components/modals/IngredientModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Plus } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
+import SearchFilter from "../../components/SearchFilter";
 
 const Ingredient = () => {
   const [ingredients, setIngredients] = useState([]);
@@ -57,13 +58,11 @@ const Ingredient = () => {
     }
   };
 
-  // ✅ Show alert modal
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setShowAlert(true);
   };
 
-  // ✅ Confirm delete
   const confirmDelete = async () => {
     try {
       await axios.delete(`/ingredients/${deleteId}`);
@@ -114,108 +113,185 @@ const Ingredient = () => {
     fetchIngredients();
   }, []);
 
+  const [filteredIngredients, setFilteredIngredients] = useState(ingredients);
+
+  useEffect(() => {
+    setFilteredIngredients(ingredients);
+  }, [ingredients]);
+
+  // Simplified filter configuration (removed "Name Starts With")
+  const ingredientFilterConfig = [
+    {
+      key: "unit",
+      label: "Unit",
+      options: [
+        { value: "kg", label: "Kilograms" },
+        { value: "g", label: "Grams" },
+        { value: "L", label: "Liters" },
+        { value: "ml", label: "Milliliters" },
+        { value: "pcs", label: "Pieces" },
+      ],
+    },
+    {
+      key: "stockStatus",
+      label: "Stock Status",
+      options: [
+        { value: "In Stock", label: "In Stock" },
+        { value: "Low Stock", label: "Low Stock" },
+        { value: "No Stock", label: "No Stock" },
+      ],
+    },
+  ];
+
+  // Sort configuration
+  const ingredientSortConfig = [
+    { key: "name", label: "Name A-Z" },
+    { key: "quantity", label: "Quantity" },
+    { key: "unit", label: "Unit" },
+    { key: "stockStatus", label: "Stock Status" },
+    { key: "alert", label: "Alert Level" },
+    { key: "expiration", label: "Expiration Date" },
+  ];
+
   return (
-    <DashboardLayout>
-      <div className="p-4">
+    <DashboardLayout> {/*todo: remove remarks field table*/}
+      <div className="space-y-6">
         <ToastContainer
           position="bottom-right"
           autoClose={2000}
           hideProgressBar
         />
 
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Ingredients & Materials</h1>
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Ingredients & Materials</h1>
+            <p className="text-gray-600">Manage your inventory items and materials</p>
+          </div>
           <button
             onClick={() => {
               resetForm();
               setEditingId(null);
               setShowModal(true);
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium mt-4 lg:mt-0"
           >
-            + Add Ingredient
+            <Plus className="w-5 h-5" />
+            Add Ingredient
           </button>
         </div>
 
-        <ExportButtons
+        {/* Export Buttons */}
+        <div className="mb-6">
+          <ExportButtons
+            data={filteredIngredients || ingredients}
+            fileName="Ingredients & Materials"
+            columns={[
+              { key: "name", label: "Name" },
+              { key: "quantity", label: "Quantity" },
+              { key: "unit", label: "Unit" },
+              { key: "alert", label: "Alert Level" },
+              { key: "expiration", label: "Expiration" },
+              { key: "remarks", label: "Remarks" },
+            ]}
+          />
+        </div>
+
+        {/* Search & Filter Section */}
+        <SearchFilter
           data={ingredients}
-          fileName="Ingredients & Materials"
-          columns={[
-            { key: "name", label: "Name" },
-            { key: "quantity", label: "Quantity" },
-            { key: "unit", label: "Unit" },
-            { key: "alert", label: "Alert Level" },
-            { key: "expiration", label: "Expiration" },
-            { key: "remarks", label: "Remarks" },
-          ]}
+          onFilteredDataChange={setFilteredIngredients}
+          searchFields={["name", "remarks", "unit"]}
+          filterConfig={ingredientFilterConfig}
+          sortConfig={ingredientSortConfig}
+          placeholder="Search ingredients by name, remarks, or unit..."
         />
 
+        {/* Table Section */}
         {loading ? (
-          <p>Loading...</p>
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
         ) : (
-          <table className="min-w-full border text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border px-4 py-2 text-left">Name</th>
-                <th className="border px-4 py-2 text-left">Quantity</th>
-                <th className="border px-4 py-2 text-left">Unit</th>
-                <th className="border px-4 py-2 text-left">Stock Status</th>
-                <th className="border px-4 py-2 text-left">Alert Level</th>
-                <th className="border px-4 py-2 text-left">Expiration</th>
-                <th className="border px-4 py-2 text-left">Remarks</th>
-                <th className="border px-4 py-2 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ingredients.length > 0 ? (
-                ingredients.map((i) => (
-                  <tr key={i._id}>
-                    <td className="border px-4 py-2">{i.name}</td>
-                    <td className="border px-4 py-2">{i.quantity}</td>
-                    <td className="border px-4 py-2">{i.unit}</td>
-                    <td className="border px-4 py-2">
-                      {getStockStatus(i.quantity, i.alert)}
-                    </td>
-                    <td className="border px-4 py-2">{i.alert}</td>
-                    <td className="border px-4 py-2">
-                      {i.expiration
-                        ? new Date(i.expiration).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
-                        : "—"}
-                    </td>
-                    <td className="border px-4 py-2">{i.remarks}</td>
-                    <td className="border px-4 py-2 text-center">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleEdit(i)}
-                          className="inline-flex items-center gap-1 text-blue-600 hover:underline mr-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(i._id)}
-                          className="inline-flex items-center gap-1 text-red-600 hover:underline ml-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Name</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Quantity</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Unit</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Stock Status</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Alert Level</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Expiration</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Remarks</th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className="text-center py-4">
-                    No ingredients found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredIngredients && filteredIngredients.length > 0 ? (
+                    filteredIngredients.map((i) => (
+                      <tr key={i._id} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{i.name}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{i.quantity}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{i.unit}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {getStockStatus(i.quantity, i.alert)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{i.alert}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {i.expiration
+                            ? new Date(i.expiration).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })
+                            : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{i.remarks}</td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center gap-3">
+                            <button
+                              onClick={() => handleEdit(i)}
+                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200 p-2 rounded-lg hover:bg-blue-50"
+                              title="Edit"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(i._id)}
+                              className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 transition-colors duration-200 p-2 rounded-lg hover:bg-red-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          {loading ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500"></div>
+                              Loading...
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-lg font-medium text-gray-900 mb-2">No ingredients found</p>
+                              <p className="text-gray-600">Try adjusting your search or filters</p>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* Add/Edit Modal */}
