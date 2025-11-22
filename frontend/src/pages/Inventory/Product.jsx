@@ -122,10 +122,9 @@ const Product = () => {
   // Sort configuration for products
   const productSortConfig = [
     { key: "productName", label: "Alphabetical" },
-    { key: "price", label: "Price" },
-    { key: "size", label: "Size" },
     { key: "category", label: "Category" },
-    { key: "status", label: "Status" },
+    { key: "size", label: "Size" },
+    { key: "price", label: "Price" },
   ];
 
   return (
@@ -185,31 +184,28 @@ const Product = () => {
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="min-w-full table-auto text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-28">
                       Image
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900">
                       Product Name
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Size
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Price
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-40">
                       Category
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900">
                       Ingredients
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Status
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-28">
+                      Size
                     </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-36">
+                      Price
+                    </th>
+                    <th className="px-8 py-4 text-center text-sm font-semibold text-gray-900 w-36">
                       Actions
                     </th>
                   </tr>
@@ -221,76 +217,98 @@ const Product = () => {
                         key={p._id}
                         className="hover:bg-gray-50 transition-colors duration-150"
                       >
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-8 py-5 text-center align-top">
                           {p.image ? (
-                            <img
-                              src={`${BACKEND_URL}${p.image}`}
-                              alt={p.productName}
-                              className="w-16 h-16 object-cover rounded-lg mx-auto shadow-sm"
-                            />
+                            <div className="relative w-20 h-20 mx-auto group cursor-pointer">
+                              {/* MAIN IMAGE */}
+                              <img
+                                src={`${BACKEND_URL}${p.image}`}
+                                alt={p.productName}
+                                className="w-full h-full object-cover rounded-lg shadow-sm transition-transform duration-200 ease-out group-hover:scale-105 group-hover:brightness-90"
+                              />
+
+                              {/* ==== BLURRED BACKGROUND ==== */}
+                              <div
+                                className="
+                                  fixed inset-0
+                                  bg-black/40 backdrop-blur-sm
+                                  opacity-0
+                                  transition-all duration-200
+                                  pointer-events-none
+                                  z-[9998]
+                                  group-hover:opacity-100
+                                "
+                              ></div>
+
+                              {/* ==== CENTER SCREEN PREVIEW IMAGE ==== */}
+                              <div
+                                className="
+                                  fixed top-1/2 left-1/2
+                                  w-[350px] h-[350px]
+                                  opacity-0 scale-75
+                                  -translate-x-1/2 -translate-y-1/2
+                                  rounded-xl overflow-hidden
+                                  shadow-2xl border-2 border-white
+                                  transition-all duration-200 ease-out
+                                  pointer-events-none
+                                  bg-white z-[9999]
+                                  group-hover:opacity-100
+                                  group-hover:scale-100
+                                "
+                              >
+                                <img
+                                  src={`${BACKEND_URL}${p.image}`}
+                                  alt={p.productName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            </div>
                           ) : (
-                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto">
-                              <span className="text-gray-400 text-xs italic">
-                                No image
-                              </span>
+                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center mx-auto">
+                              <span className="text-gray-400 text-xs italic">No image</span>
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {p.productName}
+                        <td className="px-8 py-5 text-sm font-medium text-gray-900 align-top">
+                          <div className="truncate max-w-[300px]">{p.productName}</div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="inline-flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                            {p.size}
-                            <span className="ml-1 text-xs text-indigo-600 font-medium">
-                              oz
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          ₱{p.price.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-700 capitalize">
+
+                        <td className="px-8 py-5 text-sm text-gray-700 capitalize align-top">
                           {p.category}
                         </td>
-                        <td className="px-6 py-4">
+
+                        <td className="px-8 py-5 align-top">
                           {p.ingredients && p.ingredients.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {p.ingredients.slice(0, 2).map((i) => (
+                            <div className="flex flex-wrap gap-2 max-w-[520px]">
+                              {p.ingredients.map((i, idx) => (
                                 <span
-                                  key={i._id || i.ingredient?._id}
-                                  className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200"
+                                  key={i._id || i.ingredient?._id || idx}
+                                  className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 break-words whitespace-normal"
+                                  title={`${i.ingredient?.name || "Unknown"} (${i.quantity}${i.ingredient?.unit || i.unit || ""})`}
                                 >
-                                  {i.ingredient?.name || "Unknown"} (
-                                  {i.quantity}
+                                  {i.ingredient?.name || "Unknown"} ({i.quantity}
                                   {i.ingredient?.unit || i.unit || ""})
                                 </span>
                               ))}
-                              {p.ingredients.length > 2 && (
-                                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full border border-gray-200">
-                                  +{p.ingredients.length - 2} more
-                                </span>
-                              )}
                             </div>
                           ) : (
-                            <span className="text-gray-400 text-sm italic">
-                              None
-                            </span>
+                            <span className="text-gray-400 text-sm italic">None</span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              p.status === "available"
-                                ? "bg-green-100 text-green-800 border border-green-200"
-                                : "bg-red-100 text-red-800 border border-red-200"
-                            }`}
-                          >
-                            {p.status}
-                          </span>
+
+                        <td className="px-8 py-5 align-top">
+                          <div className="inline-flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                            {p.size}
+                            <span className="ml-1 text-xs text-indigo-600 font-medium">oz</span>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex justify-center gap-2">
+
+                        <td className="px-8 py-5 text-sm font-semibold text-gray-900 align-top">
+                          ₱{p.price.toFixed(2)}
+                        </td>
+
+                        <td className="px-8 py-5 text-center align-top">
+                          <div className="flex justify-center gap-3">
                             <button
                               onClick={() => {
                                 setEditingProduct(p);
@@ -317,7 +335,7 @@ const Product = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center">
+                      <td colSpan="7" className="px-8 py-12 text-center">
                         <div className="text-gray-500">
                           {loading ? (
                             <div className="flex items-center justify-center gap-2">

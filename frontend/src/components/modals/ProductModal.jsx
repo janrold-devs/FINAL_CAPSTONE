@@ -262,7 +262,7 @@ const ProductModal = ({
 
           <div>
             <label className="block font-semibold text-sm mb-1">
-              Product Name *
+              Product Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -293,7 +293,9 @@ const ProductModal = ({
           </div>
 
           <div>
-            <label className="block font-semibold text-sm mb-1">Price *</label>
+            <label className="block font-semibold text-sm mb-1">
+              Price <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
               placeholder="Price"
@@ -306,17 +308,7 @@ const ProductModal = ({
             />
           </div>
 
-          <div>
-            <label className="block font-semibold text-sm mb-1">Status</label>
-            <select
-              className="w-full border px-3 py-2 rounded"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="available">Available</option>
-              <option value="unavailable">Unavailable</option>
-            </select>
-          </div>
+          {/* Status removed from UI per request (form.status is kept in state for compatibility) */}
 
           {/* Ingredients dropdown */}
           <div className="relative" ref={dropdownRef}>

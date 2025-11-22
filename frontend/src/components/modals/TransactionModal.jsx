@@ -43,12 +43,6 @@ const TransactionModal = ({ transaction, onClose }) => {
               <span className="text-gray-600">{transaction.referenceNumber}</span>
             </div>
           )}
-          <div>
-            <span className="font-semibold text-gray-700">Total Amount:</span>{" "}
-            <span className="font-bold text-blue-700 text-lg">
-              ₱{transaction.totalAmount?.toFixed(2)}
-            </span>
-          </div>
         </div>
 
         <div className="mt-4">
@@ -103,6 +97,16 @@ const TransactionModal = ({ transaction, onClose }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Total moved to bottom */}
+        <div className="border-t border-gray-200 mt-6 pt-4 flex justify-end">
+          <div className="text-right">
+            <div className="text-sm text-gray-700 font-semibold">Total Amount</div>
+            <div className="text-xl font-bold text-blue-700">
+              ₱{transaction.totalAmount?.toFixed(2)}
+            </div>
           </div>
         </div>
 
