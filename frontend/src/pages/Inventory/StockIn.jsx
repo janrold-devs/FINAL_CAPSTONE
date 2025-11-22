@@ -4,12 +4,13 @@ import StockInModal from "../../components/modals/StockInModal";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import DashboardLayout from "../../layouts/DashboardLayout";
-import { Eye } from "lucide-react";
+import { Eye, Plus, Package } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
-
+import SearchFilter from "../../components/SearchFilter";
 
 const StockIn = () => {
   const [stockIns, setStockIns] = useState([]);
+  const [filteredStockIns, setFilteredStockIns] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -21,6 +22,7 @@ const StockIn = () => {
     try {
       const res = await axios.get("/stockin");
       setStockIns(res.data);
+      setFilteredStockIns(res.data);
     } catch (err) {
       console.error("Error fetching stockins:", err);
       toast.error("Failed to fetch stock-in records");
@@ -89,95 +91,198 @@ const StockIn = () => {
     setSelectedStockIn(null);
   };
 
+  // Filter configuration for stock-in
+  const stockInFilterConfig = [
+    {
+      key: "stockman._id",
+      label: "Stockman",
+      options: usersList.map(user => ({
+        value: user._id,
+        label: `${user.firstName} ${user.lastName}`
+      }))
+    },
+  ];
+
+  // Sort configuration for stock-in
+  const stockInSortConfig = [
+    { key: "batchNumber", label: "Batch Number" },
+    { key: "stockman.firstName", label: "Stockman" },
+  ];
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Get batch number color based on ingredients count
+  const getBatchColor = (ingredientsCount) => {
+    if (ingredientsCount > 5) return "bg-purple-100 text-purple-800 border-purple-200";
+    if (ingredientsCount > 2) return "bg-blue-100 text-blue-800 border-blue-200";
+    return "bg-green-100 text-green-800 border-green-200";
+  };
+
   return (
-    <DashboardLayout> {/**todo: arrange the table it should be batch number, ingredients, stockman then date */}
-    {/**todo: Improve the UI must be modern*/}
-      <div className="p-6">
+    <DashboardLayout>
+      <div className="space-y-6">
         <ToastContainer
           position="bottom-right"
           autoClose={2000}
           hideProgressBar
         />
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-semibold">Inventory Records</h1>
+
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Stock-In Records</h1>
+            <p className="text-gray-600">Manage incoming inventory and stock receipts</p>
+          </div>
           <button
             onClick={handleCreateNew}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium mt-4 lg:mt-0"
           >
-            + New Stock-In
+            <Plus className="w-5 h-5" />
+            New Stock-In
           </button>
         </div>
 
-        <ExportButtons
+        {/* Export Buttons */}
+        <div>
+          <ExportButtons
+            data={filteredStockIns || stockIns}
+            fileName="Stock-In"
+            columns={[
+              { key: "batchNumber", label: "Batch Number" },
+              { key: "stockman.firstName", label: "Stockman" },
+              { key: "date", label: "Date" },
+              { key: "ingredients.length", label: "Ingredients" },
+            ]}
+          />
+        </div>
+
+        {/* Search & Filter Section */}
+        <SearchFilter
           data={stockIns}
-          fileName="Stock-In"
-          columns={[
-            { key: "batchNumber", label: "Batch Number" },
-            { key: "stockman.firstName", label: "Stockman" },
-            { key: "date", label: "Date" },
-            { key: "ingredients.length", label: "Ingredients" },
-          ]}
+          onFilteredDataChange={setFilteredStockIns}
+          searchFields={["batchNumber", "stockman.firstName", "stockman.lastName"]}
+          filterConfig={stockInFilterConfig}
+          sortConfig={stockInSortConfig}
+          placeholder="Search by batch number or stockman name..."
+          enableDateFilter={true}
+          dateField="date"
         />
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full border text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border px-3 py-2 text-left">Batch Number</th>
-                <th className="border px-3 py-2 text-center">Stockman</th>
-                <th className="border px-3 py-2 text-center">Date</th>
-                <th className="border px-3 py-2 text-left">Ingredients</th>
-                <th className="border px-3 py-2 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stockIns.length > 0 ? (
-                stockIns.map((item) => (
-                  <tr key={item._id}>
-                    <td className="border px-3 py-2">{item.batchNumber}</td>
-                    <td className="border px-3 py-2 text-center">
-                      {item.stockman
-                        ? `${item.stockman.firstName} ${item.stockman.lastName}`
-                        : "Unknown"}
-                    </td>
-                    <td className="border px-3 py-2 text-center">
-                      {new Date(item.date).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </td>
-                    <td className="border px-3 py-2">
-                      {item.ingredients
-                        ?.map(
-                          (i) =>
-                            `${i.ingredient?.name || "Unknown"} (${
-                              i.quantity
-                            } ${i.unit || ""})`
-                        )
-                        .join(", ")}
-                    </td>
-                    <td className="border px-3 py-2 text-center">
-                      <button
-                        onClick={() => handleViewDetails(item)}
-                        className="text-blue-600 hover:underline flex items-center gap-1 mx-auto"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
+        {/* Table Section */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Batch Number</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Ingredients</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Stockman</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Date</th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredStockIns && filteredStockIns.length > 0 ? (
+                  filteredStockIns.map((item) => (
+                    <tr key={item._id} className="hover:bg-gray-50 transition-colors duration-150">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <Package className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getBatchColor(item.ingredients?.length || 0)}`}>
+                              {item.batchNumber}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {item.ingredients && item.ingredients.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {item.ingredients.slice(0, 3).map((i, index) => (
+                              <span
+                                key={i._id || index}
+                                className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full border border-gray-200"
+                              >
+                                {i.ingredient?.name || "Unknown"} ({i.quantity}
+                                {i.unit || ""})
+                              </span>
+                            ))}
+                            {item.ingredients.length > 3 && (
+                              <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full border border-gray-200">
+                                +{item.ingredients.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm italic">No ingredients</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-green-600 text-sm font-medium">
+                              {item.stockman?.firstName?.charAt(0) || "U"}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {item.stockman
+                                ? `${item.stockman.firstName} ${item.stockman.lastName}`
+                                : "Unknown"}
+                            </div>
+                            <div className="text-xs text-gray-500">Stockman</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {formatDate(item.date)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => handleViewDetails(item)}
+                          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors duration-200 p-2 rounded-lg hover:bg-blue-50"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="text-sm font-medium">View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                            <Package className="w-8 h-8 text-gray-400" />
+                          </div>
+                          <p className="text-lg font-medium text-gray-900 mb-2">No stock-in records found</p>
+                          <p className="text-gray-600 mb-4">Start by creating your first stock-in record</p>
+                          <button
+                            onClick={handleCreateNew}
+                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+                          >
+                            <Plus className="w-4 h-4" />
+                            New Stock-In
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="border px-3 py-4 text-center" colSpan="5">
-                    No stock-in records yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {showModal && (

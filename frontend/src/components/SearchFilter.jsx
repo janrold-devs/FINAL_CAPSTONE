@@ -5,7 +5,9 @@ import {
   Filter,
   X,
   ArrowUpDown,
-  SlidersHorizontal,
+  ArrowUp,
+  ArrowDown,
+  Calendar,
 } from "lucide-react";
 
 const SearchFilter = ({
@@ -15,12 +17,15 @@ const SearchFilter = ({
   filterConfig = [],
   sortConfig = [],
   placeholder = "Search...",
+  dateField = null, // e.g., "date", "createdAt", "expiration"
+  enableDateFilter = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({});
   const [sortBy, setSortBy] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
   const [showFilters, setShowFilters] = useState(false);
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
   // Helper function to get nested values
   const getNestedValue = (obj, path) => {
@@ -29,6 +34,19 @@ const SearchFilter = ({
       return acc[part];
     }, obj);
   };
+
+  // Get current filter configuration based on sort field
+  const getCurrentFilterConfig = () => {
+    if (!sortBy) {
+      return filterConfig[0]; // Default to first filter config
+    }
+
+    // Find matching filter config for the current sort field
+    const matchingConfig = filterConfig.find((config) => config.key === sortBy);
+    return matchingConfig || filterConfig[0];
+  };
+
+  const currentFilterConfig = getCurrentFilterConfig();
 
   // Apply search, filters, and sorting
   const filteredData = useMemo(() => {
@@ -45,6 +63,29 @@ const SearchFilter = ({
             .includes(searchTerm.toLowerCase());
         })
       );
+    }
+
+    // Apply date range filter
+    if (enableDateFilter && dateField && (dateRange.start || dateRange.end)) {
+      result = result.filter((item) => {
+        const itemDate = new Date(getNestedValue(item, dateField));
+        const startDate = dateRange.start ? new Date(dateRange.start) : null;
+        const endDate = dateRange.end ? new Date(dateRange.end) : null;
+
+        // Set end date to end of day for inclusive filtering
+        if (endDate) {
+          endDate.setHours(23, 59, 59, 999);
+        }
+
+        if (startDate && endDate) {
+          return itemDate >= startDate && itemDate <= endDate;
+        } else if (startDate) {
+          return itemDate >= startDate;
+        } else if (endDate) {
+          return itemDate <= endDate;
+        }
+        return true;
+      });
     }
 
     // Apply filters
@@ -76,7 +117,7 @@ const SearchFilter = ({
         let bValue = getNestedValue(b, sortBy);
 
         // Special handling for dates
-        if (sortBy === "expiration") {
+        if (sortBy === "expiration" || sortBy === "date" || sortBy === "createdAt") {
           aValue = aValue ? new Date(aValue) : new Date(0);
           bValue = bValue ? new Date(bValue) : new Date(0);
         }
@@ -112,7 +153,7 @@ const SearchFilter = ({
     }
 
     return result;
-  }, [data, searchTerm, filters, sortBy, sortOrder, searchFields]);
+  }, [data, searchTerm, filters, sortBy, sortOrder, searchFields, dateRange, enableDateFilter, dateField]);
 
   // Use useEffect to call the callback after render
   useEffect(() => {
@@ -128,11 +169,19 @@ const SearchFilter = ({
 
   const handleSortChange = (field) => {
     if (sortBy === field) {
+      // If clicking the same sort field, toggle order
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
+      // If selecting a new sort field, set it and default to ascending
       setSortBy(field);
       setSortOrder("asc");
+      // Clear filters when changing sort field
+      setFilters({});
     }
+  };
+
+  const toggleSortOrder = () => {
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
   const clearAll = () => {
@@ -140,177 +189,193 @@ const SearchFilter = ({
     setSearchTerm("");
     setSortBy("");
     setSortOrder("asc");
+    setDateRange({ start: "", end: "" });
+  };
+
+  const clearDateRange = () => {
+    setDateRange({ start: "", end: "" });
   };
 
   const hasActiveFilters =
     searchTerm ||
     Object.values(filters).some((filter) => filter && filter !== "all") ||
-    sortBy;
+    sortBy ||
+    (enableDateFilter && (dateRange.start || dateRange.end));
 
   const activeFilterCount =
     Object.values(filters).filter((f) => f && f !== "all").length +
     (searchTerm ? 1 : 0) +
-    (sortBy ? 1 : 0);
+    (sortBy ? 1 : 0) +
+    (enableDateFilter && (dateRange.start || dateRange.end) ? 1 : 0);
 
   return (
-    <div className="mb-6 space-y-4">
+    <div className="mb-4 space-y-3">
       {/* Main Search and Controls Bar */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+      <div className="flex flex-col lg:flex-row gap-2 items-start lg:items-center justify-between">
         {/* Search Input */}
         <div className="relative flex-1 w-full lg:max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
           <input
             type="text"
             placeholder={placeholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white text-sm"
           />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
         </div>
 
         {/* Controls */}
-        <div className="flex gap-3 w-full lg:w-auto">
-          {/* Filter & Sort Toggle */}
-          {(filterConfig.length > 0 || sortConfig.length > 0) && (
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-3 border rounded-xl transition-all duration-200 font-medium ${
-                showFilters || hasActiveFilters
-                  ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filters & Sort
-              {activeFilterCount > 0 && (
-                <span className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
+        <div className="flex gap-2 w-full lg:w-auto flex-wrap items-center">
+          {/* Sort Dropdown with Order Toggle */}
+          {sortConfig.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <ArrowUpDown className="text-gray-500 w-3.5 h-3.5" />
+              <select
+                value={sortBy || ""}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleSortChange(e.target.value);
+                  } else {
+                    setSortBy("");
+                    setSortOrder("asc");
+                    setFilters({});
+                  }
+                }}
+                className="px-2.5 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white text-sm min-w-[130px]"
+              >
+                <option value="">Sort by</option>
+                {sortConfig.map((sort) => (
+                  <option key={sort.key} value={sort.key}>
+                    {sort.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Sort Order Toggle Button */}
+              {sortBy && (
+                <button
+                  onClick={toggleSortOrder}
+                  className="px-2.5 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white transition-colors"
+                  title={sortOrder === "asc" ? "Ascending" : "Descending"}
+                >
+                  {sortOrder === "asc" ? (
+                    <ArrowUp className="w-3.5 h-3.5 text-gray-700" />
+                  ) : (
+                    <ArrowDown className="w-3.5 h-3.5 text-gray-700" />
+                  )}
+                </button>
               )}
-            </button>
+            </div>
           )}
 
-          {/* Clear All Button */}
+          {/* Dynamic Filter Dropdown based on Sort Field */}
+          {/* Hide filter for fields that don't need categorical filtering */}
+          {filterConfig.length > 0 &&
+            currentFilterConfig &&
+            sortBy !== "price" &&
+            sortBy !== "productName" &&
+            sortBy !== "name" &&
+            sortBy !== "quantity" &&
+            sortBy !== "alert" &&
+            sortBy !== "expiration" &&
+            sortBy !== "createdAt" &&
+            sortBy !== "totalWaste" &&
+            sortBy !== "date" &&
+            sortBy !== "batchNumber" &&
+            sortBy !== "totalAmount" &&
+            sortBy !== "cashier" &&
+            sortBy !== "totalSales" &&
+            sortBy !== "" && (
+              <div className="flex items-center gap-1.5">
+                <Filter className="text-gray-500 w-3.5 h-3.5" />
+                <select
+                  value={filters[currentFilterConfig.key] || ""}
+                  onChange={(e) => {
+                    handleFilterChange(currentFilterConfig.key, e.target.value);
+                  }}
+                  className="px-2.5 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white text-sm min-w-[130px]"
+                >
+                  <option value="">Filter by</option>
+                  {currentFilterConfig.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+          {/* Date Range Filter - Inline with other controls */}
+          {enableDateFilter && (
+            <div className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white">
+              <Calendar className="text-gray-500 w-3.5 h-3.5 flex-shrink-0" />
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) =>
+                  setDateRange((prev) => ({ ...prev, start: e.target.value }))
+                }
+                placeholder="From"
+                className="text-sm border-none focus:outline-none focus:ring-0 bg-transparent w-[110px]"
+              />
+              <span className="text-gray-400 text-xs">-</span>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) =>
+                  setDateRange((prev) => ({ ...prev, end: e.target.value }))
+                }
+                placeholder="To"
+                className="text-sm border-none focus:outline-none focus:ring-0 bg-transparent w-[110px]"
+              />
+              {(dateRange.start || dateRange.end) && (
+                <button
+                  onClick={clearDateRange}
+                  className="text-gray-400 hover:text-gray-600 transition-colors ml-1"
+                  title="Clear dates"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Clear Button */}
           {hasActiveFilters && (
             <button
               onClick={clearAll}
-              className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium"
+              className="flex items-center gap-1.5 px-2.5 py-2 text-gray-600 hover:text-gray-800 transition-colors text-sm"
             >
-              <X className="w-4 h-4" />
-              Clear All
+              <X className="w-3.5 h-3.5" />
+              Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter and Sort Panel - HORIZONTAL LAYOUT */}
-      {showFilters && (filterConfig.length > 0 || sortConfig.length > 0) && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 animate-in fade-in duration-200">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-            {/* Sort Section */}
-            {sortConfig.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Sort By:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {sortConfig.map((sort) => (
-                    <button
-                      key={sort.key}
-                      onClick={() => handleSortChange(sort.key)}
-                      className={`flex items-center gap-1 px-3 py-1.5 border rounded text-xs font-medium transition-all duration-200 ${
-                        sortBy === sort.key
-                          ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
-                          : "border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-                      }`}
-                    >
-                      {sort.label}
-                      {sortBy === sort.key && (
-                        <ArrowUpDown
-                          className={`w-3 h-3 ${
-                            sortOrder === "desc" ? "rotate-180" : ""
-                          }`}
-                        />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Filter Section */}
-            {filterConfig.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Filter By:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {filterConfig.map((filter) => (
-                    <select
-                      key={filter.key}
-                      value={filters[filter.key] || "all"}
-                      onChange={(e) =>
-                        handleFilterChange(filter.key, e.target.value)
-                      }
-                      className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm transition-colors duration-200 min-w-[120px]"
-                    >
-                      <option value="all">{filter.label}</option>
-                      {filter.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Active sorting info */}
-          {sortBy && (
-            <div className="mt-2 text-xs text-blue-600 font-medium">
-              Currently sorted by:{" "}
-              {sortConfig.find((s) => s.key === sortBy)?.label}
-              <span className="text-gray-500 ml-1">
-                ({sortOrder === "asc" ? "ascending" : "descending"})
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Results Summary */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600">
-          <span className="font-medium text-gray-900">
-            {filteredData.length}
-          </span>{" "}
-          of <span className="font-medium text-gray-900">{data.length}</span>{" "}
-          items
-          {hasActiveFilters && (
-            <span className="text-blue-600 font-medium ml-2">
-              • {activeFilterCount} active filter
-              {activeFilterCount !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-
+      <div className="text-xs text-gray-600">
+        Showing <span className="font-medium">{filteredData.length}</span> of{" "}
+        <span className="font-medium">{data.length}</span> items
+        {hasActiveFilters && (
+          <span className="text-gray-400 ml-1.5">
+            • {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""}{" "}
+            applied
+          </span>
+        )}
         {sortBy && (
-          <div className="text-sm text-gray-500">
-            Sorted by{" "}
-            <span className="font-medium text-gray-700">
-              {sortConfig.find((s) => s.key === sortBy)?.label}
-            </span>
-          </div>
+          <span className="text-gray-400 ml-1.5">
+            • Sorted by {sortConfig.find((s) => s.key === sortBy)?.label} (
+            {sortOrder === "asc" ? "Ascending" : "Descending"})
+          </span>
+        )}
+        {enableDateFilter && (dateRange.start || dateRange.end) && (
+          <span className="text-gray-400 ml-1.5">
+            • Date:{" "}
+            {dateRange.start && new Date(dateRange.start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            {dateRange.start && dateRange.end && " - "}
+            {dateRange.end && new Date(dateRange.end).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </span>
         )}
       </div>
     </div>

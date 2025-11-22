@@ -145,12 +145,11 @@ const Ingredient = () => {
 
   // Sort configuration
   const ingredientSortConfig = [
-    { key: "name", label: "Name A-Z" },
+    { key: "name", label: "Alphabetical" },
     { key: "quantity", label: "Quantity" },
     { key: "unit", label: "Unit" },
     { key: "stockStatus", label: "Stock Status" },
     { key: "alert", label: "Alert Level" },
-    { key: "expiration", label: "Expiration Date" },
   ];
 
   return (
@@ -205,6 +204,8 @@ const Ingredient = () => {
           filterConfig={ingredientFilterConfig}
           sortConfig={ingredientSortConfig}
           placeholder="Search ingredients by name, remarks, or unit..."
+          enableDateFilter={true}
+          dateField="expiration"
         />
 
         {/* Table Section */}
