@@ -509,7 +509,7 @@ const Home = () => {
                 </>
               )}
             </div>
-
+            {/* Im the author */}
             {/* Summary Footer */}
             {!loading && rankedProducts.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
