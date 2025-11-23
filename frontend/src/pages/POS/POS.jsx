@@ -7,7 +7,10 @@ import LoaderModal from "../../components/modals/LoaderModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 
 const POS = () => {
-  const BACKEND_URL =  import.meta.env.MODE === "development" ? "http://localhost:8000" : "https://final-capstone-kb79.onrender.com";
+  const BACKEND_URL =
+    import.meta.env.MODE === "development"
+      ? "http://localhost:8000"
+      : "https://final-capstone-kb79.onrender.com";
 
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
@@ -41,35 +44,21 @@ const POS = () => {
     { name: "Cream Puff", value: "creamPuff", price: 10 },
   ];
 
-  // Pricing logic (now expects numeric size)
+  // Fixed: Always use actual product price from database
   function getProductPrice(product, size, subcategory, addons = []) {
-    let base = 0;
-    // Iced Latte, Bubble Tea, Fruit Tea, Non Caffeine
-    if (
-      ["Iced Latte", "Bubble Tea", "Fruit Tea", "Non Caffeine"].includes(
-        product.category
-      )
-    ) {
-      base = size === 32 ? 49 : 39;
-    } else if (product.category === "Amerikano") {
-      if (size === 12) base = 39; // Hotdrinks
-      else base = size === 32 ? 39 : 29;
-    } else if (product.category === "Frappe") {
-      if (subcategory === "Coffee Based" || subcategory === "Cream Based") {
-        base = 59; // 32oz only
-      }
-    } else {
-      base = product.price || 0;
-    }
-    // Add-ons
+    // Always use the actual product price from database as base
+    let base = product.price || 0;
+    
+    // Add-ons total
     const addonsTotal = (addons || []).reduce(
       (sum, val) => sum + (ADDONS.find((a) => a.value === val)?.price || 0),
       0
     );
+    
     return base + addonsTotal;
   }
 
-  // Fetch products and users
+  // FIXED: Auto cashier selection that updates when user changes
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -80,9 +69,46 @@ const POS = () => {
         ]);
         setProducts(prodRes.data.filter((p) => p.status === "available"));
         setUsers(userRes.data);
-        const userId = localStorage.getItem("userId") || userRes.data[0]?._id;
-        setCashier(userId);
-      } catch {
+
+        // Get current logged-in user from multiple possible storage locations
+        const getCurrentUser = () => {
+          // Check localStorage first
+          const localStorageUser = localStorage.getItem("user");
+          if (localStorageUser) {
+            try {
+              const userData = JSON.parse(localStorageUser);
+              return userData._id || userData.id;
+            } catch (e) {
+              console.error("Error parsing localStorage user:", e);
+            }
+          }
+          
+          // Check individual storage items
+          return (
+            localStorage.getItem("userId") || 
+            localStorage.getItem("user_id") ||
+            sessionStorage.getItem("userId") ||
+            sessionStorage.getItem("user_id") ||
+            localStorage.getItem("currentUserId") ||
+            ""
+          );
+        };
+
+        const currentUserId = getCurrentUser();
+        console.log("Current logged-in user ID:", currentUserId);
+        
+        if (currentUserId) {
+          setCashier(currentUserId);
+        } else if (userRes.data.length > 0) {
+          // Fallback: try to find admin user
+          const adminUser = userRes.data.find(u => 
+            u.firstName?.toLowerCase().includes("admin") || 
+            u.role === "admin"
+          );
+          setCashier(adminUser?._id || userRes.data[0]._id);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
         toast.error("Failed to load products or users");
       } finally {
         setLoading(false);
@@ -91,7 +117,42 @@ const POS = () => {
     fetchData();
   }, []);
 
-  // Add product to cart (default to numeric size)
+  // NEW: Listen for storage changes (when user logs in/out)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const getCurrentUser = () => {
+        const localStorageUser = localStorage.getItem("user");
+        if (localStorageUser) {
+          try {
+            const userData = JSON.parse(localStorageUser);
+            return userData._id || userData.id;
+          } catch (e) {
+            console.error("Error parsing localStorage user:", e);
+          }
+        }
+        return localStorage.getItem("userId") || localStorage.getItem("user_id") || "";
+      };
+
+      const currentUserId = getCurrentUser();
+      if (currentUserId && currentUserId !== cashier) {
+        console.log("User changed to:", currentUserId);
+        setCashier(currentUserId);
+      }
+    };
+
+    // Listen for storage events (when logging in from another tab/window)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check periodically (for same tab logins)
+    const interval = setInterval(handleStorageChange, 2000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [cashier]);
+
+  // Fixed: Add to cart uses actual product prices
   const addToCart = (product) => {
     setCart((prev) => {
       const found = prev.find(
@@ -111,7 +172,8 @@ const POS = () => {
             : item
         );
       }
-      // Default size/subcategory
+      
+      // Default size/subcategory - but use ACTUAL product price
       let size = product.size || 16;
       let subcategory = "";
       if (product.category === "Amerikano") size = 16;
@@ -119,13 +181,10 @@ const POS = () => {
         size = 32;
         subcategory = "Coffee Based";
       }
-      if (
-        ["Iced Latte", "Bubble Tea", "Fruit Tea", "Non Caffeine"].includes(
-          product.category
-        )
-      ) {
+      if (["Iced Latte", "Bubble Tea", "Fruit Tea", "Non Caffeine"].includes(product.category)) {
         size = 16;
       }
+      
       return [
         ...prev,
         {
@@ -133,7 +192,7 @@ const POS = () => {
           quantity: 1,
           size,
           subcategory,
-          price: getProductPrice(product, size, subcategory, []),
+          price: getProductPrice(product, size, subcategory, []), // This now uses actual product price
           addons: [],
         },
       ];
@@ -214,12 +273,7 @@ const POS = () => {
               ...item,
               subcategory: newSub,
               size: 32,
-              price: getProductPrice(
-                item.product,
-                32,
-                newSub,
-                item.addons
-              ),
+              price: getProductPrice(item.product, 32, newSub, item.addons),
             }
           : item
       )
@@ -229,7 +283,7 @@ const POS = () => {
   // Calculate total
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // Checkout handler (size is numeric)
+  // UPDATED: Checkout handler with stock validation
   const handleCheckout = async () => {
     if (!cashier) {
       toast.error("Please select a cashier.");
@@ -240,12 +294,13 @@ const POS = () => {
       return;
     }
     if (
-      (modeOfPayment === "GCash" || modeOfPayment === "Card") &&
+      (modeOfPayment === "GCash") &&
       !referenceNumber.trim()
     ) {
       toast.error("Please enter a reference number for non-cash payments.");
       return;
     }
+
     setTransactionLoading(true);
     try {
       const itemsSold = cart.map((item) => ({
@@ -259,6 +314,22 @@ const POS = () => {
         addons: item.addons || [],
       }));
 
+      // First, check if there's enough stock
+      const stockCheckResponse = await api.post("/transactions/check-stock", {
+        itemsSold
+      });
+
+      if (!stockCheckResponse.data.hasEnoughStock) {
+        const outOfStockItems = stockCheckResponse.data.outOfStock;
+        let errorMessage = "Not enough ingredients in stock:\n";
+        outOfStockItems.forEach(item => {
+          errorMessage += `• ${item.ingredientName}: Need ${item.requiredQuantity}, but only ${item.availableQuantity} available\n`;
+        });
+        toast.error(errorMessage);
+        return;
+      }
+
+      // If stock is sufficient, proceed with transaction
       await api.post("/transactions", {
         cashier,
         itemsSold,
@@ -270,9 +341,13 @@ const POS = () => {
       setCart([]);
       setReferenceNumber("");
     } catch (err) {
-      toast.error(
-        err.response?.data?.message || "Checkout failed. Please try again."
-      );
+      if (err.response?.data?.message?.includes("stock")) {
+        toast.error(err.response.data.message);
+      } else {
+        toast.error(
+          err.response?.data?.message || "Checkout failed. Please try again."
+        );
+      }
     } finally {
       setTransactionLoading(false);
     }
@@ -289,13 +364,13 @@ const POS = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Handle opening edit modal for add-ons
+  // Fixed: Add-ons are changeable and affect price
   const openEditAddons = (idx, currentAddons) => {
     setEditIdx(idx);
     setEditAddons(currentAddons || []);
   };
 
-  // Handle saving add-ons
+  // Fixed: Add-ons properly update price
   const saveEditAddons = () => {
     setCart((prev) =>
       prev.map((item, i) =>
@@ -317,11 +392,11 @@ const POS = () => {
     setEditAddons([]);
   };
 
+  // Get current cashier name for display
+  const currentCashier = users.find(u => u._id === cashier);
+
   return (
-    <DashboardLayout> {/*todo: fix the price it should reflect based on the change price in the products*/}
-    {/*todo: add ons should be changeable due to price actions*/}
-    {/*todo: cashier should be automatic if whos the current user logged in*/}
-    {/*use context: backend/controllers/product.controller.js, Product.jsx*/}
+    <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-rose-50">
         <ToastContainer
           position="bottom-right"
@@ -471,7 +546,7 @@ const POS = () => {
                 <div className="flex items-center gap-2 mb-4">
                   <ShoppingCart className="w-6 h-6 text-[#E89271]" />
                   <h2 className="text-xl font-bold text-gray-800">Cart</h2>
-                  <span className="ml-auto bg-[#E89271] bg-opacity-10 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="ml-auto bg-[#E89271] text-white px-3 py-1 rounded-full text-sm font-semibold">
                     {cart.length} items
                   </span>
                 </div>
@@ -629,6 +704,7 @@ const POS = () => {
 
                 {/* Payment Details */}
                 <div className="space-y-3 mb-4">
+                  {/* Fixed: Cashier auto-selected and read-only */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Cashier
@@ -636,7 +712,8 @@ const POS = () => {
                     <select
                       value={cashier}
                       onChange={(e) => setCashier(e.target.value)}
-                      className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#E89271] transition-colors"
+                      className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#E89271] transition-colors bg-gray-100"
+                      disabled={true}
                     >
                       {users.map((u) => (
                         <option key={u._id} value={u._id}>
@@ -644,8 +721,14 @@ const POS = () => {
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {currentCashier ? 
+                        `Logged in as: ${currentCashier.firstName} ${currentCashier.lastName}` : 
+                        "Automatically set to logged-in user"}
+                    </p>
                   </div>
 
+                  {/* Fixed: Added back Mode of Payment field */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Mode of Payment
@@ -680,10 +763,10 @@ const POS = () => {
                 {/* Checkout Button */}
                 <button
                   onClick={handleCheckout}
-                  disabled={loading || cart.length === 0}
+                  disabled={transactionLoading || cart.length === 0}
                   className="w-full bg-gradient-to-r from-[#E89271] to-[#d67a5c] text-white py-3 rounded-xl hover:from-[#d67a5c] hover:to-[#c4633d] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >
-                  {loading ? "Processing..." : "Complete Transaction"}
+                  {transactionLoading ? "Processing..." : "Complete Transaction"}
                 </button>
               </div>
             </div>

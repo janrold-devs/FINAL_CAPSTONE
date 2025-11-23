@@ -5,10 +5,84 @@ import Ingredient from "../models/Ingredient.js";
 import Sales from "../models/Sales.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 
-// CREATE Transaction
+// NEW: Stock validation before transaction
+export const checkStockAvailability = async (req, res) => {
+  try {
+    const { itemsSold } = req.body;
+    const outOfStock = [];
+
+    for (const item of itemsSold) {
+      const product = await Product.findById(item.product).populate(
+        "ingredients.ingredient"
+      );
+      if (!product) continue;
+
+      for (const recipe of product.ingredients) {
+        const ingredient = await Ingredient.findById(recipe.ingredient._id);
+        if (!ingredient) continue;
+
+        // Calculate required quantity
+        const requiredQuantity = recipe.quantity * item.quantity;
+        
+        // Check if enough stock
+        if (ingredient.quantity < requiredQuantity) {
+          outOfStock.push({
+            productName: product.productName,
+            ingredientName: ingredient.name,
+            requiredQuantity,
+            availableQuantity: ingredient.quantity
+          });
+        }
+      }
+    }
+
+    res.json({
+      hasEnoughStock: outOfStock.length === 0,
+      outOfStock
+    });
+  } catch (err) {
+    console.error("Stock check error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// UPDATED: CREATE Transaction with stock validation
 export const createTransaction = async (req, res) => {
   try {
     const { cashier, itemsSold, modeOfPayment, referenceNumber } = req.body;
+
+    // Check stock availability first
+    const outOfStock = [];
+    for (const item of itemsSold) {
+      const product = await Product.findById(item.product).populate(
+        "ingredients.ingredient"
+      );
+      if (!product) continue;
+
+      for (const recipe of product.ingredients) {
+        const ingredient = await Ingredient.findById(recipe.ingredient._id);
+        if (!ingredient) continue;
+
+        const requiredQuantity = recipe.quantity * item.quantity;
+        if (ingredient.quantity < requiredQuantity) {
+          outOfStock.push({
+            productName: product.productName,
+            ingredientName: ingredient.name,
+            requiredQuantity,
+            availableQuantity: ingredient.quantity
+          });
+        }
+      }
+    }
+
+    // If any ingredient is out of stock, reject transaction
+    if (outOfStock.length > 0) {
+      let errorMessage = "Not enough ingredients in stock:\n";
+      outOfStock.forEach(item => {
+        errorMessage += `• ${item.ingredientName}: Need ${item.requiredQuantity}, but only ${item.availableQuantity} available\n`;
+      });
+      return res.status(400).json({ message: errorMessage });
+    }
 
     // compute per-item totalCost if not provided
     const items = itemsSold.map((i) => {
@@ -28,7 +102,7 @@ export const createTransaction = async (req, res) => {
       totalAmount,
     });
 
-    // Deduct ingredients from inventory
+    // Deduct ingredients from inventory (now safe since we checked stock)
     for (const item of items) {
       const product = await Product.findById(item.product).populate(
         "ingredients.ingredient"
@@ -43,6 +117,8 @@ export const createTransaction = async (req, res) => {
         const deductQty = recipe.quantity * item.quantity;
         ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
         await ingredient.save();
+        
+        console.log(`Deducted ${deductQty} ${ingredient.unit || 'units'} of ${ingredient.name}. Remaining: ${ingredient.quantity}`);
       }
     }
 
@@ -149,14 +225,34 @@ export const deleteTransaction = async (req, res) => {
       }
     }
 
+    // Restore ingredients to inventory
+    for (const item of deleted.itemsSold) {
+      const product = await Product.findById(item.product).populate(
+        "ingredients.ingredient"
+      );
+      if (!product) continue;
+
+      for (const recipe of product.ingredients) {
+        const ingredient = await Ingredient.findById(recipe.ingredient._id);
+        if (!ingredient) continue;
+
+        // Restore the deducted quantity
+        const restoreQty = recipe.quantity * item.quantity;
+        ingredient.quantity += restoreQty;
+        await ingredient.save();
+        
+        console.log(`Restored ${restoreQty} ${ingredient.unit || 'units'} of ${ingredient.name}. New quantity: ${ingredient.quantity}`);
+      }
+    }
+
     // log activity
     await logActivity(
       req,
       "DELETE_TRANSACTION",
-      `Transaction deleted. Total: ₱${deleted.totalAmount}. Removed from ${batchNumber}.`
+      `Transaction deleted. Total: ₱${deleted.totalAmount}. Removed from ${batchNumber}. Ingredients restored to inventory.`
     );
 
-    res.json({ message: "Transaction removed" });
+    res.json({ message: "Transaction removed and ingredients restored" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

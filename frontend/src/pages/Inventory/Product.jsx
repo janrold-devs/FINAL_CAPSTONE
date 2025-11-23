@@ -170,7 +170,7 @@ const Product = () => {
         <SearchFilter
           data={products}
           onFilteredDataChange={setFilteredProducts}
-          searchFields={["productName", "category"]}
+          searchFields={["productName", "category", "size"]}
           filterConfig={productFilterConfig}
           sortConfig={productSortConfig}
           placeholder="Search products by name or category..."
