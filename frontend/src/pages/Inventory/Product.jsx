@@ -383,7 +383,7 @@ const Product = () => {
             onConfirm={handleDelete}
           />
         )}
-      </div>
+      </div> {/**Im the author */}
     </DashboardLayout>
   );
 };
