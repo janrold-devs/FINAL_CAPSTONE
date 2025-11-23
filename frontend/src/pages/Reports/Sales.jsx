@@ -136,7 +136,7 @@ const Sales = () => {
         <SearchFilter
           data={sales}
           onFilteredDataChange={setFilteredSales}
-          searchFields={["batchNumber"]}
+          searchFields={["batchNumber", "totalSales"]}
           filterConfig={salesFilterConfig}
           sortConfig={salesSortConfig}
           placeholder="Search by batch number..."

@@ -5,6 +5,15 @@ import {
   Package,
   AlertTriangle,
   ArrowRight,
+  Flame,
+  Trophy,
+  Award,
+  Zap,
+  Coffee,
+  Droplet,
+  Wind,
+  Heart,
+  Leaf,
 } from "lucide-react";
 import {
   AreaChart,
@@ -159,30 +168,104 @@ const Home = () => {
 
   const chartData = getChartData();
 
-  // Best Selling Categories Component
-  const BestSellingCategory = ({ title, products, color }) => {
-    if (!products || products.length === 0) return null;
+  // Category and color configuration - matches backend categories
+  const categoryConfig = {
+    all: { label: "All", color: "bg-purple-500", icon: Flame },
+    coffee: { label: "Coffee", color: "bg-amber-500", icon: Coffee },
+    milktea: { label: "Milktea", color: "bg-violet-500", icon: Droplet },
+    frappe: { label: "Frappe", color: "bg-blue-500", icon: Wind },
+    choco: { label: "Choco", color: "bg-amber-900", icon: Heart },
+    fruitTea: { label: "Fruit Tea", color: "bg-emerald-500", icon: Leaf },
+  };
+
+  // Get all products flattened and ranked
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  const getAllRankedProducts = () => {
+    const allProducts = [];
+
+    if (selectedCategory === "all") {
+      Object.entries(dashboardData.bestSelling).forEach(([key, products]) => {
+        if (Array.isArray(products)) {
+          products.forEach((product) => {
+            allProducts.push({
+              ...product,
+              category: key,
+              categoryLabel: categoryConfig[key]?.label || key,
+            });
+          });
+        }
+      });
+    } else {
+      const products = dashboardData.bestSelling[selectedCategory] || [];
+      if (Array.isArray(products)) {
+        products.forEach((product) => {
+          allProducts.push({
+            ...product,
+            category: selectedCategory,
+            categoryLabel:
+              categoryConfig[selectedCategory]?.label || selectedCategory,
+          });
+        });
+      }
+    }
+
+    return allProducts.sort((a, b) => (b.units || 0) - (a.units || 0));
+  };
+
+  const rankedProducts = getAllRankedProducts();
+
+  // Best Seller Card Component
+  const BestSellerCard = ({ product, rank }) => {
+    const categoryColor =
+      categoryConfig[product.category]?.color || "bg-gray-500";
+    const categoryIcon = categoryConfig[product.category]?.icon;
+
+    // Professional rank icons for top 3
+    const getRankIcon = (rank) => {
+      if (rank === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
+      if (rank === 2) return <Award className="w-5 h-5 text-gray-400" />;
+      if (rank === 3) return <Zap className="w-5 h-5 text-orange-400" />;
+      return null;
+    };
+
+    const rankIcon = getRankIcon(rank);
 
     return (
-      <div className="mb-6 last:mb-0">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${color}`}></div>
-          {title}
-        </h3>
-        <div className="space-y-2">
-          {products.slice(0, 5).map((product, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
-            >
-              <span className="text-gray-700 font-medium text-sm">
-                {product.name}
-              </span>
-              <span className="text-gray-900 font-semibold text-sm bg-white px-2 py-1 rounded">
-                {product.units} units
-              </span>
+      <div className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-lg transition-all duration-200 hover:border-gray-200 group cursor-pointer">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left - Rank Badge */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="text-center">
+              {rankIcon}
+              <div className="text-xs font-bold text-gray-500 mt-0.5">
+                #{rank}
+              </div>
             </div>
-          ))}
+          </div>
+
+          {/* Middle - Product Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 text-sm truncate group-hover:text-purple-600 transition-colors mb-1">
+              {product.name}
+            </h3>
+            {categoryIcon && (
+              <div
+                className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded text-white ${categoryColor}`}
+              >
+                {React.createElement(categoryIcon, { className: "w-3 h-3" })}
+                {product.categoryLabel}
+              </div>
+            )}
+          </div>
+
+          {/* Right - Units Sold */}
+          <div
+            className={`${categoryColor} rounded-lg px-4 py-3 text-center text-white min-w-fit flex-shrink-0 flex flex-col items-center`}
+          >
+            <div className="font-bold text-lg">{product.units || 0}</div>
+            <div className="text-xs opacity-90">sold</div>
+          </div>
         </div>
       </div>
     );
@@ -243,7 +326,7 @@ const Home = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-max lg:auto-rows-auto">
           {/* Sales Chart */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-6">
@@ -353,43 +436,101 @@ const Home = () => {
               </ResponsiveContainer>
             )}
           </div>
-          {/* New Changes */}
-          {/* Best Selling Products by Category */}
+
+          {/* Best Selling Products - Improved UI */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">
-              Best Sellers
-            </h2>
-            {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading products...</div>
-              </div>
-            ) : (
-              <div className="max-h-96 overflow-y-auto">
-                <BestSellingCategory
-                  title="Coffee Series"
-                  products={dashboardData.bestSelling.coffee}
-                  color="bg-amber-500"
-                />
-                <BestSellingCategory
-                  title="Milktea Series"
-                  products={dashboardData.bestSelling.milktea}
-                  color="bg-violet-500"
-                />
-                <BestSellingCategory
-                  title="Frappe Series"
-                  products={dashboardData.bestSelling.frappe}
-                  color="bg-blue-500"
-                />
-                <BestSellingCategory
-                  title="Choco Series"
-                  products={dashboardData.bestSelling.choco}
-                  color="bg-brown-500"
-                />
-                <BestSellingCategory
-                  title="Fruit Tea Series"
-                  products={dashboardData.bestSelling.fruitTea}
-                  color="bg-green-500"
-                />
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <Flame className="w-6 h-6 text-orange-500" />
+                Best Sellers
+              </h2>
+              <p className="text-xs text-gray-500">
+                Our most popular drinks this month
+              </p>
+            </div>
+
+            {/* Category Filter Tabs */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+              <button
+                onClick={() => setSelectedCategory("all")}
+                className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  selectedCategory === "all"
+                    ? "bg-purple-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Flame className="w-4 h-4" />
+                All
+              </button>
+              {Object.entries(categoryConfig)
+                .filter(([key]) => key !== "all")
+                .map(([key, config]) => {
+                  const IconComponent = config.icon;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedCategory(key)}
+                      className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                        selectedCategory === key
+                          ? `${config.color} text-white`
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                      {config.label}
+                    </button>
+                  );
+                })}
+            </div>
+
+            {/* Products List - Fixed height matching chart */}
+            <div className="h-80 overflow-y-auto space-y-2 pr-2">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-gray-400 text-sm">
+                    Loading products...
+                  </div>
+                </div>
+              ) : rankedProducts.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-gray-400 text-sm">
+                    No products in this category
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {rankedProducts.map((product, index) => (
+                    <BestSellerCard
+                      key={`${product.name}-${index}`}
+                      product={product}
+                      rank={index + 1}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+            {/* Im the author */}
+            {/* Summary Footer */}
+            {!loading && rankedProducts.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
+                <div className="text-center">
+                  <div className="font-bold text-purple-600 text-sm">
+                    {rankedProducts.length}
+                  </div>
+                  <div className="text-xs text-gray-500">Products</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-purple-600 text-sm">
+                    {rankedProducts.reduce((sum, p) => sum + (p.units || 0), 0)}
+                  </div>
+                  <div className="text-xs text-gray-500">Total Sales</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-orange-500 text-sm">
+                    {rankedProducts[0]?.name?.split(" ")[0]}
+                  </div>
+                  <div className="text-xs text-gray-500">Top Seller</div>
+                </div>
               </div>
             )}
           </div>
