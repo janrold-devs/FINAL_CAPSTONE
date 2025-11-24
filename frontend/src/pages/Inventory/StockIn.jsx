@@ -93,15 +93,24 @@ const StockIn = () => {
 
   // Filter configuration for stock-in
   const stockInFilterConfig = [
-    {
-      key: "stockman._id",
-      label: "Stockman",
-      options: usersList.map(user => ({
-        value: user._id,
-        label: `${user.firstName} ${user.lastName}`
-      }))
-    },
-  ];
+  {
+    key: "stockman._id",
+    label: "Stockman",
+    options: usersList.map(user => ({
+      value: user._id,
+      label: `${user.firstName} ${user.lastName}`
+    }))
+  },
+  {
+    key: "ingredients.ingredient.category",
+    label: "Category",
+    options: [
+      { label: "Solid Ingredient", value: "Solid Ingredient" },
+      { label: "Liquid Ingredient", value: "Liquid Ingredient" },
+      { label: "Material", value: "Material" }
+    ]
+  }
+];
 
   // Sort configuration for stock-in
   const stockInSortConfig = [
