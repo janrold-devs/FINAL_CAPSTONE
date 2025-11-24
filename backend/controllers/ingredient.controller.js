@@ -1,6 +1,7 @@
 // backend/controllers/ingredient.controller.js
 import Ingredient from "../models/Ingredient.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
+import { emitNotificationsToAll } from "../utils/socketUtils.js";
 
 export const createIngredient = async (req, res) => {
   try {
@@ -9,6 +10,10 @@ export const createIngredient = async (req, res) => {
 
     // Log activity
     await logActivity(req, "ADD_INGREDIENT", `Added new ingredient: ${created.name}`);
+
+    // Emit real-time notifications
+    const io = req.app.get("io");
+    await emitNotificationsToAll(io);
 
     res.status(201).json(created);
   } catch (err) {
@@ -43,6 +48,10 @@ export const updateIngredient = async (req, res) => {
     // Log activity
     await logActivity(req, "UPDATE_INGREDIENT", `Updated ingredient: ${updated.name}`);
 
+    // Emit real-time notifications
+    const io = req.app.get("io");
+    await emitNotificationsToAll(io);
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -55,8 +64,37 @@ export const deleteIngredient = async (req, res) => {
     if (deleted) {
       // Log activity
       await logActivity(req, "DELETE_INGREDIENT", `Deleted ingredient: ${deleted.name}`);
+      
+      // Emit real-time notifications
+      const io = req.app.get("io");
+      await emitNotificationsToAll(io);
     }
     res.json({ message: "Ingredient deleted." });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateIngredientStock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity } = req.body;
+
+    const updated = await Ingredient.findByIdAndUpdate(
+      id,
+      { quantity },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Ingredient not found." });
+    }
+
+    // Emit real-time notifications
+    const io = req.app.get("io");
+    await emitNotificationsToAll(io);
+
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
