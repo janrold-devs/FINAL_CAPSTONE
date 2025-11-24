@@ -36,11 +36,20 @@ const Home = () => {
 
   const [dashboardData, setDashboardData] = useState({
     stats: {
-      transactions: { count: 0, change: "0%" },
-      sales: { amount: 0, change: "0%" },
-      stockIns: { count: 0, change: "0%" },
-      spoilage: { count: 0, change: "0%" },
+      transactions: { count: 0 },
+      sales: { amount: 0 },
+      stockIns: { count: 0 },
+      spoilage: { count: 0 },
     },
+    dailyTransactions: [],
+    weeklyTransactions: [],
+    monthlyTransactions: [],
+    dailyStockIns: [],
+    weeklyStockIns: [],
+    monthlyStockIns: [],
+    dailySpoilage: [],
+    weeklySpoilage: [],
+    monthlySpoilage: [],
     dailySales: [],
     weeklySales: [],
     monthlySales: [],
@@ -76,7 +85,7 @@ const Home = () => {
     }
   };
 
-  // Updated StatCard with navigation
+  // Simplified StatCard with navigation
   const StatCard = ({
     icon: Icon,
     title,
@@ -85,12 +94,13 @@ const Home = () => {
     color,
     isNegative,
     navigateTo,
+    periodLabel,
   }) => {
     const changeColor = isNegative
-      ? change.includes("+") || change.includes("-")
+      ? change?.includes("+") || change?.includes("-")
         ? "text-red-600"
         : "text-green-600"
-      : change.includes("-")
+      : change?.includes("-")
       ? "text-red-600"
       : "text-green-600";
 
@@ -105,7 +115,7 @@ const Home = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className={`text-sm font-medium ${changeColor}`}>
-              {change} today
+              {change} {periodLabel}
             </span>
             <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
           </div>
@@ -156,17 +166,106 @@ const Home = () => {
   const getXAxisKey = () => {
     switch (activeTab) {
       case "daily":
-        return "date";
+        return "day";
       case "weekly":
         return "week";
       case "monthly":
         return "month";
       default:
-        return "date";
+        return "day";
     }
   };
 
   const chartData = getChartData();
+
+  // Simplified period-aware stat values - using backend pre-calculated data
+  const getPeriodTransactions = () => {
+    switch (activeTab) {
+      case "daily":
+        return dashboardData.stats.transactions.count;
+      case "weekly":
+        return dashboardData.weeklyTransactions.length;
+      case "monthly":
+        return dashboardData.monthlyTransactions.length;
+      default:
+        return dashboardData.stats.transactions.count;
+    }
+  };
+
+  const getPeriodSales = () => {
+    switch (activeTab) {
+      case "daily":
+        return dashboardData.stats.sales.amount;
+      case "weekly":
+        return dashboardData.weeklySales[0]?.amount || 0;
+      case "monthly":
+        return dashboardData.monthlySales[0]?.amount || 0;
+      default:
+        return dashboardData.stats.sales.amount;
+    }
+  };
+
+  const getPeriodStockIns = () => {
+    switch (activeTab) {
+      case "daily":
+        return dashboardData.stats.stockIns.count;
+      case "weekly":
+        return dashboardData.weeklyStockIns.length;
+      case "monthly":
+        return dashboardData.monthlyStockIns.length;
+      default:
+        return dashboardData.stats.stockIns.count;
+    }
+  };
+
+  const getPeriodSpoilage = () => {
+    switch (activeTab) {
+      case "daily":
+        return dashboardData.stats.spoilage.count;
+      case "weekly":
+        return dashboardData.weeklySpoilage.length;
+      case "monthly":
+        return dashboardData.monthlySpoilage.length;
+      default:
+        return dashboardData.stats.spoilage.count;
+    }
+  };
+
+  // Helper to get period label for change text
+  const getPeriodLabel = () => {
+    switch (activeTab) {
+      case "daily":
+        return "today";
+      case "weekly":
+        return "this week";
+      case "monthly":
+        return "this month";
+      default:
+        return "today";
+    }
+  };
+
+  // Since backend doesn't provide change percentages, we'll show static or calculated changes
+  // For now, using placeholder changes - you can implement real change calculation if needed
+  const getPeriodTransactionChange = () => {
+    // Placeholder - implement real change calculation based on historical data if needed
+    return "+0%";
+  };
+
+  const getPeriodSalesChange = () => {
+    // Placeholder - implement real change calculation based on historical data if needed
+    return "+0%";
+  };
+
+  const getPeriodStockInChange = () => {
+    // Placeholder - implement real change calculation based on historical data if needed
+    return "+0%";
+  };
+
+  const getPeriodSpoilageChange = () => {
+    // Placeholder - implement real change calculation based on historical data if needed
+    return "+0%";
+  };
 
   // Category and color configuration - matches backend categories
   const categoryConfig = {
@@ -273,8 +372,6 @@ const Home = () => {
 
   return (
     <DashboardLayout>
-      {/*todo: Improve UI, remove units in best sellers, 
-      stat card must change based on user preference (if daily then show daily and if weekly change it to weekly same for monthly)*/}
       <div className="p-6">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -293,35 +390,45 @@ const Home = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             icon={TrendingUp}
-            title="Today's Transactions"
-            value={dashboardData.stats.transactions.count}
-            change={dashboardData.stats.transactions.change}
+            title={`${
+              getPeriodLabel().charAt(0).toUpperCase() +
+              getPeriodLabel().slice(1)
+            }'s Transactions`}
+            value={getPeriodTransactions()}
+            change={getPeriodTransactionChange()}
             color="bg-blue-500"
+            periodLabel={getPeriodLabel()}
             navigateTo="/reports/transactions"
           />
           <StatCard
             icon={PhilippinePeso}
-            title="Today's Sales"
-            value={formatCurrency(dashboardData.stats.sales.amount)}
-            change={dashboardData.stats.sales.change}
+            title={`${
+              getPeriodLabel().charAt(0).toUpperCase() +
+              getPeriodLabel().slice(1)
+            }'s Sales`}
+            value={formatCurrency(getPeriodSales())}
+            change={getPeriodSalesChange()}
             color="bg-green-500"
+            periodLabel={getPeriodLabel()}
             navigateTo="/reports/sales"
           />
           <StatCard
             icon={Package}
-            title="Stock In Today"
-            value={dashboardData.stats.stockIns.count}
-            change={dashboardData.stats.stockIns.change}
+            title={`Stock In ${getPeriodLabel()}`}
+            value={getPeriodStockIns()}
+            change={getPeriodStockInChange()}
             color="bg-purple-500"
+            periodLabel={getPeriodLabel()}
             navigateTo="/inventory/stock-in"
           />
           <StatCard
             icon={AlertTriangle}
-            title="Spoiled Today"
-            value={dashboardData.stats.spoilage.count}
-            change={dashboardData.stats.spoilage.change}
+            title={`Spoiled ${getPeriodLabel()}`}
+            value={getPeriodSpoilage()}
+            change={getPeriodSpoilageChange()}
             color="bg-red-500"
             isNegative={true}
+            periodLabel={getPeriodLabel()}
             navigateTo="/inventory/spoilages"
           />
         </div>
@@ -509,7 +616,7 @@ const Home = () => {
                 </>
               )}
             </div>
-            {/* Im the author */}
+
             {/* Summary Footer */}
             {!loading && rankedProducts.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
