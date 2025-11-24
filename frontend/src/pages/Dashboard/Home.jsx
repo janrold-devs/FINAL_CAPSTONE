@@ -372,7 +372,7 @@ const Home = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-6"> {/**Im the author */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             <p className="font-medium">Error loading dashboard</p>
