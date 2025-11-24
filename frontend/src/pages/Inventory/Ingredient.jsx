@@ -22,7 +22,7 @@ const Ingredient = () => {
     unit: "",
     alert: "",
     expiration: "",
-    remarks: "",
+    category: "",
   });
 
   const fetchIngredients = async () => {
@@ -80,11 +80,11 @@ const Ingredient = () => {
   const resetForm = () => {
     setForm({
       name: "",
-      quantity: "",
+      category: "",
       unit: "",
+      quantity: "",
       alert: "",
       expiration: "",
-      remarks: "",
     });
   };
 
@@ -103,7 +103,7 @@ const Ingredient = () => {
       unit: ingredient.unit,
       alert: ingredient.alert,
       expiration: ingredient.expiration?.split("T")[0] || "",
-      remarks: ingredient.remarks,
+      category: ingredient.category,
     });
     setEditingId(ingredient._id);
     setShowModal(true);
@@ -121,6 +121,16 @@ const Ingredient = () => {
 
   // Simplified filter configuration (removed "Name Starts With")
   const ingredientFilterConfig = [
+
+    {
+      key: "category",
+      label: "Category",
+      options: [
+        { value: "Solid Ingredient", label: "Solid Ingredient" },
+        { value: "Liquid Ingredient", label: "Liquid Ingredient" },
+        { value: "Material", label: "Material" },
+      ],
+    },
     {
       key: "unit",
       label: "Unit",
@@ -146,8 +156,9 @@ const Ingredient = () => {
   // Sort configuration
   const ingredientSortConfig = [
     { key: "name", label: "Alphabetical" },
-    { key: "quantity", label: "Quantity" },
+    { key: "category", label: "Category" },
     { key: "unit", label: "Unit" },
+    { key: "quantity", label: "Quantity" },
     { key: "stockStatus", label: "Stock Status" },
     { key: "alert", label: "Alert Level" },
   ];
@@ -176,7 +187,7 @@ const Ingredient = () => {
             className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium mt-4 lg:mt-0"
           >
             <Plus className="w-5 h-5" />
-            Add Ingredient
+            Add Item
           </button>
         </div>
 
@@ -187,11 +198,11 @@ const Ingredient = () => {
             fileName="Ingredients & Materials"
             columns={[
               { key: "name", label: "Name" },
-              { key: "quantity", label: "Quantity" },
+              { key: "category", label: "Category" },
               { key: "unit", label: "Unit" },
+              { key: "quantity", label: "Quantity" },
               { key: "alert", label: "Alert Level" },
               { key: "expiration", label: "Expiration" },
-              { key: "remarks", label: "Remarks" },
             ]}
           />
         </div>
@@ -200,13 +211,21 @@ const Ingredient = () => {
         <SearchFilter
           data={ingredients}
           onFilteredDataChange={setFilteredIngredients}
-          searchFields={["name", "remarks", "unit"]}
+          searchFields={["name", "category", "unit"]}
+
+          // NEW: full category filter config
           filterConfig={ingredientFilterConfig}
+
+          // keeps all sort functionalities
           sortConfig={ingredientSortConfig}
-          placeholder="Search ingredients by name, remarks, or unit..."
+
+          placeholder="Search ingredients by name, category, or unit..."
+
+          // enable expiration filtering
           enableDateFilter={true}
           dateField="expiration"
         />
+
 
         {/* Table Section */}
         {loading ? (
@@ -220,12 +239,12 @@ const Ingredient = () => {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Quantity</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Category</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Unit</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Quantity</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Stock Status</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Alert Level</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Expiration</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Remarks</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
@@ -234,8 +253,9 @@ const Ingredient = () => {
                     filteredIngredients.map((i) => (
                       <tr key={i._id} className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{i.name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{i.quantity}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{i.category}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{i.unit}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{i.quantity}</td>
                         <td className="px-6 py-4 text-sm">
                           {getStockStatus(i.quantity, i.alert)}
                         </td>
@@ -249,7 +269,6 @@ const Ingredient = () => {
                               })
                             : "—"}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{i.remarks}</td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex justify-center gap-3">
                             <button
