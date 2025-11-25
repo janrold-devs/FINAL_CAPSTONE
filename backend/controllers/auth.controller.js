@@ -2,6 +2,7 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { sendWelcomeEmail } from "../utils/emailService.js";
 
 const createToken = (user) => {
   return jwt.sign(
@@ -21,11 +22,28 @@ export const register = async (req, res) => {
     if (exists) return res.status(400).json({ message: "Email already used." });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ firstName, lastName, email, password: hashed, role });
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashed,
+      role,
+    });
     const token = createToken(user);
+    
+    // Send welcome email (async - don't await to avoid blocking response)
+    sendWelcomeEmail(email, firstName, password, role).catch(error => {
+      console.error('Failed to send welcome email:', error);
+    });
+
     const safeUser = { ...user.toObject() };
     delete safeUser.password;
-    res.status(201).json({ user: safeUser, token });
+    
+    res.status(201).json({ 
+      user: safeUser, 
+      token,
+      message: "Account created successfully. Welcome email sent."
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -34,17 +52,27 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: "Email and password required." });
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password required." });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: "Invalid credentials." });
 
+    // Check if user is active
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: "Account is deactivated. Please contact administrator.",
+      });
+    }
+
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Invalid credentials." });
+    if (!match)
+      return res.status(401).json({ message: "Invalid credentials." });
 
     const token = createToken(user);
     const safeUser = { ...user.toObject() };
     delete safeUser.password;
+    
     res.json({ user: safeUser, token });
   } catch (err) {
     res.status(500).json({ message: err.message });

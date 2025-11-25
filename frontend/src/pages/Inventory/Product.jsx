@@ -99,6 +99,12 @@ const Product = () => {
         { value: "iced latte", label: "Iced Latte" },
         { value: "bubble tea", label: "Bubble Tea" },
         { value: "fruit tea", label: "Fruit Tea" },
+        { value: "amerikano", label: "Amerikano"},
+        { value: "non caffeine", label: "Non Caffeine" },
+        { value: "frappe", label: "Frappe" },
+        { value: "choco", label: "Choco"},
+        { value: "hot drink", label: "Hot Drink"},
+        { value: "shiro", label: "Shiro"},
       ],
     },
     {
@@ -304,7 +310,7 @@ const Product = () => {
                         </td>
 
                         <td className="px-8 py-5 text-sm font-semibold text-gray-900 align-top">
-                          ₱{p.price.toFixed(2)}
+                          ₱{(p.price || 0).toFixed(2)}
                         </td>
 
                         <td className="px-8 py-5 text-center align-top">
@@ -383,7 +389,7 @@ const Product = () => {
             onConfirm={handleDelete}
           />
         )}
-      </div> {/**Im the author */}
+      </div>
     </DashboardLayout>
   );
 };

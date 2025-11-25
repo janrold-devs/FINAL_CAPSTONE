@@ -23,14 +23,14 @@ export const checkStockAvailability = async (req, res) => {
 
         // Calculate required quantity
         const requiredQuantity = recipe.quantity * item.quantity;
-        
+
         // Check if enough stock
         if (ingredient.quantity < requiredQuantity) {
           outOfStock.push({
             productName: product.productName,
             ingredientName: ingredient.name,
             requiredQuantity,
-            availableQuantity: ingredient.quantity
+            availableQuantity: ingredient.quantity,
           });
         }
       }
@@ -38,7 +38,7 @@ export const checkStockAvailability = async (req, res) => {
 
     res.json({
       hasEnoughStock: outOfStock.length === 0,
-      outOfStock
+      outOfStock,
     });
   } catch (err) {
     console.error("Stock check error:", err);
@@ -69,7 +69,7 @@ export const createTransaction = async (req, res) => {
             productName: product.productName,
             ingredientName: ingredient.name,
             requiredQuantity,
-            availableQuantity: ingredient.quantity
+            availableQuantity: ingredient.quantity,
           });
         }
       }
@@ -78,7 +78,7 @@ export const createTransaction = async (req, res) => {
     // If any ingredient is out of stock, reject transaction
     if (outOfStock.length > 0) {
       let errorMessage = "Not enough ingredients in stock:\n";
-      outOfStock.forEach(item => {
+      outOfStock.forEach((item) => {
         errorMessage += `• ${item.ingredientName}: Need ${item.requiredQuantity}, but only ${item.availableQuantity} available\n`;
       });
       return res.status(400).json({ message: errorMessage });
@@ -117,8 +117,12 @@ export const createTransaction = async (req, res) => {
         const deductQty = recipe.quantity * item.quantity;
         ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
         await ingredient.save();
-        
-        console.log(`Deducted ${deductQty} ${ingredient.unit || 'units'} of ${ingredient.name}. Remaining: ${ingredient.quantity}`);
+
+        console.log(
+          `Deducted ${deductQty} ${ingredient.unit || "units"} of ${
+            ingredient.name
+          }. Remaining: ${ingredient.quantity}`
+        );
       }
     }
 
@@ -130,7 +134,15 @@ export const createTransaction = async (req, res) => {
     const batchNumber = `BATCH-${year}-${month}-${day}`;
 
     // Set to start of day in local timezone
-    const startOfDay = new Date(year, transDate.getMonth(), transDate.getDate(), 0, 0, 0, 0);
+    const startOfDay = new Date(
+      year,
+      transDate.getMonth(),
+      transDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
 
     let salesBatch = await Sales.findOne({ batchNumber });
 
@@ -139,7 +151,9 @@ export const createTransaction = async (req, res) => {
       salesBatch.transactions.push(transaction._id);
       salesBatch.totalSales += totalAmount;
       await salesBatch.save();
-      console.log(`Updated sales batch ${batchNumber}: +₱${totalAmount}, new total: ₱${salesBatch.totalSales}`);
+      console.log(
+        `Updated sales batch ${batchNumber}: +₱${totalAmount}, new total: ₱${salesBatch.totalSales}`
+      );
     } else {
       // Create new daily batch
       salesBatch = await Sales.create({
@@ -211,17 +225,19 @@ export const deleteTransaction = async (req, res) => {
     const salesBatch = await Sales.findOne({ batchNumber });
     if (salesBatch) {
       salesBatch.transactions = salesBatch.transactions.filter(
-        t => t.toString() !== req.params.id
+        (t) => t.toString() !== req.params.id
       );
       salesBatch.totalSales -= deleted.totalAmount;
-      
+
       if (salesBatch.transactions.length === 0) {
         // Delete batch if no transactions left
         await Sales.findByIdAndDelete(salesBatch._id);
         console.log(`Deleted empty sales batch ${batchNumber}`);
       } else {
         await salesBatch.save();
-        console.log(`Updated sales batch ${batchNumber}: -₱${deleted.totalAmount}, new total: ₱${salesBatch.totalSales}`);
+        console.log(
+          `Updated sales batch ${batchNumber}: -₱${deleted.totalAmount}, new total: ₱${salesBatch.totalSales}`
+        );
       }
     }
 
@@ -240,8 +256,12 @@ export const deleteTransaction = async (req, res) => {
         const restoreQty = recipe.quantity * item.quantity;
         ingredient.quantity += restoreQty;
         await ingredient.save();
-        
-        console.log(`Restored ${restoreQty} ${ingredient.unit || 'units'} of ${ingredient.name}. New quantity: ${ingredient.quantity}`);
+
+        console.log(
+          `Restored ${restoreQty} ${ingredient.unit || "units"} of ${
+            ingredient.name
+          }. New quantity: ${ingredient.quantity}`
+        );
       }
     }
 

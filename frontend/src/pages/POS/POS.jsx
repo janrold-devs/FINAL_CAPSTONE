@@ -62,32 +62,65 @@ const POS = () => {
     "Iced Latte",
     "Fruit Tea",
     "Amerikano",
+    "Hot Drink",
     "Bubble Tea",
     "Non Caffeine",
     "Frappe",
+    "Choco Series",
+    "Shiro Series",
   ];
 
-  // Fixed pricing logic - only use product's own price for its default size
+  // Enhanced pricing logic to handle products with same name but different sizes
   function getProductPrice(product, size, subcategory, addonItems = []) {
-    // If the requested size doesn't match the product's default size, return null
-    if (product.size && size !== product.size) {
-      return null;
+    // First, check if this specific product has the requested size as its default size
+    if (product.size && size === product.size) {
+      let base = product.price || 0;
+
+      // Add-ons with current prices and quantities
+      const addonsTotal = (addonItems || []).reduce((sum, addonItem) => {
+        const addon = addons.find((a) => a.value === addonItem.value);
+        return sum + (addon?.price || 0) * (addonItem.quantity || 1);
+      }, 0);
+      return base + addonsTotal;
     }
 
-    // If product has no price, return null
-    if (!product.price) {
-      return null;
+    // If not, look for other products with the same name and the requested size
+    const matchingProduct = products.find(
+      (p) =>
+        p.productName === product.productName &&
+        p.size === size &&
+        p.category === product.category
+    );
+
+    if (matchingProduct && matchingProduct.price) {
+      let base = matchingProduct.price;
+
+      // Add-ons with current prices and quantities
+      const addonsTotal = (addonItems || []).reduce((sum, addonItem) => {
+        const addon = addons.find((a) => a.value === addonItem.value);
+        return sum + (addon?.price || 0) * (addonItem.quantity || 1);
+      }, 0);
+      return base + addonsTotal;
     }
 
-    // Only return price if it matches the product's default size
-    let base = product.price;
+    // No matching product found for this size
+    return null;
+  }
 
-    // Add-ons with current prices and quantities
-    const addonsTotal = (addonItems || []).reduce((sum, addonItem) => {
-      const addon = addons.find((a) => a.value === addonItem.value);
-      return sum + (addon?.price || 0) * (addonItem.quantity || 1);
-    }, 0);
-    return base + addonsTotal;
+  // Helper function to check if a size is available for a product
+  function isSizeAvailable(product, size) {
+    // Check if this product itself has the size
+    if (product.size === size) {
+      return true;
+    }
+
+    // Check if there's another product with same name and category that has this size
+    return products.some(
+      (p) =>
+        p.productName === product.productName &&
+        p.category === product.category &&
+        p.size === size
+    );
   }
 
   // Helper function to format price for display
@@ -391,6 +424,33 @@ const POS = () => {
       selectedCategory === "All" || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Remove duplicates - keep products with images, remove duplicates without images
+  const uniqueProducts = filteredProducts.reduce((acc, current) => {
+    const existingProduct = acc.find(
+      (p) =>
+        p.productName === current.productName && p.category === current.category
+    );
+
+    if (!existingProduct) {
+      // If no existing product with same name and category, add current one
+      acc.push(current);
+    } else if (current.image && !existingProduct.image) {
+      // If current has image but existing doesn't, replace existing with current
+      const index = acc.indexOf(existingProduct);
+      acc[index] = current;
+    } else if (current.image && existingProduct.image) {
+      // If both have images, keep the one with the default size or first one
+      // You can add additional logic here if needed
+      if (!existingProduct.size && current.size) {
+        const index = acc.indexOf(existingProduct);
+        acc[index] = current;
+      }
+    }
+    // If current doesn't have image but existing does, do nothing (keep existing)
+
+    return acc;
+  }, []);
 
   // Handle opening edit modal for add-ons
   const openEditAddons = (idx, currentAddons) => {
@@ -734,45 +794,6 @@ const POS = () => {
           </div>
         )}
 
-        {/* Add-on Price Management Modal */}
-        {editingAddonPrice !== null && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-80">
-              <h3 className="font-bold mb-3">
-                Edit {addons[editingAddonPrice]?.name} Price
-              </h3>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New Price (₱)
-                </label>
-                <input
-                  type="number"
-                  value={tempAddonPrice}
-                  onChange={(e) => setTempAddonPrice(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#E89271] transition-colors"
-                  placeholder="Enter price"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={cancelEditAddonPrice}
-                  className="px-3 py-1 rounded bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => saveAddonPrice(editingAddonPrice)}
-                  className="px-3 py-1 rounded bg-blue-600 text-white"
-                >
-                  Save Price
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="container mx-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Product List Section */}
@@ -814,13 +835,13 @@ const POS = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
-                    {filteredProducts.map((p) => {
+                    {uniqueProducts.map((p) => {
                       const price16 = getProductPrice(p, 16, "", []);
                       const price32 = getProductPrice(p, 32, "", []);
 
-                      // Determine which sizes are available
-                      const has16oz = price16 !== null;
-                      const has32oz = price32 !== null;
+                      // Use the new isSizeAvailable function to determine which sizes are available
+                      const has16oz = isSizeAvailable(p, 16);
+                      const has32oz = isSizeAvailable(p, 32);
 
                       return (
                         <div

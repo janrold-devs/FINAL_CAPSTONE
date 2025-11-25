@@ -6,7 +6,16 @@ import "react-toastify/dist/ReactToastify.css";
 import UserModal from "../../components/modals/UserModal";
 import AlertDialog from "../../components/AlertDialog";
 import SearchFilter from "../../components/SearchFilter";
-import { Pencil, Trash2, Plus, Users } from "lucide-react";
+import {
+  Pencil,
+  UserX,
+  Plus,
+  Users,
+  Shield,
+  UserCheck,
+  Ban,
+  RefreshCw,
+} from "lucide-react";
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -14,7 +23,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
+  const [showDeactivate, setShowDeactivate] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [formUser, setFormUser] = useState({
     firstName: "",
@@ -26,7 +35,8 @@ const UserManagement = () => {
 
   const token = localStorage.getItem("token");
 
-  // Fetch all users
+  // Fetch all users with better error handling
+  // In your fetchUsers function in UserManagement.jsx
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -36,7 +46,15 @@ const UserManagement = () => {
       setUsers(res.data);
       setFilteredUsers(res.data);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to fetch users");
+      if (err.response?.status === 403) {
+        // If user is deactivated, log them out
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+        toast.error("Your account has been deactivated.");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to fetch users");
+      }
     } finally {
       setLoading(false);
     }
@@ -61,7 +79,13 @@ const UserManagement = () => {
 
   // Open modal for editing user
   const handleEditClick = (user) => {
-    setFormUser(user);
+    setFormUser({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+      password: "", // Don't pre-fill password for security
+      role: user.role || "staff",
+    });
     setSelectedUser(user);
     setIsEdit(true);
     setShowModal(true);
@@ -71,19 +95,30 @@ const UserManagement = () => {
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      };
+
       if (isEdit) {
         // Update existing user
         const updateData = { ...formUser };
         if (!updateData.password || updateData.password.trim() === "") {
           delete updateData.password; // Don't send empty password
         }
-        await axios.put(`/users/${selectedUser._id}`, updateData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+
+        await axios.put(`/users/${selectedUser._id}`, updateData, config);
         toast.success("User updated successfully");
       } else {
         // Add new user - validation
-        if (!formUser.firstName || !formUser.lastName || !formUser.email || !formUser.password) {
+        if (
+          !formUser.firstName ||
+          !formUser.lastName ||
+          !formUser.email ||
+          !formUser.password
+        ) {
           toast.error("All fields are required");
           return;
         }
@@ -91,10 +126,8 @@ const UserManagement = () => {
           toast.error("Password must be at least 6 characters");
           return;
         }
-        
-        await axios.post("/users", formUser, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+
+        await axios.post("/users", formUser, config);
         toast.success("User added successfully");
       }
       setShowModal(false);
@@ -107,26 +140,68 @@ const UserManagement = () => {
       });
       fetchUsers();
     } catch (err) {
-      console.error("Error:", err.response?.data);
-      toast.error(err.response?.data?.message || "Operation failed");
+      console.error("Form submit error:", err);
+      const errorMessage = err.response?.data?.message || "Operation failed";
+      toast.error(errorMessage);
     }
   };
 
-  // Handle delete
-  const handleDelete = async () => {
+  // Handle deactivate/reactivate - FIXED VERSION
+  // Handle deactivate/reactivate - USING PUT instead of PATCH
+  const handleStatusToggle = async () => {
     try {
-      await axios.delete(`/users/${selectedUser._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("User deleted");
-      setShowDelete(false);
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      };
+
+      const isCurrentlyActive = selectedUser?.isActive !== false;
+      const updateData = {
+        isActive: !isCurrentlyActive,
+      };
+
+      console.log(
+        `Toggling user status for user ${selectedUser?._id}`,
+        updateData
+      );
+
+      // Use PUT instead of PATCH
+      const res = await axios.put(
+        `/users/${selectedUser._id}`,
+        updateData,
+        config
+      );
+      console.log("Status toggle response:", res.data);
+
+      toast.success(
+        `User ${isCurrentlyActive ? "deactivated" : "reactivated"} successfully`
+      );
+      setShowDeactivate(false);
       fetchUsers();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Delete failed");
+      console.error("Status toggle error:", err);
+      console.error("Error response:", err.response?.data);
+
+      let errorMessage = "Operation failed";
+      if (
+        err.code === "NETWORK_ERROR" ||
+        err.message?.includes("Network Error")
+      ) {
+        errorMessage =
+          "Unable to connect to server. Please check if the backend is running.";
+      } else if (err.response?.status === 404) {
+        errorMessage = "User not found.";
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+
+      toast.error(errorMessage);
     }
   };
 
-  // Filter configuration for users
+  // Filter configuration for users - UPDATED to match User model
   const userFilterConfig = [
     {
       key: "role",
@@ -134,6 +209,15 @@ const UserManagement = () => {
       options: [
         { value: "admin", label: "Admin" },
         { value: "staff", label: "Staff" },
+        // Removed "cashier" since it's not in the User model enum
+      ],
+    },
+    {
+      key: "isActive",
+      label: "Status",
+      options: [
+        { value: "true", label: "Active" },
+        { value: "false", label: "Inactive" },
       ],
     },
   ];
@@ -144,6 +228,7 @@ const UserManagement = () => {
     { key: "lastName", label: "Last Name" },
     { key: "email", label: "Email" },
     { key: "role", label: "Role" },
+    { key: "isActive", label: "Status" },
     { key: "createdAt", label: "Date Created" },
   ];
 
@@ -154,43 +239,77 @@ const UserManagement = () => {
         return "bg-red-100 text-red-800 border-red-200";
       case "staff":
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case "cashier":
-        return "bg-green-100 text-green-800 border-green-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
+  // Get status badge color - handle undefined isActive
+  const getStatusColor = (isActive) => {
+    return isActive !== false
+      ? "bg-green-100 text-green-800 border-green-200"
+      : "bg-gray-100 text-gray-800 border-gray-200";
+  };
+
+  // Get status text - handle undefined isActive
+  const getStatusText = (isActive) => {
+    return isActive !== false ? "Active" : "Inactive";
+  };
+
   // Get user initials for avatar
   const getUserInitials = (user) => {
     if (user.firstName && user.lastName) {
-      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+      return `${user.firstName.charAt(0)}${user.lastName.charAt(
+        0
+      )}`.toUpperCase();
     }
-    return user.email.charAt(0).toUpperCase();
+    return user.email?.charAt(0)?.toUpperCase() || "U";
+  };
+
+  // Check if user is active (handle undefined)
+  const isUserActive = (user) => {
+    return user.isActive !== false;
   };
 
   return (
     <DashboardLayout>
-      {/**todo: Improve UI must be modern */}
-      <ToastContainer position="bottom-right" autoClose={2000} hideProgressBar />
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+      />
       <div className="space-y-6 p-6">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-            <p className="text-gray-600">Manage system users and their permissions</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              User Management
+            </h1>
+            <p className="text-gray-600">
+              Manage system users and their permissions
+            </p>
           </div>
-          <button
-            onClick={handleAddClick}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium mt-4 lg:mt-0"
-          >
-            <Plus className="w-5 h-5" />
-            Add User
-          </button>
+          <div className="flex gap-3 mt-4 lg:mt-0">
+            <button
+              onClick={fetchUsers}
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-xl hover:bg-gray-200 transition-colors duration-200 font-medium"
+              title="Refresh users"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Refresh
+            </button>
+            <button
+              onClick={handleAddClick}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Add User
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -208,13 +327,15 @@ const UserManagement = () => {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Admins</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Active Users
+                </p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {filteredUsers.filter(user => user.role === 'admin').length}
+                  {filteredUsers.filter((user) => isUserActive(user)).length}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <span className="text-lg">👑</span>
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <UserCheck className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
@@ -222,13 +343,27 @@ const UserManagement = () => {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Staff</p>
+                <p className="text-sm font-medium text-gray-600">Admins</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {filteredUsers.filter(user => user.role === 'staff').length}
+                  {filteredUsers.filter((user) => user.role === "admin").length}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <span className="text-lg">👨‍💼</span>
+              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                <Shield className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Inactive</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {filteredUsers.filter((user) => !isUserActive(user)).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <Ban className="w-6 h-6 text-gray-600" />
               </div>
             </div>
           </div>
@@ -254,9 +389,15 @@ const UserManagement = () => {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-8 h-8 text-gray-400" />
             </div>
-            <p className="text-lg font-medium text-gray-900 mb-2">No users found</p>
+            <p className="text-lg font-medium text-gray-900 mb-2">
+              {users.length === 0
+                ? "No users available"
+                : "No users match your search"}
+            </p>
             <p className="text-gray-600">
-              {users.length === 0 ? "No users available" : "Try adjusting your search or filters"}
+              {users.length === 0
+                ? "Click 'Add User' to create the first user"
+                : "Try adjusting your search or filters"}
             </p>
           </div>
         ) : (
@@ -265,75 +406,146 @@ const UserManagement = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">User</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Email</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Role</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Date Created</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      User
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Email
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Role
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Date Created
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user._id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                            <span className="text-blue-600 text-sm font-medium">
-                              {getUserInitials(user)}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.firstName && user.lastName
-                                ? `${user.firstName} ${user.lastName}`
-                                : "N/A"}
+                  {filteredUsers.map((user) => {
+                    const isActive = isUserActive(user);
+                    return (
+                      <tr
+                        key={user._id}
+                        className={`hover:bg-gray-50 transition-colors duration-150 ${
+                          !isActive ? "bg-gray-50 opacity-75" : ""
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div
+                              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
+                                !isActive ? "bg-gray-200" : "bg-blue-100"
+                              }`}
+                            >
+                              <span
+                                className={`text-sm font-medium ${
+                                  !isActive ? "text-gray-500" : "text-blue-600"
+                                }`}
+                              >
+                                {getUserInitials(user)}
+                              </span>
                             </div>
-                            <div className="text-xs text-gray-500">User</div>
+                            <div>
+                              <div
+                                className={`text-sm font-medium ${
+                                  !isActive ? "text-gray-500" : "text-gray-900"
+                                }`}
+                              >
+                                {user.firstName && user.lastName
+                                  ? `${user.firstName} ${user.lastName}`
+                                  : "N/A"}
+                              </div>
+                              <div className="text-xs text-gray-500">User</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700">{user.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(user.role)}`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700">
-                          {new Date(user.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleEditClick(user)}
-                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors duration-200 p-2 rounded-lg hover:bg-blue-50"
-                            title="Edit User"
+                        </td>
+                        <td className="px-6 py-4">
+                          <div
+                            className={`text-sm ${
+                              !isActive ? "text-gray-500" : "text-gray-700"
+                            }`}
                           >
-                            <Pencil className="w-4 h-4" />
-                            <span className="text-sm font-medium">Edit</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setShowDelete(true);
-                            }}
-                            className="inline-flex items-center gap-2 text-red-600 hover:text-red-800 transition-colors duration-200 p-2 rounded-lg hover:bg-red-50"
-                            title="Delete User"
+                            {user.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(
+                              user.role
+                            )}`}
                           >
-                            <Trash2 className="w-4 h-4" />
-                            <span className="text-sm font-medium">Delete</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                              isActive
+                            )}`}
+                          >
+                            {getStatusText(isActive)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div
+                            className={`text-sm ${
+                              !isActive ? "text-gray-500" : "text-gray-700"
+                            }`}
+                          >
+                            {user.createdAt
+                              ? new Date(user.createdAt).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )
+                              : "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEditClick(user)}
+                              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors duration-200 p-2 rounded-lg hover:bg-blue-50"
+                              title="Edit User"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              <span className="text-sm font-medium">Edit</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowDeactivate(true);
+                              }}
+                              className={`inline-flex items-center gap-2 p-2 rounded-lg transition-colors duration-200 ${
+                                !isActive
+                                  ? "text-green-600 hover:text-green-800 hover:bg-green-50"
+                                  : "text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                              }`}
+                              title={
+                                !isActive
+                                  ? "Reactivate User"
+                                  : "Deactivate User"
+                              }
+                            >
+                              <UserX className="w-4 h-4" />
+                              <span className="text-sm font-medium">
+                                {!isActive ? "Reactivate" : "Deactivate"}
+                              </span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -350,13 +562,35 @@ const UserManagement = () => {
           isEdit={isEdit}
         />
 
-        {/* Delete Alert Dialog */}
+        {/* Deactivate/Reactivate Alert Dialog */}
         <AlertDialog
-          show={showDelete}
-          title="Confirm Delete"
-          message={`Are you sure you want to delete ${selectedUser?.firstName} ${selectedUser?.lastName}? This action cannot be undone.`}
-          onCancel={() => setShowDelete(false)}
-          onConfirm={handleDelete}
+          show={showDeactivate}
+          title={
+            selectedUser && !isUserActive(selectedUser)
+              ? "Confirm Reactivate"
+              : "Confirm Deactivate"
+          }
+          message={
+            selectedUser
+              ? `Are you sure you want to ${
+                  !isUserActive(selectedUser) ? "reactivate" : "deactivate"
+                } ${selectedUser.firstName} ${selectedUser.lastName}? ${
+                  !isUserActive(selectedUser)
+                    ? "The user will be able to access the system again."
+                    : "The user will no longer be able to access the system."
+                }`
+              : ""
+          }
+          onCancel={() => setShowDeactivate(false)}
+          onConfirm={handleStatusToggle}
+          confirmText={
+            selectedUser && !isUserActive(selectedUser)
+              ? "Reactivate"
+              : "Deactivate"
+          }
+          confirmColor={
+            selectedUser && !isUserActive(selectedUser) ? "green" : "amber"
+          }
         />
       </div>
     </DashboardLayout>

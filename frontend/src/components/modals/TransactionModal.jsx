@@ -6,8 +6,7 @@ const TransactionModal = ({ transaction, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      {/**todo: total amount should be at the bottom*/}
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
         <button
           className="absolute top-3 right-4 text-gray-400 hover:text-gray-700 transition-colors"
           onClick={onClose}
@@ -16,7 +15,9 @@ const TransactionModal = ({ transaction, onClose }) => {
           <X className="w-6 h-6" />
         </button>
 
-        <h2 className="text-xl font-bold mb-4 text-gray-800">Transaction Details</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-800">
+          Transaction Details
+        </h2>
 
         <div className="space-y-2 mb-4">
           <div>
@@ -40,7 +41,9 @@ const TransactionModal = ({ transaction, onClose }) => {
           {transaction.referenceNumber && (
             <div>
               <span className="font-semibold text-gray-700">Reference #:</span>{" "}
-              <span className="text-gray-600">{transaction.referenceNumber}</span>
+              <span className="text-gray-600">
+                {transaction.referenceNumber}
+              </span>
             </div>
           )}
         </div>
@@ -51,18 +54,35 @@ const TransactionModal = ({ transaction, onClose }) => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-300">
-                  <th className="text-left py-2 font-semibold text-gray-700">Product</th>
-                  <th className="text-left py-2 font-semibold text-gray-700">Category</th>
-                  <th className="text-left py-2 font-semibold text-gray-700">Size</th>
-                  <th className="text-left py-2 font-semibold text-gray-700">Subcat</th>
-                  <th className="text-right py-2 font-semibold text-gray-700">Qty</th>
-                  <th className="text-right py-2 font-semibold text-gray-700">Price</th>
-                  <th className="text-right py-2 font-semibold text-gray-700">Total</th>
+                  <th className="text-left py-2 font-semibold text-gray-700">
+                    Product
+                  </th>
+                  <th className="text-left py-2 font-semibold text-gray-700">
+                    Category
+                  </th>
+                  <th className="text-left py-2 font-semibold text-gray-700">
+                    Size
+                  </th>
+                  <th className="text-left py-2 font-semibold text-gray-700">
+                    Subcategory
+                  </th>
+                  <th className="text-right py-2 font-semibold text-gray-700">
+                    Qty
+                  </th>
+                  <th className="text-right py-2 font-semibold text-gray-700">
+                    Price
+                  </th>
+                  <th className="text-right py-2 font-semibold text-gray-700">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {transaction.itemsSold.map((item, idx) => (
-                  <tr key={idx} className="border-b border-gray-200 last:border-b-0">
+                  <tr
+                    key={idx}
+                    className="border-b border-gray-200 last:border-b-0"
+                  >
                     <td className="py-2">
                       <div className="text-gray-800">
                         {item.product?.productName || "Unknown"}
@@ -83,10 +103,18 @@ const TransactionModal = ({ transaction, onClose }) => {
                         </div>
                       )}
                     </td>
-                    <td className="py-2 text-gray-600">{item.category || "—"}</td>
-                    <td className="py-2 text-gray-600">{item.size || "—"}</td>
-                    <td className="py-2 text-gray-600">{item.subcategory || "—"}</td>
-                    <td className="py-2 text-right text-gray-800">{item.quantity}</td>
+                    <td className="py-2 text-gray-600">
+                      {item.category || "—"}
+                    </td>
+                    <td className="py-2 text-gray-600">
+                      {item.size || item.product?.size || "—"}
+                    </td>
+                    <td className="py-2 text-gray-600">
+                      {item.subcategory || item.product?.subcategory || "—"}
+                    </td>
+                    <td className="py-2 text-right text-gray-800">
+                      {item.quantity}
+                    </td>
                     <td className="py-2 text-right text-gray-600">
                       ₱{item.price?.toFixed(2)}
                     </td>
@@ -103,7 +131,9 @@ const TransactionModal = ({ transaction, onClose }) => {
         {/* Total moved to bottom */}
         <div className="border-t border-gray-200 mt-6 pt-4 flex justify-end">
           <div className="text-right">
-            <div className="text-sm text-gray-700 font-semibold">Total Amount</div>
+            <div className="text-sm text-gray-700 font-semibold">
+              Total Amount
+            </div>
             <div className="text-xl font-bold text-blue-700">
               ₱{transaction.totalAmount?.toFixed(2)}
             </div>

@@ -1,11 +1,10 @@
-// backend/routes/users.js
+// backend/routes/user.route.js
 import express from "express";
 import {
   getUsers,
   getUser,
   updateUser,
-  deleteUser,
-  createUser
+  createUser,
 } from "../controllers/user.controller.js";
 
 import auth from "../middleware/auth.middleware.js";
@@ -25,7 +24,10 @@ router.get("/:id", auth, getUser);
 // PUT /api/users/:id
 router.put("/:id", auth, role(["admin"]), updateUser);
 
-// DELETE /api/users/:id
-router.delete("/:id", auth, role("admin"), deleteUser);
+// PATCH /api/users/:id/deactivate - Deactivate user
+//router.patch("/:id/deactivate", auth, role("admin"), deactivateUser);
+
+// PATCH /api/users/:id/reactivate - Reactivate user
+//router.patch("/:id/reactivate", auth, role("admin"), reactivateUser);
 
 export default router;
