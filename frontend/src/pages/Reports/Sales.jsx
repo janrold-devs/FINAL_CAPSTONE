@@ -217,14 +217,15 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* Generate Missing Sales Button */}
+            {/* Generate Missing Sales Button
             <button
               onClick={generateMissingSales}
               className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-xl hover:bg-green-700 transition-colors duration-200 font-medium"
             >
               <Plus size={18} /> Generate Missing Sales
             </button>
-
+            */}
+            
             <button
               onClick={fetchSales}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium"
@@ -232,7 +233,7 @@ const Sales = () => {
               <RefreshCw size={18} /> Refresh Data
             </button>
           </div>
-        </div>
+        </div> 
 
         {/* Export Buttons */}
         <ExportButtons

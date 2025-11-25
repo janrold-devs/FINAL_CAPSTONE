@@ -99,6 +99,12 @@ const Product = () => {
         { value: "iced latte", label: "Iced Latte" },
         { value: "bubble tea", label: "Bubble Tea" },
         { value: "fruit tea", label: "Fruit Tea" },
+        { value: "amerikano", label: "Amerikano"},
+        { value: "non caffeine", label: "Non Caffeine" },
+        { value: "frappe", label: "Frappe" },
+        { value: "choco", label: "Choco"},
+        { value: "hot drink", label: "Hot Drink"},
+        { value: "shiro", label: "Shiro"},
       ],
     },
     {
