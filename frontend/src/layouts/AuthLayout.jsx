@@ -16,7 +16,7 @@ const AuthLayout = ({ children, title = "Welcome" }) => {
       </div>
 
       {/* Form Container */}
-      <div className="w-[400px] max-w-md bg-white shadow-lg rounded-2xl p-8">
+      <div className="w-[600px] max-w-xl bg-white shadow-lg rounded-2xl p-8">
         <h1 className="text-2xl font-semibold text-center mb-6 text-gray-800">{title}</h1>
         {children}
       </div>
