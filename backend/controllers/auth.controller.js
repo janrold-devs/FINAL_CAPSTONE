@@ -2,7 +2,6 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendWelcomeEmail } from "../utils/emailService.js";
 
 const createToken = (user) => {
   return jwt.sign(
@@ -30,11 +29,6 @@ export const register = async (req, res) => {
       role,
     });
     const token = createToken(user);
-    
-    // Send welcome email (async - don't await to avoid blocking response)
-    sendWelcomeEmail(email, firstName, password, role).catch(error => {
-      console.error('Failed to send welcome email:', error);
-    });
 
     const safeUser = { ...user.toObject() };
     delete safeUser.password;

@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, AlertTriangle, Clock, Package, RefreshCw, X, CheckCheck } from "lucide-react";
+import {
+  Bell,
+  AlertTriangle,
+  Clock,
+  Package,
+  RefreshCw,
+  X,
+  CheckCheck
+} from "lucide-react";
 import io from "socket.io-client";
+import api from "../../api/axios";
 
 const NotificationDropdown = () => {
   const [open, setOpen] = useState(false);
@@ -9,26 +18,37 @@ const NotificationDropdown = () => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const dropdownRef = useRef(null);
-  const notificationSoundRef = useRef(null);
+
+  const getBackendBaseUrl = () => {
+    return import.meta.env.MODE === "development"
+      ? "http://localhost:8000"
+      : "https://final-capstone-kb79.onrender.com";
+  };
+
+  const BACKEND_BASE_URL = getBackendBaseUrl();
 
   // Initialize socket connection
   useEffect(() => {
-    const newSocket = io("http://localhost:8000", {
+    console.log("🔗 Connecting to:", BACKEND_BASE_URL);
+
+    const newSocket = io(BACKEND_BASE_URL, {
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ["websocket", "polling"],
+      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
-    
+
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
       console.log("✅ Connected to notification server");
       setConnected(true);
-      // Request initial notifications
-      newSocket.emit("request_notifications");
     });
 
-    newSocket.on("disconnect", () => {
-      console.log("❌ Disconnected from server");
+    newSocket.on("disconnect", (reason) => {
+      console.log("❌ Disconnected from server:", reason);
       setConnected(false);
     });
 
@@ -39,54 +59,37 @@ const NotificationDropdown = () => {
 
     // Listen for real-time notifications
     newSocket.on("notifications_update", (newNotifications) => {
-      console.log(`🔔 Received ${newNotifications.length} notifications`);
-      
-      const previousCount = notifications.length;
+      console.log(`🔔 Received ${newNotifications.length} notifications via socket`);
       setNotifications(newNotifications);
-      
-      // Show browser notification and play sound for new critical alerts
-      if (!open && newNotifications.length > previousCount) {
-        const criticalNotifications = newNotifications.filter(n => n.priority === "critical");
-        if (criticalNotifications.length > 0) {
-          showBrowserNotification(criticalNotifications);
-          playNotificationSound();
-        }
-      }
     });
 
     // Cleanup on unmount
     return () => {
-      newSocket.close();
+      if (newSocket) {
+        newSocket.close();
+      }
     };
-  }, []);
+  }, [BACKEND_BASE_URL]);
 
-  // Play notification sound
-  const playNotificationSound = () => {
-    if (notificationSoundRef.current) {
-      notificationSoundRef.current.play().catch(err => {
-        console.log("Could not play sound:", err);
-      });
+  // Show browser notification for new critical alerts
+  useEffect(() => {
+    if (notifications.length > 0 && !open) {
+      const criticalNotifications = notifications.filter(n => n.priority === "critical");
+      if (criticalNotifications.length > 0) {
+        showBrowserNotification(criticalNotifications);
+      }
     }
-  };
+  }, [notifications, open]);
 
   // Show browser notification
   const showBrowserNotification = (criticalNotifications) => {
-    if ("Notification" in window) {
-      if (Notification.permission === "granted") {
-        new Notification("⚠️ Critical Alerts!", {
-          body: `You have ${criticalNotifications.length} critical notification(s) requiring immediate attention.`,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
-          tag: "critical-alert",
-          requireInteraction: true
-        });
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-          if (permission === "granted") {
-            showBrowserNotification(criticalNotifications);
-          }
-        });
-      }
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("⚠️ Inventory Alerts!", {
+        body: `You have ${criticalNotifications.length} critical inventory notification(s) requiring attention.`,
+        icon: "/favicon.ico",
+        tag: "inventory-alert",
+        requireInteraction: true,
+      });
     }
   };
 
@@ -97,21 +100,55 @@ const NotificationDropdown = () => {
     }
   }, []);
 
-  // Fetch notifications manually
+  // Fetch notifications
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8000/api/notifications", {
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) throw new Error("Failed to fetch notifications");
-      const data = await res.json();
-      setNotifications(data);
+      console.log("📥 Fetching notifications from backend...");
+      const response = await api.get("/notifications");
+      console.log(`✅ Received ${response.data.length} notifications`);
+      setNotifications(response.data);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      console.error("❌ Error fetching notifications:", error);
+      alert("Failed to load notifications. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Clear single notification
+  const clearNotification = async (notificationId, e) => {
+    e.stopPropagation();
+    try {
+      console.log("🗑️ Clearing notification:", notificationId);
+      const response = await api.delete(`/notifications/${notificationId}`);
+      console.log("✅ Backend response:", response.data);
+      
+      // Update local state by removing the notification
+      setNotifications(prev => prev.filter(n => n._id !== notificationId));
+      
+      console.log("✅ Notification cleared from frontend state");
+    } catch (error) {
+      console.error("❌ Error clearing notification:", error);
+      alert("Failed to clear notification. Please try again.");
+    }
+  };
+
+  // Clear all notifications
+  const clearAllNotifications = async () => {
+    try {
+      console.log("🗑️ Clearing all notifications");
+      const response = await api.delete("/notifications");
+      console.log("✅ Backend response:", response.data);
+      
+      // Update local state
+      setNotifications([]);
+      setOpen(false);
+      
+      console.log("✅ All notifications cleared");
+    } catch (error) {
+      console.error("❌ Error clearing all notifications:", error);
+      alert("Failed to clear all notifications. Please try again.");
     }
   };
 
@@ -135,14 +172,13 @@ const NotificationDropdown = () => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'expiration':
-      case 'expiring':
+      case "expiring":
         return <Clock className="w-5 h-5 text-orange-500" />;
-      case 'expired':
+      case "expired":
         return <Clock className="w-5 h-5 text-red-600" />;
-      case 'low_stock':
+      case "low_stock":
         return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
-      case 'out_of_stock':
+      case "out_of_stock":
         return <Package className="w-5 h-5 text-red-600" />;
       default:
         return <Bell className="w-5 h-5 text-blue-500" />;
@@ -151,101 +187,112 @@ const NotificationDropdown = () => {
 
   const getPriorityStyles = (priority) => {
     switch (priority) {
-      case 'critical':
+      case "critical":
         return {
-          border: 'border-l-4 border-l-red-600',
-          bg: 'bg-red-50',
-          badge: 'bg-red-600 text-white'
+          border: "border-l-4 border-l-red-600",
+          bg: "bg-red-50",
+          badge: "bg-red-600 text-white",
         };
-      case 'high':
+      case "high":
         return {
-          border: 'border-l-4 border-l-orange-500',
-          bg: 'bg-orange-50',
-          badge: 'bg-orange-500 text-white'
+          border: "border-l-4 border-l-orange-500",
+          bg: "bg-orange-50",
+          badge: "bg-orange-500 text-white",
         };
-      case 'medium':
+      case "medium":
         return {
-          border: 'border-l-4 border-l-yellow-500',
-          bg: 'bg-yellow-50',
-          badge: 'bg-yellow-500 text-white'
+          border: "border-l-4 border-l-yellow-500",
+          bg: "bg-yellow-50",
+          badge: "bg-yellow-500 text-white",
         };
       default:
         return {
-          border: 'border-l-4 border-l-blue-500',
-          bg: 'bg-blue-50',
-          badge: 'bg-blue-500 text-white'
+          border: "border-l-4 border-l-blue-500",
+          bg: "bg-blue-50",
+          badge: "bg-blue-500 text-white",
         };
     }
   };
 
+  const totalCount = notifications.length;
   const criticalCount = notifications.filter(n => n.priority === "critical").length;
   const highCount = notifications.filter(n => n.priority === "high").length;
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Hidden audio element for notification sound */}
-      <audio ref={notificationSoundRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKzm8bllHAdAmtj1y3ksBSh+zPLaizsKGGS26+mjUBALTKXh8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKXh8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAKTKbi8bllHgU2jdTxy3osBSh+zPDaizwKF2W36+mjUhAK"></audio>
-
       {/* Bell Icon with Badge */}
       <button
         onClick={() => setOpen(!open)}
         className="relative flex items-center justify-center w-10 h-10 cursor-pointer transition-all duration-200 hover:bg-[#eab9a5] rounded-lg group"
       >
-        <Bell className={`w-6 h-6 text-white transition-transform ${notifications.length > 0 ? 'animate-bounce' : ''} group-hover:scale-110`} />
-        
-        {/* Notification Badge */}
-        {notifications.length > 0 && (
+        <Bell
+          className={`w-6 h-6 text-white transition-transform ${
+            totalCount > 0 ? "animate-bounce" : ""
+          } group-hover:scale-110`}
+        />
+
+        {/* Notification Badge - Show total count */}
+        {totalCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse shadow-lg">
-            {notifications.length > 99 ? '99+' : notifications.length}
+            {totalCount > 99 ? "99+" : totalCount}
           </span>
         )}
-        
+
         {/* Connection Status Dot */}
         <span
           className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-            connected ? 'bg-green-500' : 'bg-red-500'
+            connected ? "bg-green-500" : "bg-red-500"
           }`}
-          title={connected ? 'Real-time connected' : 'Disconnected'}
+          title={connected ? "Real-time connected" : "Disconnected"}
         />
       </button>
 
       {/* Dropdown Panel */}
       {open && (
-        <div className="absolute right-0 mt-3 w-[420px] bg-white shadow-2xl rounded-xl border border-gray-200 z-50 overflow-hidden">
+        <div className="absolute right-0 mt-3 w-[450px] bg-white shadow-2xl rounded-xl border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
           <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
             <div className="flex justify-between items-center">
               <h3 className="text-gray-800 font-bold text-lg flex items-center gap-2">
                 <Bell className="w-5 h-5 text-[#E89271]" />
-                Notifications
+                Inventory Alerts
+                {totalCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                    {totalCount} alerts
+                  </span>
+                )}
               </h3>
-              
+
               <div className="flex items-center gap-3">
                 {/* Connection Status */}
                 <div className="flex items-center gap-1.5">
                   <span
-                    className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}
+                    className={`w-2 h-2 rounded-full ${
+                      connected ? "bg-green-500" : "bg-red-500"
+                    } animate-pulse`}
                   />
                   <span className="text-xs text-gray-600">
-                    {connected ? 'Live' : 'Offline'}
+                    {connected ? "Live" : "Offline"}
                   </span>
                 </div>
-                
+
                 {/* Refresh Button */}
                 <button
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                   onClick={fetchNotifications}
                   disabled={loading}
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </button>
               </div>
             </div>
-            
+
             {/* Summary Stats */}
             {notifications.length > 0 && (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex gap-2 flex-wrap">
                 {criticalCount > 0 && (
                   <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
                     {criticalCount} Critical
@@ -256,16 +303,35 @@ const NotificationDropdown = () => {
                     {highCount} High Priority
                   </span>
                 )}
+                <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full font-medium">
+                  {notifications.length} total
+                </span>
               </div>
             )}
           </div>
+
+          {/* Clear All Button */}
+          {notifications.length > 0 && (
+            <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={clearAllNotifications}
+                disabled={loading}
+              >
+                <X className="w-3.5 h-3.5" />
+                Clear all alerts
+              </button>
+            </div>
+          )}
 
           {/* Notification List */}
           <div className="max-h-[500px] overflow-y-auto">
             {loading ? (
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#E89271] border-t-transparent mx-auto"></div>
-                <p className="mt-3 text-sm text-gray-500">Loading notifications...</p>
+                <p className="mt-3 text-sm text-gray-500">
+                  Loading alerts...
+                </p>
               </div>
             ) : notifications.length > 0 ? (
               <div className="divide-y divide-gray-100">
@@ -274,30 +340,43 @@ const NotificationDropdown = () => {
                   return (
                     <div
                       key={note._id}
-                      className={`p-4 ${styles.border} ${styles.bg} hover:brightness-95 cursor-pointer transition-all duration-150`}
+                      className={`p-4 ${styles.border} ${styles.bg} transition-all duration-200 relative group`}
                     >
-                      <div className="flex items-start gap-3">
+                      {/* Close button */}
+                      <button
+                        onClick={(e) => clearNotification(note._id, e)}
+                        className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Clear alert"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+
+                      <div className="flex items-start gap-3 pr-8">
+                        {/* Notification Type Icon */}
                         <div className="flex-shrink-0 mt-0.5">
                           {getNotificationIcon(note.type)}
                         </div>
-                        
+
+                        {/* Notification Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <p className="text-sm font-semibold text-gray-900">
                               {note.title}
                             </p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${styles.badge}`}>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${styles.badge}`}
+                            >
                               {note.priority.toUpperCase()}
                             </span>
                           </div>
-                          
-                          <p className="text-sm text-gray-700 leading-snug">
+
+                          <p className="text-sm leading-snug text-gray-700">
                             {note.message}
                           </p>
-                          
+
                           <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {new Date(note.date).toLocaleString()}
+                            {new Date(note.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -308,8 +387,12 @@ const NotificationDropdown = () => {
             ) : (
               <div className="p-12 text-center">
                 <CheckCheck className="w-16 h-16 text-green-400 mx-auto mb-3" />
-                <p className="text-base font-medium text-gray-700">All Clear!</p>
-                <p className="text-sm text-gray-500 mt-1">No notifications at this time</p>
+                <p className="text-base font-medium text-gray-700">
+                  All Clear!
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  No inventory alerts at this time
+                </p>
                 {!connected && (
                   <div className="mt-4 p-3 bg-orange-50 rounded-lg">
                     <p className="text-xs text-orange-700 flex items-center justify-center gap-1">
@@ -321,25 +404,6 @@ const NotificationDropdown = () => {
               </div>
             )}
           </div>
-
-          {/* Footer */}
-          {notifications.length > 0 && (
-            <div className="p-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-              <span className="text-xs text-gray-600">
-                {notifications.length} total notification{notifications.length !== 1 ? 's' : ''}
-              </span>
-              <button
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 px-3 py-1.5 rounded hover:bg-blue-50 transition-colors"
-                onClick={() => {
-                  setNotifications([]);
-                  setOpen(false);
-                }}
-              >
-                <X className="w-4 h-4" />
-                Clear All
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
