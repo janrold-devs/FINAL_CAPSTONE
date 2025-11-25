@@ -39,6 +39,45 @@ const Logs = () => {
     fetchUsers();
   }, []);
 
+  // Helper function to get user name from log
+  const getUserNameFromLog = (log) => {
+    if (!log.user) return "Unknown User";
+
+    // If user is populated object
+    if (typeof log.user === "object" && log.user._id) {
+      return log.user.firstName && log.user.lastName
+        ? `${log.user.firstName} ${log.user.lastName}`
+        : log.user.name || "Unknown User";
+    }
+
+    // If user is just an ID string, find in users array
+    if (typeof log.user === "string") {
+      const foundUser = users.find((u) => u._id === log.user);
+      return foundUser
+        ? foundUser.firstName && foundUser.lastName
+          ? `${foundUser.firstName} ${foundUser.lastName}`
+          : foundUser.name || "Unknown User"
+        : "Unknown User";
+    }
+
+    return "Unknown User";
+  };
+
+  // Helper function to get user ID from log for filtering
+  const getUserIdFromLog = (log) => {
+    if (!log.user) return null;
+
+    if (typeof log.user === "object" && log.user._id) {
+      return log.user._id;
+    }
+
+    if (typeof log.user === "string") {
+      return log.user;
+    }
+
+    return null;
+  };
+
   // Simplified action options
   const actionOptions = ["Create", "Update", "Delete"];
 
@@ -55,17 +94,14 @@ const Logs = () => {
   // Filtering logic
   const filteredLogs = logs.filter((log) => {
     // Search filter
-    const matchesSearch = log.details?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = log.details
+      ?.toLowerCase()
+      .includes(search.toLowerCase());
 
-    // User filter
+    // User filter - FIXED
     let matchesUser = true;
     if (selectedUser !== "all") {
-      const logUserId =
-        typeof log.user === "object"
-          ? log.user._id
-          : typeof log.user === "string"
-          ? log.user
-          : "";
+      const logUserId = getUserIdFromLog(log);
       matchesUser = logUserId === selectedUser;
     }
 
@@ -92,8 +128,9 @@ const Logs = () => {
   });
 
   return (
-    <DashboardLayout>{/**todo: Remove the status */}
-    {/**todo: Improve UI must be modern */}
+    <DashboardLayout>
+      {/**todo: Remove the status */}
+      {/**todo: Improve UI must be modern */}
       <div className="p-6 bg-gray-50 min-h-screen">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Activity Logs</h1>
@@ -194,15 +231,9 @@ const Logs = () => {
                 </tr>
               ) : (
                 filteredLogs.map((log) => {
-                  // User name logic
-                  const userName =
-                    log.user?.firstName && log.user?.lastName
-                      ? `${log.user.firstName} ${log.user.lastName}`
-                      : log.user?.name
-                      ? log.user.name
-                      : "Unknown User";
+                  const userName = getUserNameFromLog(log);
 
-                  // Custom details for Stock In
+                  // Custom details for Stock In - Now includes cashier's name
                   let details = log.details;
                   if (
                     log.action?.toUpperCase().includes("STOCK") &&
@@ -214,6 +245,13 @@ const Logs = () => {
                     );
                     const batchNumber = batchMatch ? batchMatch[1] : "";
                     details = `Stock In: Batch ${batchNumber} by ${userName}`;
+                  } else {
+                    // For other actions, replace user ID with user name in details
+                    // This will replace any occurrence of user ID with the actual user name
+                    const userId = getUserIdFromLog(log);
+                    if (userId && log.details?.includes(userId)) {
+                      details = log.details.replace(userId, userName);
+                    }
                   }
 
                   return (
@@ -239,11 +277,14 @@ const Logs = () => {
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center gap-1 font-medium ${
-                            log.action.includes("CREATE") || log.action.includes("ADD")
+                            log.action.includes("CREATE") ||
+                            log.action.includes("ADD")
                               ? "text-green-600"
-                              : log.action.includes("DELETE") || log.action.includes("REMOVE")
+                              : log.action.includes("DELETE") ||
+                                log.action.includes("REMOVE")
                               ? "text-red-600"
-                              : log.action.includes("UPDATE") || log.action.includes("EDIT")
+                              : log.action.includes("UPDATE") ||
+                                log.action.includes("EDIT")
                               ? "text-yellow-600"
                               : "text-blue-600"
                           }`}

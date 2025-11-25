@@ -8,10 +8,18 @@ import {
   getSalesSummary,
   getSalesByDate,
   getSalesByBatchNumber,
+  generateSalesFromTransactions,
+  getBestSellingProducts, // Make sure this import is included
 } from "../controllers/sales.controller.js";
 import auth from "../middleware/auth.middleware.js";
 
 const router = express.Router();
+
+// ADD this new route for best selling products
+router.get("/analytics/best-selling", auth, getBestSellingProducts);
+
+// ADD this route for generating sales
+router.post("/generate-from-transactions", auth, generateSalesFromTransactions);
 
 // GET summary (must be before /:id to avoid route conflict)
 router.get("/summary", auth, getSalesSummary);

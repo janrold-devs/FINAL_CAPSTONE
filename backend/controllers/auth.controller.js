@@ -21,7 +21,13 @@ export const register = async (req, res) => {
     if (exists) return res.status(400).json({ message: "Email already used." });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ firstName, lastName, email, password: hashed, role });
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashed,
+      role,
+    });
     const token = createToken(user);
     const safeUser = { ...user.toObject() };
     delete safeUser.password;
@@ -34,13 +40,22 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: "Email and password required." });
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password required." });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: "Invalid credentials." });
 
+    // Check if user is active
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: "Account is deactivated. Please contact administrator.",
+      });
+    }
+
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: "Invalid credentials." });
+    if (!match)
+      return res.status(401).json({ message: "Invalid credentials." });
 
     const token = createToken(user);
     const safeUser = { ...user.toObject() };

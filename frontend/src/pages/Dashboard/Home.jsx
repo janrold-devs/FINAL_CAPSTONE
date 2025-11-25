@@ -14,6 +14,7 @@ import {
   Wind,
   Heart,
   Leaf,
+  CupSoda,
 } from "lucide-react";
 import {
   AreaChart,
@@ -140,13 +141,13 @@ const Home = () => {
   const getChartData = () => {
     switch (activeTab) {
       case "daily":
-        return dashboardData.dailySales;
+        return dashboardData.dailySales || [];
       case "weekly":
-        return dashboardData.weeklySales;
+        return dashboardData.weeklySales || [];
       case "monthly":
-        return dashboardData.monthlySales;
+        return dashboardData.monthlySales || [];
       default:
-        return dashboardData.dailySales;
+        return dashboardData.dailySales || [];
     }
   };
 
@@ -176,6 +177,19 @@ const Home = () => {
     }
   };
 
+  const getXAxisLabel = (key, value) => {
+    switch (activeTab) {
+      case "daily":
+        return `Day ${value}`;
+      case "weekly":
+        return value; // Already formatted as "W45"
+      case "monthly":
+        return value; // Already formatted as "Oct 2025"
+      default:
+        return value;
+    }
+  };
+
   const chartData = getChartData();
 
   // Simplified period-aware stat values - using backend pre-calculated data
@@ -197,9 +211,17 @@ const Home = () => {
       case "daily":
         return dashboardData.stats.sales.amount;
       case "weekly":
-        return dashboardData.weeklySales[0]?.amount || 0;
+        // Sum all weekly sales for the current period
+        return dashboardData.weeklySales.reduce(
+          (sum, week) => sum + (week.amount || 0),
+          0
+        );
       case "monthly":
-        return dashboardData.monthlySales[0]?.amount || 0;
+        // Sum all monthly sales for the current period
+        return dashboardData.monthlySales.reduce(
+          (sum, month) => sum + (month.amount || 0),
+          0
+        );
       default:
         return dashboardData.stats.sales.amount;
     }
@@ -269,12 +291,65 @@ const Home = () => {
 
   // Category and color configuration - matches backend categories
   const categoryConfig = {
-    all: { label: "All", color: "bg-purple-500", icon: Flame },
-    coffee: { label: "Coffee", color: "bg-amber-500", icon: Coffee },
-    milktea: { label: "Milktea", color: "bg-violet-500", icon: Droplet },
-    frappe: { label: "Frappe", color: "bg-blue-500", icon: Wind },
-    choco: { label: "Choco", color: "bg-amber-900", icon: Heart },
-    fruitTea: { label: "Fruit Tea", color: "bg-emerald-500", icon: Leaf },
+    all: {
+      label: "All",
+      color: "bg-purple-500",
+      icon: Flame,
+    },
+
+    icedLatte: {
+      label: "Iced Latte",
+      color: "bg-amber-500",
+      icon: Coffee,
+    },
+
+    bubbleTea: {
+      label: "Bubble Tea",
+      color: "bg-violet-500",
+      icon: Droplet,
+    },
+
+    frappe: {
+      label: "Frappe",
+      color: "bg-blue-500",
+      icon: Wind,
+    },
+
+    choco: {
+      label: "Choco",
+      color: "bg-amber-900",
+      icon: Heart,
+    },
+
+    fruitTea: {
+      label: "Fruit Tea",
+      color: "bg-emerald-500",
+      icon: Leaf,
+    },
+
+    amerikano: {
+      label: "Amerikano",
+      color: "bg-gray-700",
+      icon: CupSoda,
+    },
+
+    hotDrink: {
+      label: "Hot Drink",
+      color: "bg-gray-900",
+      icon: CupSoda,
+    },
+
+    shiro: {
+      label: "Shiro",
+      color: "bg-orange-500",
+      icon: Flame,
+    },
+
+    nonCaffeine: {
+      label: "Non-Caffeine",
+      color: "bg-teal-600",
+      icon: Zap,
+    },
   };
 
   // Get all products flattened and ranked
@@ -514,6 +589,9 @@ const Home = () => {
                     dataKey={getXAxisKey()}
                     stroke="#9ca3af"
                     style={{ fontSize: "12px" }}
+                    tickFormatter={(value) =>
+                      getXAxisLabel(getXAxisKey(), value)
+                    }
                   />
                   <YAxis
                     stroke="#9ca3af"
@@ -531,6 +609,18 @@ const Home = () => {
                       `₱${value.toLocaleString()}`,
                       "Sales",
                     ]}
+                    labelFormatter={(label) => {
+                      switch (activeTab) {
+                        case "daily":
+                          return `Day ${label}`;
+                        case "weekly":
+                          return label;
+                        case "monthly":
+                          return label;
+                        default:
+                          return label;
+                      }
+                    }}
                   />
                   <Area
                     type="monotone"

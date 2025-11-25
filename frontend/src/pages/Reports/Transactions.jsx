@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api/axios";
-import { Eye, Plus, Receipt } from "lucide-react";
+import { Eye, Plus, Receipt, Calendar, ChevronDown } from "lucide-react";
 import TransactionModal from "../../components/modals/TransactionModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import ExportButtons from "../../components/ExportButtons";
@@ -11,6 +11,21 @@ const Transactions = () => {
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [timePeriod, setTimePeriod] = useState("daily"); // Default to 'daily'
+  const [comparisonData, setComparisonData] = useState({
+    current: [],
+    previous: [],
+    currentCount: 0,
+    previousCount: 0,
+    currentTotal: 0,
+    previousTotal: 0,
+  });
+  const [dateRange, setDateRange] = useState({
+    currentStart: null,
+    currentEnd: null,
+    previousStart: null,
+    previousEnd: null,
+  });
 
   // Fetch transactions
   useEffect(() => {
@@ -19,7 +34,7 @@ const Transactions = () => {
       try {
         const res = await api.get("/transactions");
         setTransactions(res.data);
-        setFilteredTransactions(res.data);
+        // Don't filter here yet - wait for the next effect
       } catch {
         setTransactions([]);
         setFilteredTransactions([]);
@@ -29,6 +44,194 @@ const Transactions = () => {
     };
     fetchData();
   }, []);
+
+  // Apply daily filter after transactions are loaded and timePeriod is set
+  useEffect(() => {
+    if (transactions.length > 0 && timePeriod === "daily") {
+      filterByTimePeriod("daily");
+    }
+  }, [transactions, timePeriod]);
+
+  // Format date for display with null checking
+  const formatDateRange = (start, end) => {
+    if (!start || !end) {
+      return "Loading...";
+    }
+
+    const format = (date) => {
+      return date.toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    };
+    return `${format(start)} - ${format(end)}`;
+  };
+
+  // Filter transactions by time period
+  const filterByTimePeriod = (period) => {
+    if (!period) {
+      setFilteredTransactions(transactions);
+      setComparisonData({
+        current: [],
+        previous: [],
+        currentCount: 0,
+        previousCount: 0,
+        currentTotal: 0,
+        previousTotal: 0,
+      });
+      setDateRange({
+        currentStart: null,
+        currentEnd: null,
+        previousStart: null,
+        previousEnd: null,
+      });
+      return;
+    }
+
+    const now = new Date();
+    let currentStart, currentEnd, previousStart, previousEnd;
+
+    switch (period) {
+      case "daily":
+        // Today
+        currentStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        currentEnd = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1
+        );
+
+        // Yesterday
+        previousStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - 1
+        );
+        previousEnd = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        break;
+
+      case "weekly":
+        // This week (Monday to Sunday)
+        const currentDay = now.getDay();
+        const currentMonday = new Date(now);
+        currentMonday.setDate(
+          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
+        );
+        currentStart = new Date(
+          currentMonday.getFullYear(),
+          currentMonday.getMonth(),
+          currentMonday.getDate()
+        );
+        currentEnd = new Date(
+          currentMonday.getFullYear(),
+          currentMonday.getMonth(),
+          currentMonday.getDate() + 7
+        );
+
+        // Last week
+        const previousMonday = new Date(currentMonday);
+        previousMonday.setDate(currentMonday.getDate() - 7);
+        previousStart = new Date(
+          previousMonday.getFullYear(),
+          previousMonday.getMonth(),
+          previousMonday.getDate()
+        );
+        previousEnd = new Date(
+          previousMonday.getFullYear(),
+          previousMonday.getMonth(),
+          previousMonday.getDate() + 7
+        );
+        break;
+
+      case "monthly":
+        // This month
+        currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        // Last month
+        previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        previousEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+
+      default:
+        return;
+    }
+
+    const currentPeriodTransactions = transactions.filter((t) => {
+      const transactionDate = new Date(t.transactionDate);
+      return transactionDate >= currentStart && transactionDate < currentEnd;
+    });
+
+    const previousPeriodTransactions = transactions.filter((t) => {
+      const transactionDate = new Date(t.transactionDate);
+      return transactionDate >= previousStart && transactionDate < previousEnd;
+    });
+
+    const currentCount = currentPeriodTransactions.length;
+    const previousCount = previousPeriodTransactions.length;
+    const currentTotal = currentPeriodTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+    const previousTotal = previousPeriodTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+
+    setComparisonData({
+      current: currentPeriodTransactions,
+      previous: previousPeriodTransactions,
+      currentCount,
+      previousCount,
+      currentTotal,
+      previousTotal,
+    });
+
+    setDateRange({
+      currentStart,
+      currentEnd: new Date(currentEnd.getTime() - 1), // Subtract 1ms to show inclusive end date
+      previousStart,
+      previousEnd: new Date(previousEnd.getTime() - 1),
+    });
+
+    setFilteredTransactions(currentPeriodTransactions);
+  };
+
+  // Handle time period button click
+  const handleTimePeriodClick = (period) => {
+    if (timePeriod === period) {
+      // Deselect if same button clicked again
+      setTimePeriod(null);
+      filterByTimePeriod(null);
+    } else {
+      setTimePeriod(period);
+      filterByTimePeriod(period);
+    }
+  };
+
+  // Calculate percentage change
+  const calculateChange = (current, previous) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  const countChangePercentage = calculateChange(
+    comparisonData.currentCount,
+    comparisonData.previousCount
+  );
+  const totalChangePercentage = calculateChange(
+    comparisonData.currentTotal,
+    comparisonData.previousTotal
+  );
 
   // Filter configuration for transactions
   const transactionFilterConfig = [
@@ -122,9 +325,155 @@ const Transactions = () => {
               Transaction Records
             </h1>
             <p className="text-gray-600">
-              View and manage all sales transactions
+              View Transaction Records and Comparison
             </p>
           </div>
+        </div>
+
+        {/* Time Period Filter Buttons */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-600" />
+              <span className="font-semibold text-gray-700">Time Period:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleTimePeriodClick("daily")}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "daily"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Daily Comparison
+              </button>
+              <button
+                onClick={() => handleTimePeriodClick("weekly")}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "weekly"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Weekly Comparison
+              </button>
+              <button
+                onClick={() => handleTimePeriodClick("monthly")}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "monthly"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Monthly Comparison
+              </button>
+            </div>
+          </div>
+
+          {/* Comparison Cards */}
+          {timePeriod && (
+            <div className="mt-6 space-y-4">
+              {/* Date Range Display */}
+              <div className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
+                <span>Comparison Periods:</span>
+                <div className="flex items-center gap-4">
+                  <span>
+                    Current:{" "}
+                    {formatDateRange(
+                      dateRange.currentStart,
+                      dateRange.currentEnd
+                    )}
+                  </span>
+                  <span>
+                    Previous:{" "}
+                    {formatDateRange(
+                      dateRange.previousStart,
+                      dateRange.previousEnd
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Transactions Count Comparison */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-700">
+                      Transactions
+                    </h3>
+                    <div
+                      className={`px-2 py-1 rounded text-sm font-medium ${
+                        countChangePercentage >= 0
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {countChangePercentage >= 0 ? "+" : ""}
+                      {countChangePercentage.toFixed(1)}%
+                    </div>
+                  </div>
+
+                  <div className="flex items-end justify-between">
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {comparisonData.currentCount}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Current {timePeriod}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-gray-700">
+                        {comparisonData.previousCount}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Previous {timePeriod}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Revenue Comparison */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-700">Revenue</h3>
+                    <div
+                      className={`px-2 py-1 rounded text-sm font-medium ${
+                        totalChangePercentage >= 0
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {totalChangePercentage >= 0 ? "+" : ""}
+                      {totalChangePercentage.toFixed(1)}%
+                    </div>
+                  </div>
+
+                  <div className="flex items-end justify-between">
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-gray-900">
+                        ₱{comparisonData.currentTotal.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Current {timePeriod}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-gray-700">
+                        ₱{comparisonData.previousTotal.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Previous {timePeriod}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Export Buttons */}
@@ -144,7 +493,7 @@ const Transactions = () => {
 
         {/* Search & Filter Section with Date Picker */}
         <SearchFilter
-          data={transactions}
+          data={timePeriod ? comparisonData.current : transactions}
           onFilteredDataChange={setFilteredTransactions}
           searchFields={[
             "cashier.firstName",
@@ -276,10 +625,14 @@ const Transactions = () => {
                               <Receipt className="w-8 h-8 text-gray-400" />
                             </div>
                             <p className="text-lg font-medium text-gray-900 mb-2">
-                              No transactions found
+                              {timePeriod === "daily" && loading
+                                ? "Loading transactions..."
+                                : "No transactions found"}
                             </p>
                             <p className="text-gray-600">
-                              Try adjusting your search or date filters
+                              {timePeriod
+                                ? `No transactions found for the current ${timePeriod} period`
+                                : "Try adjusting your search or date filters"}
                             </p>
                           </div>
                         </div>
