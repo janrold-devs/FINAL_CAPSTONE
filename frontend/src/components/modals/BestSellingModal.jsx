@@ -28,15 +28,27 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
     }
   };
 
-  // Generate a display name based on available data
+  // FIXED: Generate a display name based on available data
   const getProductDisplayName = (product) => {
     if (!product) return "Unknown Product";
 
-    // If we have a name, use it
-    if (product.name) return product.name;
-
-    // Otherwise use just the category
-    return product.category || "Product";
+    // Use the correct field name from your Product page - productName
+    if (product.productName && product.productName.trim() !== "") {
+      return product.productName;
+    }
+    
+    // If productName is not available, check for name as fallback
+    if (product.name && product.name.trim() !== "") {
+      return product.name;
+    }
+    
+    // Final fallback: create a descriptive name from category and size
+    if (product.category) {
+      const sizeSuffix = product.size ? ` ${product.size}oz` : '';
+      return `${product.category}${sizeSuffix}`;
+    }
+    
+    return "Unnamed Product";
   };
 
   return (

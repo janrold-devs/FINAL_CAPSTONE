@@ -280,6 +280,7 @@ export const generateSalesFromTransactions = async (req, res) => {
 };
 
 // GET best selling products
+// FIXED: GET best selling products
 export const getBestSellingProducts = async (req, res) => {
   try {
     const { period = "monthly", year, month } = req.query;
@@ -358,11 +359,11 @@ export const getBestSellingProducts = async (req, res) => {
       });
     });
 
-    // Convert to array and sort by total units sold
+    // FIXED: Convert to array and sort by total units sold - use productName instead of name
     const bestSellingProducts = Object.values(productSales)
       .map((item) => ({
         _id: item.product._id,
-        name: item.product.name,
+        productName: item.product.productName, // CHANGED FROM name TO productName
         category: item.product.category,
         size: item.product.size,
         price: item.product.price,
