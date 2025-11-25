@@ -107,14 +107,7 @@ const Product = () => {
         { value: "shiro", label: "Shiro"},
       ],
     },
-    {
-      key: "status",
-      label: "Status",
-      options: [
-        { value: "available", label: "Available" },
-        { value: "unavailable", label: "Unavailable" },
-      ],
-    },
+  
     {
       key: "size",
       label: "Size",
@@ -167,7 +160,6 @@ const Product = () => {
               { key: "price", label: "Price" },
               { key: "category", label: "Category" },
               { key: "ingredients.length", label: "Ingredients" },
-              { key: "status", label: "Status" },
             ]}
           />
         </div>
@@ -193,25 +185,25 @@ const Product = () => {
               <table className="min-w-full table-auto text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-28">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-28">
                       Image
                     </th>
-                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Product Name
                     </th>
-                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-40">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-40">
                       Category
                     </th>
-                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900">
-                      Ingredients
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Ingredients & Materials
                     </th>
-                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-28">
-                      Size
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
+                      Sizes
                     </th>
-                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-900 w-36">
-                      Price
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
+                      Prices
                     </th>
-                    <th className="px-8 py-4 text-center text-sm font-semibold text-gray-900 w-36">
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900 w-36">
                       Actions
                     </th>
                   </tr>
@@ -223,7 +215,7 @@ const Product = () => {
                         key={p._id}
                         className="hover:bg-gray-50 transition-colors duration-150"
                       >
-                        <td className="px-8 py-5 text-center align-top">
+                        <td className="px-6 py-5 text-center align-top">
                           {p.image ? (
                             <div className="relative w-20 h-20 mx-auto group cursor-pointer">
                               {/* MAIN IMAGE */}
@@ -275,17 +267,17 @@ const Product = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-8 py-5 text-sm font-medium text-gray-900 align-top">
-                          <div className="truncate max-w-[300px]">{p.productName}</div>
+                        <td className="px-6 py-5 text-sm font-medium text-gray-900 align-top">
+                          <div className="truncate max-w-[200px]">{p.productName}</div>
                         </td>
 
-                        <td className="px-8 py-5 text-sm text-gray-700 capitalize align-top">
+                        <td className="px-6 py-5 text-sm text-gray-700 capitalize align-top">
                           {p.category}
                         </td>
 
-                        <td className="px-8 py-5 align-top">
+                        <td className="px-6 py-5 align-top">
                           {p.ingredients && p.ingredients.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 max-w-[520px]">
+                            <div className="flex flex-wrap gap-2 max-w-[300px]">
                               {p.ingredients.map((i, idx) => (
                                 <span
                                   key={i._id || i.ingredient?._id || idx}
@@ -302,18 +294,49 @@ const Product = () => {
                           )}
                         </td>
 
-                        <td className="px-8 py-5 align-top">
-                          <div className="inline-flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                            {p.size}
-                            <span className="ml-1 text-xs text-indigo-600 font-medium">oz</span>
+                        {/* Sizes Column */}
+                        <td className="px-6 py-5 align-top">
+                          <div className="space-y-1">
+                            {/* For old single-size products */}
+                            {!p.sizes && p.size && (
+                              <div className="text-sm font-medium text-gray-900 text-center">
+                                {p.size} oz
+                              </div>
+                            )}
+                            {/* For new multi-size products */}
+                            {p.sizes && p.sizes.map((sizeObj, index) => (
+                              <div 
+                                key={index}
+                                className="text-sm font-medium text-gray-900 text-center"
+                              >
+                                {sizeObj.size} oz
+                              </div>
+                            ))}
                           </div>
                         </td>
 
-                        <td className="px-8 py-5 text-sm font-semibold text-gray-900 align-top">
-                          ₱{(p.price || 0).toFixed(2)}
+                        {/* Prices Column */}
+                        <td className="px-6 py-5 align-top">
+                          <div className="space-y-1">
+                            {/* For old single-price products */}
+                            {!p.sizes && p.price && (
+                              <div className="text-sm font-semibold text-gray-900 text-center">
+                                ₱{(p.price || 0).toFixed(2)}
+                              </div>
+                            )}
+                            {/* For new multi-price products */}
+                            {p.sizes && p.sizes.map((sizeObj, index) => (
+                              <div 
+                                key={index}
+                                className="text-sm font-semibold text-gray-900 text-center"
+                              >
+                                ₱{(sizeObj.price || 0).toFixed(2)}
+                              </div>
+                            ))}
+                          </div>
                         </td>
 
-                        <td className="px-8 py-5 text-center align-top">
+                        <td className="px-6 py-5 text-center align-top">
                           <div className="flex justify-center gap-3">
                             <button
                               onClick={() => {
@@ -341,7 +364,7 @@ const Product = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" className="px-8 py-12 text-center">
+                      <td colSpan="8" className="px-6 py-12 text-center">
                         <div className="text-gray-500">
                           {loading ? (
                             <div className="flex items-center justify-center gap-2">

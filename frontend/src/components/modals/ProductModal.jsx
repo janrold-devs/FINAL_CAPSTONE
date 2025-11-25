@@ -10,10 +10,15 @@ const ProductModal = ({
   const [form, setForm] = useState({
     image: "",
     productName: "",
-    size: 16, // default numeric size (e.g., 16 oz)
-    price: "",
     category: "Iced Latte",
     status: "available",
+    sizes: [
+      {
+        size: 16,
+        price: "",
+      },
+    ],
+    ingredientCategory: "",
     ingredients: [],
   });
 
@@ -23,30 +28,41 @@ const ProductModal = ({
   const dropdownRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // Get unique ingredient categories
+  const uniqueCategories = [
+    ...new Set(ingredientsList.map((i) => i.category || "Uncategorized")),
+  ];
+
   // Prefill when editing
   useEffect(() => {
     if (editingProduct) {
       setForm({
         image: editingProduct.image || "",
-        productName: editingProduct.productName || "",
-        // make sure we cast whatever comes from backend to Number if possible
-        size:
-          typeof editingProduct.size === "number"
-            ? editingProduct.size
-            : Number(editingProduct.size) || 16,
-        price: editingProduct.price || "",
-        category: editingProduct.category || "Iced Latte",
-        status: editingProduct.status || "available",
-        ingredients:
-          editingProduct.ingredients?.map((i) => ({
-            ingredient: i.ingredient?._id || i.ingredient || i._id,
-            name: i.ingredient?.name || i.name,
-            quantity: i.quantity || 0,
-          })) || [],
+        productName: editingProduct.productName,
+        category: editingProduct.category,
+        status: editingProduct.status,
+        sizes: editingProduct.sizes?.length > 0
+          ? editingProduct.sizes.map((s) => ({
+              size: Number(s.size),
+              price: Number(s.price),
+            }))
+          : [
+              {
+                size: Number(editingProduct.size),
+                price: Number(editingProduct.price),
+              },
+            ],
+        ingredients: editingProduct.ingredients?.map((i) => ({
+          ingredient: i.ingredient?._id || i.ingredient,
+          name: i.ingredient?.name || i.name,
+          quantity: i.quantity || 1,
+          category: i.ingredient?.category || "",
+        })) || [],
+        ingredientCategory: "",
       });
+
       const imageUrl = editingProduct.image
-        ? // adjust host if needed
-          editingProduct.image.startsWith("http")
+        ? editingProduct.image.startsWith("http")
           ? editingProduct.image
           : `${window.location.origin}${editingProduct.image}`
         : "";
@@ -55,10 +71,10 @@ const ProductModal = ({
       setForm({
         image: "",
         productName: "",
-        size: 16,
-        price: "",
         category: "Iced Latte",
         status: "available",
+        sizes: [{ size: 16, price: "" }],
+        ingredientCategory: "",
         ingredients: [],
       });
       setImagePreview("");
@@ -66,34 +82,31 @@ const ProductModal = ({
     }
   }, [editingProduct]);
 
-  // Close dropdown when clicking outside
+  // Close ingredient dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handleClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   // Handle image file selection
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith("image/")) {
-        alert("Please select an image file");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Image size should be less than 5MB");
-        return;
-      }
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result);
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    if (!file.type.startsWith("image/"))
+      return alert("Please select an image file");
+    if (file.size > 5 * 1024 * 1024)
+      return alert("Image must be less than 5MB");
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
   };
 
   // Remove selected image
@@ -104,11 +117,34 @@ const ProductModal = ({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Toggle ingredient selection
+  // SIZE MANAGEMENT
+  const addSize = () => {
+    setForm({
+      ...form,
+      sizes: [...form.sizes, { size: 16, price: "" }],
+    });
+  };
+
+  const removeSize = (index) => {
+    if (form.sizes.length === 1) return;
+    setForm({
+      ...form,
+      sizes: form.sizes.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateSize = (index, field, value) => {
+    const newSizes = [...form.sizes];
+    newSizes[index][field] = value;
+    setForm({ ...form, sizes: newSizes });
+  };
+
+  // INGREDIENT SELECTION (GLOBAL)
   const toggleIngredient = (ingredient) => {
     const exists = form.ingredients.find(
       (i) => i.ingredient === ingredient._id
     );
+
     if (exists) {
       setForm({
         ...form,
@@ -121,58 +157,54 @@ const ProductModal = ({
         ...form,
         ingredients: [
           ...form.ingredients,
-          { ingredient: ingredient._id, name: ingredient.name, quantity: 1 },
+          {
+            ingredient: ingredient._id,
+            name: ingredient.name,
+            quantity: 1,
+            category: ingredient.category,
+          },
         ],
       });
     }
   };
 
-  // Handle quantity change
-  const handleQuantityChange = (ingredientId, value) => {
+  const handleQuantityChange = (id, value) => {
     setForm({
       ...form,
       ingredients: form.ingredients.map((i) =>
-        i.ingredient === ingredientId ? { ...i, quantity: value } : i
+        i.ingredient === id ? { ...i, quantity: value } : i
       ),
     });
   };
 
-  // Submit form
-  const handleSubmit = async (e) => {
+  // SUBMIT
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!form.productName.trim()) {
-      alert("Product name is required");
-      return;
-    }
-    if (!form.price || Number(form.price) <= 0) {
-      alert("Valid price is required");
-      return;
+    if (!form.productName.trim())
+      return alert("Product name is required");
+
+    // Validate prices
+    for (const s of form.sizes) {
+      if (!s.price || Number(s.price) <= 0)
+        return alert("All sizes must have valid prices");
     }
 
     const formData = new FormData();
 
-    // image: either new file (imageFile) or keep existing image path (form.image)
-    if (imageFile) {
-      formData.append("image", imageFile);
-    } else if (form.image) {
-      formData.append("image", form.image);
-    }
+    if (imageFile) formData.append("image", imageFile);
+    else if (form.image) formData.append("image", form.image);
 
     formData.append("productName", form.productName);
-    // ensure numeric size gets sent; FormData will stringify, mongoose will cast
-    formData.append("size", Number(form.size));
-    formData.append("price", Number(form.price));
     formData.append("category", form.category);
     formData.append("status", form.status);
-
-    // ingredients as JSON string
+    formData.append("sizes", JSON.stringify(form.sizes));
     formData.append(
       "ingredients",
       JSON.stringify(
-        form.ingredients.map(({ ingredient, quantity }) => ({
-          ingredient,
-          quantity: Number(quantity),
+        form.ingredients.map((i) => ({
+          ingredient: i.ingredient,
+          quantity: Number(i.quantity),
         }))
       )
     );
@@ -183,31 +215,32 @@ const ProductModal = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-[1px]">
-      {/**todo: asterisk should be red */}
-      <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">
-          {editingProduct ? "Edit Product" : "Add Product"}
-        </h2>
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="border-b border-gray-200 p-6">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {editingProduct ? "Edit Product" : "Add Product"}
+          </h2>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Image Upload */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* IMAGE UPLOAD */}
           <div>
-            <label className="block font-semibold text-sm mb-1">
+            <label className="block font-medium text-gray-700 text-sm mb-2">
               Product Image
             </label>
-
             {imagePreview ? (
-              <div className="relative w-full h-48 border rounded-lg overflow-hidden">
+              <div className="relative h-48 w-full border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
                 <img
                   src={imagePreview}
-                  alt="Preview"
+                  alt="Product preview"
                   className="w-full h-full object-cover"
                 />
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center hover:bg-red-600 transition-colors"
                 >
                   ×
                 </button>
@@ -215,190 +248,274 @@ const ProductModal = ({
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-gray-50 transition"
+                className="h-48 w-full border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
               >
-                <svg
-                  className="w-12 h-12 text-gray-400 mb-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
+                <svg className="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <p className="text-sm text-gray-500">Click to upload image</p>
-                <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
+                <p className="text-gray-500 text-sm">Click to upload image</p>
+                <p className="text-gray-400 text-xs mt-1">PNG, JPG up to 5MB</p>
               </div>
             )}
-
             <input
               ref={fileInputRef}
               type="file"
+              className="hidden"
               accept="image/*"
               onChange={handleImageChange}
-              className="hidden"
             />
           </div>
 
+          {/* PRODUCT NAME */}
           <div>
-            <label className="block font-semibold text-sm mb-1">Category</label>
-            <select
-              className="w-full border px-3 py-2 rounded"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-            >
-              <option value="Iced Latte">Iced Latte</option>
-              <option value="Fruit Tea">Fruit Tea</option>
-              <option value="Amerikano">Amerikano</option>
-              <option value="Bubble Tea">Bubble Tea</option>
-              <option value="Non Caffeine">Non Caffeine</option>
-              <option value="Frappe">Frappe</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold text-sm mb-1">
+            <label className="block font-medium text-gray-700 text-sm mb-2">
               Product Name <span className="text-red-500">*</span>
             </label>
             <input
-              type="text"
-              placeholder="Product Name"
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={form.productName}
               onChange={(e) =>
                 setForm({ ...form, productName: e.target.value })
               }
+              placeholder="Enter product name"
               required
             />
           </div>
 
+          {/* CATEGORY */}
           <div>
-            <label className="block font-semibold text-sm mb-1">
-              Product Size (oz)
+            <label className="block font-medium text-gray-700 text-sm mb-2">
+              Product Category
             </label>
             <select
-              className="w-full border px-3 py-2 rounded"
-              value={form.size}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={form.category}
               onChange={(e) =>
-                setForm({ ...form, size: Number(e.target.value) })
+                setForm({ ...form, category: e.target.value })
               }
             >
-              <option value={16}>16</option>
-              <option value={32}>32</option>
+              <option>Iced Latte</option>
+              <option>Fruit Tea</option>
+              <option>Amerikano</option>
+              <option>Frappe</option>
+              <option>Choco Series</option>
+              <option>Bubble Tea</option>
+              <option>Hot Drinks</option>
+              <option>Non Caffeine</option>
             </select>
           </div>
 
-          <div>
-            <label className="block font-semibold text-sm mb-1">
-              Price <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              placeholder="Price"
-              className="w-full border px-3 py-2 rounded"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              min="0"
-              step="0.01"
-              required
-            />
-          </div>
-
-          {/* Status removed from UI per request (form.status is kept in state for compatibility) */}
-
-          {/* Ingredients dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <label className="block font-semibold text-sm mb-1">
-              Ingredients
-            </label>
-            <div
-              className="border rounded px-3 py-2 bg-white cursor-pointer"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-            >
-              {form.ingredients.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {form.ingredients.map((ing) => (
-                    <div
-                      key={ing.ingredient}
-                      className="flex items-center bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full gap-1"
-                    >
-                      <span>{ing.name}</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={ing.quantity}
-                        onChange={(e) =>
-                          handleQuantityChange(ing.ingredient, e.target.value)
-                        }
-                        className="w-12 text-xs border rounded px-1 py-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <button
-                        type="button"
-                        className="text-red-500 ml-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleIngredient({ _id: ing.ingredient });
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-gray-400 text-sm">
-                  Select ingredients
-                </span>
-              )}
+          {/* SIZES SECTION */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex justify-between items-center mb-4">
+              <label className="font-medium text-gray-700 text-sm">
+                Sizes & Prices <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={addSize}
+                className="bg-blue-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
+              >
+                <span>+</span>
+                <span>Add Size</span>
+              </button>
             </div>
 
-            {dropdownOpen && (
-              <div className="absolute mt-1 w-full border rounded-lg bg-white shadow-md max-h-40 overflow-y-auto z-10">
-                {ingredientsList.length > 0 ? (
-                  ingredientsList
-                    .filter(
-                      (ingredient) =>
-                        !form.ingredients.some(
-                          (i) => i.ingredient === ingredient._id
-                        )
-                    )
-                    .map((ingredient) => (
-                      <div
-                        key={ingredient._id}
-                        onClick={() => toggleIngredient(ingredient)}
-                        className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+            <div className="space-y-3">
+              {form.sizes.map((s, i) => (
+                <div
+                  key={i}
+                  className="bg-white border border-gray-200 rounded-lg p-4"
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium text-gray-700 text-sm">
+                      Size {i + 1}
+                    </h4>
+                    {form.sizes.length > 1 && (
+                      <button
+                        type="button"
+                        className="text-red-500 text-sm hover:text-red-700 transition-colors"
+                        onClick={() => removeSize(i)}
                       >
-                        {ingredient.name}
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Size (oz)
+                      </label>
+                      <select
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={s.size}
+                        onChange={(e) =>
+                          updateSize(i, "size", Number(e.target.value))
+                        }
+                      >
+                        <option value={8}>8 oz</option>
+                        <option value={12}>12 oz</option>
+                        <option value={16}>16 oz</option>
+                        <option value={20}>20 oz</option>
+                        <option value={24}>24 oz</option>
+                        <option value={32}>32 oz</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Price <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₱</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          value={s.price}
+                          onChange={(e) =>
+                            updateSize(i, "price", e.target.value)
+                          }
+                          placeholder="0.00"
+                          required
+                        />
                       </div>
-                    ))
-                ) : (
-                  <p className="p-2 text-gray-500 text-sm">
-                    No ingredients found
-                  </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* INGREDIENTS SECTION */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <label className="block font-medium text-gray-700 text-sm mb-2">
+              Ingredients & Materials <span className="text-red-500">*</span>
+            </label>
+
+            {/* CATEGORY FILTER */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-600 mb-2">
+                Filter by Category
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={form.ingredientCategory}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    ingredientCategory: e.target.value,
+                  })
+                }
+              >
+                <option value="">-- Select Category --</option>
+                {uniqueCategories.map((cat, idx) => (
+                  <option key={idx} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Ingredient Selection */}
+            {form.ingredientCategory ? (
+              <div className="relative" ref={dropdownRef}>
+                <label className="block text-xs text-gray-600 mb-2">
+                  Select Ingredients
+                </label>
+                <div
+                  className="border border-gray-300 rounded-lg px-4 py-3 bg-white cursor-pointer min-h-[44px] hover:border-gray-400 transition-colors"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                >
+                  {form.ingredients.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {form.ingredients.map((ing) => (
+                        <div
+                          key={ing.ingredient}
+                          className="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs gap-2 border border-blue-200"
+                        >
+                          <span className="font-medium">{ing.name}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-12 border border-blue-300 rounded px-2 py-1 text-xs bg-white"
+                            value={ing.quantity}
+                            onChange={(e) =>
+                              handleQuantityChange(
+                                ing.ingredient,
+                                e.target.value
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleIngredient({
+                                _id: ing.ingredient,
+                              });
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-sm">
+                      Click to select ingredients...
+                    </span>
+                  )}
+                </div>
+
+                {dropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 z-10">
+                    {ingredientsList
+                      .filter(
+                        (i) =>
+                          i.category === form.ingredientCategory &&
+                          !form.ingredients.some(
+                            (x) => x.ingredient === i._id
+                          )
+                      )
+                      .map((ingredient) => (
+                        <div
+                          key={ingredient._id}
+                          className="px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                          onClick={() => toggleIngredient(ingredient)}
+                        >
+                          {ingredient.name}
+                        </div>
+                      ))}
+                  </div>
                 )}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-500 text-sm">
+                  Please select a category to view ingredients
+                </p>
               </div>
             )}
           </div>
 
-          {/* Buttons */}
-          <div className="flex justify-end space-x-2 pt-2">
+          {/* BUTTONS */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+              className="px-6 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
             >
-              Save
+              {editingProduct ? "Update Product" : "Create Product"}
             </button>
           </div>
         </form>

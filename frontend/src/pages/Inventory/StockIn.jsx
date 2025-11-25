@@ -191,7 +191,7 @@ const StockIn = () => {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Batch Number</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Items</th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Items</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Stockman</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Date</th>
                   <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
@@ -213,10 +213,10 @@ const StockIn = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center align-top">
                         {item.ingredients && item.ingredients.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {item.ingredients.slice(0, 3).map((i, index) => (
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            {item.ingredients.map((i, index) => (
                               <span
                                 key={i._id || index}
                                 className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full border border-gray-200"
@@ -225,14 +225,9 @@ const StockIn = () => {
                                 {i.unit || ""})
                               </span>
                             ))}
-                            {item.ingredients.length > 3 && (
-                              <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full border border-gray-200">
-                                +{item.ingredients.length - 3} more
-                              </span>
-                            )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-sm italic">No ingredients</span>
+                          <span className="text-gray-400 text-sm italic block">No ingredients</span>
                         )}
                       </td>
                       <td className="px-6 py-4">

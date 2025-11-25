@@ -135,11 +135,11 @@ const Ingredient = () => {
       key: "unit",
       label: "Unit",
       options: [
-        { value: "kg", label: "Kilograms" },
-        { value: "g", label: "Grams" },
-        { value: "L", label: "Liters" },
-        { value: "ml", label: "Milliliters" },
-        { value: "pcs", label: "Pieces" },
+        { value: "kg", label: "kilograms" },
+        { value: "g", label: "grams" },
+        { value: "l", label: "liters" },
+        { value: "ml", label: "milliliters" },
+        { value: "pcs", label: "pieces" },
       ],
     },
     {

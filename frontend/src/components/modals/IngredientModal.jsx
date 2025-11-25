@@ -68,11 +68,11 @@ const IngredientModal = ({
             required
           >
             <option value="">Select Unit</option>
-            <option value="L">L (Liters)</option>
-            <option value="mL">mL (Milliliters)</option>
-            <option value="kg">kg (Kilograms)</option>
-            <option value="g">g (Grams)</option>
-            <option value="pcs">pcs (Pieces)</option>
+            <option value="L">l (liters)</option>
+            <option value="mL">ml (milliliters)</option>
+            <option value="kg">kg (kilograms)</option>
+            <option value="g">g (grams)</option>
+            <option value="pcs">pcs (pieces)</option>
           </select>
 
 
