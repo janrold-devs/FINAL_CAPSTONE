@@ -4,17 +4,15 @@ import { deleteOldImage } from "../middleware/upload.middleware.js";
 
 export const createProduct = async (req, res) => {
   try {
-    const { productName, size, price, category, status, ingredients } = req.body;
+    const { productName, sizes, category, status, ingredients } = req.body;
 
     // Parse ingredients if it's a string (from FormData)
-    const parsedIngredients = typeof ingredients === "string" 
-      ? JSON.parse(ingredients) 
-      : ingredients;
+     const parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
+    const parsedIngredients = typeof ingredients === 'string' ? JSON.parse(ingredients) : ingredients;
 
     const data = {
       productName,
-      size,
-      price: Number(price),
+      sizes: parsedSizes,
       category,
       status,
       ingredients: parsedIngredients,
@@ -65,7 +63,7 @@ export const getProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    const { productName, size, price, category, status, ingredients, image } = req.body;
+    const { productName, sizes, category, status, ingredients, image } = req.body;
 
     // Find existing product
     const existingProduct = await Product.findById(req.params.id);
@@ -76,15 +74,13 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Parse ingredients if it's a string
-    const parsedIngredients = typeof ingredients === "string" 
-      ? JSON.parse(ingredients) 
-      : ingredients;
+    /// Parse sizes and ingredients
+    const parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
+    const parsedIngredients = typeof ingredients === 'string' ? JSON.parse(ingredients) : ingredients;
 
     const data = {
       productName,
-      size,
-      price: Number(price),
+      sizes: parsedSizes,
       category,
       status,
       ingredients: parsedIngredients,

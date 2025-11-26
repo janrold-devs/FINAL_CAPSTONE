@@ -6,7 +6,14 @@ const ingredientSchema = new mongoose.Schema({
   unit:       { type: String, required: true }, // grams, ml, pcs
   alert:      { type: Number, default: 10 }, // alert level
   expiration: { type: Date },
-  remarks:    { type: String }
+
+  // NEW FIELD
+  category: {
+    type: String,
+    enum: ["Liquid Ingredient", "Solid Ingredient", "Material"],
+    required: true
+  }
+
 }, { timestamps: true });
 
 export default mongoose.model("Ingredient", ingredientSchema);

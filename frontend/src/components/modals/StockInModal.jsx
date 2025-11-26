@@ -10,14 +10,25 @@ const StockInModal = ({
   viewMode = false,
   stockInData = null,
 }) => {
+  // Form state
   const [form, setForm] = useState({
-    stockman: "",
+    stockman: JSON.parse(localStorage.getItem("user"))?._id || "",
     ingredients: [],
   });
+
+  // Dropdown for ingredient selection
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Initialize form for view mode
+  // New category selector for filtering
+  const [selectedCategory, setSelectedCategory] = useState("");
+
+  // Filter ingredients based on selected category
+  const filteredIngredients = selectedCategory
+    ? ingredientsList.filter((i) => i.category === selectedCategory)
+    : [];
+
+  // Load view-mode details
   useEffect(() => {
     if (viewMode && stockInData) {
       setForm({
@@ -42,14 +53,16 @@ const StockInModal = ({
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Toggle ingredient selection
+  // Toggle ingredient inside dropdown
   const toggleIngredient = (ingredient) => {
-    const exists = form.ingredients.find(
+    const exists = form.ingredients.some(
       (i) => i.ingredient === ingredient._id
     );
+
     if (exists) {
       setForm({
         ...form,
@@ -93,7 +106,7 @@ const StockInModal = ({
     });
   };
 
-  // Submit
+  // Submit handler
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({
@@ -108,12 +121,10 @@ const StockInModal = ({
 
   if (!show) return null;
 
-  // VIEW MODE RENDER
+  // VIEW MODE UI
   if (viewMode && stockInData) {
     return (
       <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 backdrop-blur-[1px]">
-        {/**todo: the stockman must automatically who is the user logged in*/}
-        {/**todo: add a add button for better experience*/}
         <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Stock-In Details</h2>
@@ -126,7 +137,6 @@ const StockInModal = ({
           </div>
 
           <div className="space-y-4">
-            {/* Batch Number */}
             <div className="border-b pb-3">
               <label className="block text-sm font-semibold text-gray-600 mb-1">
                 Batch Number
@@ -134,7 +144,6 @@ const StockInModal = ({
               <p className="text-lg font-medium">{stockInData.batchNumber}</p>
             </div>
 
-            {/* Stockman */}
             <div className="border-b pb-3">
               <label className="block text-sm font-semibold text-gray-600 mb-1">
                 Stockman
@@ -146,7 +155,6 @@ const StockInModal = ({
               </p>
             </div>
 
-            {/* Date */}
             <div className="border-b pb-3">
               <label className="block text-sm font-semibold text-gray-600 mb-1">
                 Date & Time
@@ -156,45 +164,21 @@ const StockInModal = ({
               </p>
             </div>
 
-            {/* Ingredients */}
             <div>
               <label className="block text-sm font-semibold text-gray-600 mb-2">
-                Ingredients
+                Items
               </label>
-              {stockInData.ingredients && stockInData.ingredients.length > 0 ? (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Ingredient</th>
-                        <th className="text-right py-2">Quantity</th>
-                        <th className="text-right py-2">Unit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stockInData.ingredients.map((item, index) => (
-                        <tr key={index} className="border-b last:border-b-0">
-                          <td className="py-2">
-                            {item.ingredient?.name || "Unknown"}
-                          </td>
-                          <td className="text-right py-2 font-medium">
-                            {item.quantity}
-                          </td>
-                          <td className="text-right py-2 text-gray-600">
-                            {item.unit}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {form.ingredients.map((item) => (
+                <div key={item.ingredient} className="border p-2 rounded mb-2">
+                  <p className="font-medium">{item.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {item.quantity} {item.unit}
+                  </p>
                 </div>
-              ) : (
-                <p className="text-gray-500 italic">No ingredients</p>
-              )}
+              ))}
             </div>
           </div>
 
-          {/* Close Button */}
           <div className="flex justify-end mt-6">
             <button
               onClick={onClose}
@@ -208,7 +192,7 @@ const StockInModal = ({
     );
   }
 
-  // CREATE MODE RENDER
+  // CREATE MODE UI
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 backdrop-blur-[1px]">
       <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md relative">
@@ -221,10 +205,9 @@ const StockInModal = ({
 
           <label className="block font-semibold text-sm mb-1">Stockman</label>
           <select
-            className="w-full border px-3 py-2 rounded"
+            className="w-full border px-3 py-2 rounded bg-gray-100"
             value={form.stockman}
-            onChange={(e) => setForm({ ...form, stockman: e.target.value })}
-            required
+            disabled
           >
             <option value="">Select Stockman</option>
             {usersList.map((user) => (
@@ -234,89 +217,106 @@ const StockInModal = ({
             ))}
           </select>
 
-          {/* Ingredients dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <label className="block font-semibold text-sm mb-1">
-              Ingredients
-            </label>
-            <div
-              className="border rounded px-3 py-2 bg-white cursor-pointer"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-            >
-              {form.ingredients.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {form.ingredients.map((ing) => (
-                    <div
-                      key={ing.ingredient}
-                      className="flex items-center bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full gap-1"
-                    >
-                      <span>{ing.name}</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={ing.quantity}
-                        onChange={(e) =>
-                          handleQuantityChange(ing.ingredient, e.target.value)
-                        }
-                        className="w-12 text-xs border rounded px-1 py-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <select
-                        value={ing.unit}
-                        onChange={(e) =>
-                          handleUnitChange(ing.ingredient, e.target.value)
-                        }
-                        className="text-xs border rounded px-1 py-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <option value="ml">ml</option>
-                        <option value="L">L</option>
-                        <option value="g">g</option>
-                        <option value="kg">kg</option>
-                        <option value="pcs">pcs</option>
-                      </select>
-                      <button
-                        type="button"
-                        className="text-red-500 ml-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleIngredient({ _id: ing.ingredient });
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-gray-400 text-sm">
-                  Select ingredients
-                </span>
-              )}
-            </div>
+          {/* Category Selector */}
+          <label className="block font-semibold text-sm mt-2">Category</label>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full border px-3 py-2 rounded"
+          >
+            <option value="">Select Category</option>
+            <option value="Solid Ingredient">Solid Ingredient</option>
+            <option value="Liquid Ingredient">Liquid Ingredient</option>
+            <option value="Material">Material</option>
+          </select>
 
-            {dropdownOpen && (
-              <div className="absolute mt-1 w-full border rounded-lg bg-white shadow-md max-h-40 overflow-y-auto z-10">
-                {ingredientsList.length > 0 ? (
-                  ingredientsList.map((ingredient) => (
-                    <div
-                      key={ingredient._id}
-                      onClick={() => toggleIngredient(ingredient)}
-                      className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
-                    >
-                      {ingredient.name}
-                    </div>
-                  ))
+          {/* Ingredient Selector (Filtered) */}
+          {selectedCategory && (
+            <div className="relative mt-2" ref={dropdownRef}>
+              <div
+                className="border rounded px-3 py-2 bg-white cursor-pointer"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+              >
+                {form.ingredients.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {form.ingredients.map((ing) => (
+                      <div
+                        key={ing.ingredient}
+                        className="flex items-center bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full gap-1"
+                      >
+                        <span>{ing.name}</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={ing.quantity}
+                          onChange={(e) =>
+                            handleQuantityChange(
+                              ing.ingredient,
+                              e.target.value
+                            )
+                          }
+                          className="w-12 text-xs border rounded px-1 py-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <select
+                          value={ing.unit}
+                          onChange={(e) =>
+                            handleUnitChange(
+                              ing.ingredient,
+                              e.target.value
+                            )
+                          }
+                          className="text-xs border rounded px-1 py-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value="ml">ml</option>
+                          <option value="L">L</option>
+                          <option value="g">g</option>
+                          <option value="kg">kg</option>
+                          <option value="pcs">pcs</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="text-red-500 ml-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleIngredient({ _id: ing.ingredient });
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <p className="p-2 text-gray-500 text-sm">
-                    No ingredients found
-                  </p>
+                  <span className="text-gray-400 text-sm">
+                    Select ingredients
+                  </span>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Buttons */}
+              {dropdownOpen && (
+                <div className="absolute mt-1 w-full border rounded-lg bg-white shadow-md max-h-40 overflow-y-auto z-10">
+                  {filteredIngredients.length > 0 ? (
+                    filteredIngredients.map((ingredient) => (
+                      <div
+                        key={ingredient._id}
+                        onClick={() => toggleIngredient(ingredient)}
+                        className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                      >
+                        {ingredient.name}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="p-2 text-gray-500 text-sm">
+                      No ingredients found
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end space-x-2 pt-2">
             <button
               type="button"
