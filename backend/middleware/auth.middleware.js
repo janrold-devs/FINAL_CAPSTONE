@@ -1,4 +1,3 @@
-// backend/middleware/auth.middleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
@@ -13,7 +12,9 @@ const auth = async (req, res, next) => {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
 
     // Fetch the complete user data from database
-    const user = await User.findById(verified.id).select("_id isActive name email role"); // Add _id here
+    const user = await User.findById(verified.id).select(
+      "_id isActive name email role"
+    ); // Add _id here
     if (!user) {
       return res.status(401).json({ message: "User not found." });
     }
