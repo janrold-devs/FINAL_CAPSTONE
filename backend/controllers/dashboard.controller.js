@@ -1,6 +1,5 @@
 // backend/controllers/dashboard.controller.js
 import Transaction from "../models/Transaction.js";
-import Sales from "../models/Sales.js";
 import StockIn from "../models/StockIn.js";
 import Spoilage from "../models/Spoilage.js";
 import Product from "../models/Product.js";
@@ -8,145 +7,223 @@ import Product from "../models/Product.js";
 export const getDashboardStats = async (req, res) => {
   try {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+
+    // DAILY - Use local time (since transactions are likely stored in local time)
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    // WEEKLY & MONTHLY - Use local time for consistency
+    // WEEK (Monday → Sunday)
+    const day = now.getDay(); // 0=Sunday, 1=Monday, etc.
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() + mondayOffset);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // MONTH
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
-    // --- UNIVERSAL HELPERS ---
+    console.log("=== DATE RANGES ===");
+    console.log(
+      "Today:",
+      startOfToday.toISOString(),
+      "to",
+      endOfToday.toISOString()
+    );
+    console.log(
+      "Week:",
+      startOfWeek.toISOString(),
+      "to",
+      endOfWeek.toISOString()
+    );
+    console.log(
+      "Month:",
+      startOfMonth.toISOString(),
+      "to",
+      endOfMonth.toISOString()
+    );
 
-    const countDocuments = async (Model, field, start, end = new Date()) =>
-      await Model.countDocuments({ [field]: { $gte: start, $lte: end } });
+    // COUNT HELPERS
+    const countTransactions = async (start, end) => {
+      const count = await Transaction.countDocuments({
+        transactionDate: { $gte: start, $lte: end },
+      });
+      console.log(`Transactions in range: ${count}`);
+      return count;
+    };
 
-    const sumSales = async (start, end = new Date()) => {
-      const result = await Sales.aggregate([
+    const sumSales = async (start, end) => {
+      const result = await Transaction.aggregate([
         { $match: { transactionDate: { $gte: start, $lte: end } } },
-        { $group: { _id: null, total: { $sum: "$totalSales" } } },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ]);
-      return result.length ? result[0].total : 0;
+      return result?.[0]?.total || 0;
     };
 
-    const countSpoilageItems = async (start, end = new Date()) => {
-      const data = await Spoilage.aggregate([
-        { $match: { createdAt: { $gte: start, $lte: end } } },
-        { $unwind: "$ingredients" },
-        { $group: { _id: null, total: { $sum: 1 } } },
-      ]);
-      return data.length ? data[0].total : 0;
-    };
+    const countStockIns = async (start, end) =>
+      await StockIn.countDocuments({ date: { $gte: start, $lte: end } });
 
-    // --- DAILY / WEEKLY / MONTHLY METRICS ---
+    const countSpoilage = async (start, end) =>
+      await Spoilage.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
+    // --- REAL COUNTS ---
     const [
+      // DAILY
       dailyTransactions,
-      weeklyTransactions,
-      monthlyTransactions,
-
-      dailyStockIns,
-      weeklyStockIns,
-      monthlyStockIns,
-
-      dailySpoilage,
-      weeklySpoilage,
-      monthlySpoilage,
-
       dailySalesAmount,
+      dailyStockIns,
+      dailySpoilage,
+
+      // WEEKLY
+      weeklyTransactions,
       weeklySalesAmount,
+      weeklyStockIns,
+      weeklySpoilage,
+
+      // MONTHLY
+      monthlyTransactions,
       monthlySalesAmount,
+      monthlyStockIns,
+      monthlySpoilage,
     ] = await Promise.all([
-      // TRANSACTIONS
-      countDocuments(Transaction, "transactionDate", today),
-      countDocuments(Transaction, "transactionDate", startOfWeek),
-      countDocuments(Transaction, "transactionDate", startOfMonth),
+      // DAILY
+      countTransactions(startOfToday, endOfToday),
+      sumSales(startOfToday, endOfToday),
+      countStockIns(startOfToday, endOfToday),
+      countSpoilage(startOfToday, endOfToday),
 
-      // STOCK INS
-      countDocuments(StockIn, "date", today),
-      countDocuments(StockIn, "date", startOfWeek),
-      countDocuments(StockIn, "date", startOfMonth),
+      // WEEKLY
+      countTransactions(startOfWeek, endOfWeek),
+      sumSales(startOfWeek, endOfWeek),
+      countStockIns(startOfWeek, endOfWeek),
+      countSpoilage(startOfWeek, endOfWeek),
 
-      // SPOILAGE
-      countSpoilageItems(today),
-      countSpoilageItems(startOfWeek),
-      countSpoilageItems(startOfMonth),
-
-      // SALES
-      sumSales(today),
-      sumSales(startOfWeek),
-      sumSales(startOfMonth),
+      // MONTHLY
+      countTransactions(startOfMonth, endOfMonth),
+      sumSales(startOfMonth, endOfMonth),
+      countStockIns(startOfMonth, endOfMonth),
+      countSpoilage(startOfMonth, endOfMonth),
     ]);
 
-    // --- SALES GRAPH - IMPROVED WITH HISTORICAL DATA ---
+    console.log("=== REAL RESULTS ===");
+    console.log("Daily Transactions:", dailyTransactions);
+    console.log("Daily Sales:", dailySalesAmount);
+    console.log("Weekly Transactions:", weeklyTransactions);
+    console.log("Weekly Sales:", weeklySalesAmount);
+    console.log("Monthly Transactions:", monthlyTransactions);
+    console.log("Monthly Sales:", monthlySalesAmount);
 
-    // Daily Sales for current month (keep your existing logic)
-    const dailySales = await Sales.aggregate([
-      { $match: { transactionDate: { $gte: startOfMonth, $lte: new Date() } } },
+    // --- SALES GRAPH DATA - MUST MATCH STAT CARD CALCULATIONS ---
+
+    // Daily Sales for current month - use same date range as monthly stat card
+    const dailySalesData = await Transaction.aggregate([
+      {
+        $match: {
+          transactionDate: { $gte: startOfMonth, $lte: endOfMonth },
+        },
+      },
       {
         $project: {
-          totalSales: 1,
+          totalAmount: 1,
           day: { $dayOfMonth: "$transactionDate" },
-          month: { $month: "$transactionDate" },
         },
       },
       {
         $group: {
           _id: "$day",
-          amount: { $sum: "$totalSales" },
+          amount: { $sum: "$totalAmount" },
         },
       },
       { $sort: { _id: 1 } },
     ]);
 
-    const formattedDailySales = dailySales.map((item) => ({
+    const formattedDailySales = dailySalesData.map((item) => ({
       day: item._id,
       amount: item.amount,
     }));
 
-    // Weekly Sales - Last 8 weeks
-    const weeklySales = await Sales.aggregate([
+    // Weekly Sales - use same date range as weekly stat card (current week)
+    const weeklySalesData = await Transaction.aggregate([
       {
         $match: {
-          transactionDate: {
-            $gte: new Date(now.getTime() - 8 * 7 * 24 * 60 * 60 * 1000), // 8 weeks ago
-            $lte: new Date(),
-          },
+          transactionDate: { $gte: startOfWeek, $lte: endOfWeek },
         },
       },
       {
         $project: {
-          totalSales: 1,
-          year: { $year: "$transactionDate" },
-          week: { $week: "$transactionDate" },
+          totalAmount: 1,
+          // Group by day of week for current week
+          dayOfWeek: { $dayOfWeek: "$transactionDate" },
         },
       },
       {
         $group: {
-          _id: { year: "$year", week: "$week" },
-          amount: { $sum: "$totalSales" },
+          _id: "$dayOfWeek",
+          amount: { $sum: "$totalAmount" },
         },
       },
-      { $sort: { "_id.year": 1, "_id.week": 1 } },
-      { $limit: 8 }, // Last 8 weeks
+      { $sort: { _id: 1 } },
     ]);
 
-    const formattedWeeklySales = weeklySales.map((item, index) => ({
-      week: `Week ${item._id.week}`,
+    // Convert day numbers to day names for current week
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const formattedWeeklySales = weeklySalesData.map((item) => ({
+      week: dayNames[item._id - 1] || `Day ${item._id}`,
       amount: item.amount,
     }));
 
-    // Monthly Sales - Last 6 months
-    const monthlySales = await Sales.aggregate([
+    // If no weekly data, create empty array with current week days
+    if (formattedWeeklySales.length === 0) {
+      const currentDate = new Date(startOfWeek);
+      for (let i = 0; i < 7; i++) {
+        formattedWeeklySales.push({
+          week: dayNames[currentDate.getDay()],
+          amount: 0,
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    // Monthly Sales - last 6 months (this should match your expected monthly totals)
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+    const monthlySalesData = await Transaction.aggregate([
       {
         $match: {
-          transactionDate: {
-            $gte: new Date(now.getFullYear(), now.getMonth() - 6, 1), // 6 months ago
-            $lte: new Date(),
-          },
+          transactionDate: { $gte: sixMonthsAgo, $lte: new Date() },
         },
       },
       {
         $project: {
-          totalSales: 1,
+          totalAmount: 1,
           year: { $year: "$transactionDate" },
           month: { $month: "$transactionDate" },
         },
@@ -154,7 +231,7 @@ export const getDashboardStats = async (req, res) => {
       {
         $group: {
           _id: { year: "$year", month: "$month" },
-          amount: { $sum: "$totalSales" },
+          amount: { $sum: "$totalAmount" },
         },
       },
       { $sort: { "_id.year": 1, "_id.month": 1 } },
@@ -175,17 +252,16 @@ export const getDashboardStats = async (req, res) => {
       "Dec",
     ];
 
-    const formattedMonthlySales = monthlySales.map((item) => ({
+    const formattedMonthlySales = monthlySalesData.map((item) => ({
       month: `${monthNames[item._id.month - 1]} ${item._id.year}`,
       amount: item.amount,
     }));
 
-    // --- BEST SELLING PRODUCTS (YOUR ORIGINAL LOGIC KEPT) ---
-
+    // --- BEST SELLING PRODUCTS ---
     const bestSellingByCategory = await Transaction.aggregate([
       {
         $match: {
-          transactionDate: { $gte: startOfMonth, $lte: new Date() },
+          transactionDate: { $gte: startOfMonth, $lte: endOfMonth },
         },
       },
       { $unwind: "$itemsSold" },
@@ -248,40 +324,36 @@ export const getDashboardStats = async (req, res) => {
       } else if (cat.includes("caffeine") || cat.includes("non")) {
         categories.nonCaffeine.push(item);
       } else {
-        console.log(
-          "Uncategorized product:",
-          item.name,
-          "Category:",
-          item.category
-        );
         categories.fruitTea.push(item);
       }
     });
 
-    // --- FINAL RESPONSE ---
-
+    // --- FINAL RESPONSE WITH REAL NUMBERS ---
     res.json({
       stats: {
-        transactions: { count: dailyTransactions },
-        sales: { amount: dailySalesAmount },
-        stockIns: { count: dailyStockIns },
-        spoilage: { count: dailySpoilage },
+        transactions: {
+          daily: dailyTransactions,
+          weekly: weeklyTransactions,
+          monthly: monthlyTransactions,
+        },
+        sales: {
+          daily: dailySalesAmount,
+          weekly: weeklySalesAmount,
+          monthly: monthlySalesAmount,
+        },
+        stockIns: {
+          daily: dailyStockIns,
+          weekly: weeklyStockIns,
+          monthly: monthlyStockIns,
+        },
+        spoilage: {
+          daily: dailySpoilage,
+          weekly: weeklySpoilage,
+          monthly: monthlySpoilage,
+        },
       },
 
-      // Daily / Weekly / Monthly arrays (frontend uses .length)
-      dailyTransactions: Array(dailyTransactions).fill({}),
-      weeklyTransactions: Array(weeklyTransactions).fill({}),
-      monthlyTransactions: Array(monthlyTransactions).fill({}),
-
-      dailyStockIns: Array(dailyStockIns).fill({}),
-      weeklyStockIns: Array(weeklyStockIns).fill({}),
-      monthlyStockIns: Array(monthlyStockIns).fill({}),
-
-      dailySpoilage: Array(dailySpoilage).fill({}),
-      weeklySpoilage: Array(weeklySpoilage).fill({}),
-      monthlySpoilage: Array(monthlySpoilage).fill({}),
-
-      // Updated sales data with historical information
+      // Chart data - now aligned with stat card calculations
       dailySales: formattedDailySales,
       weeklySales: formattedWeeklySales,
       monthlySales: formattedMonthlySales,

@@ -87,24 +87,7 @@ const Home = () => {
   };
 
   // Simplified StatCard with navigation
-  const StatCard = ({
-    icon: Icon,
-    title,
-    value,
-    change,
-    color,
-    isNegative,
-    navigateTo,
-    periodLabel,
-  }) => {
-    const changeColor = isNegative
-      ? change?.includes("+") || change?.includes("-")
-        ? "text-red-600"
-        : "text-green-600"
-      : change?.includes("-")
-      ? "text-red-600"
-      : "text-green-600";
-
+  const StatCard = ({ icon: Icon, title, value, color, navigateTo }) => {
     return (
       <div
         className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group"
@@ -115,9 +98,6 @@ const Home = () => {
             <Icon className="w-6 h-6 text-white" />
           </div>
           <div className="flex items-center gap-2">
-            <span className={`text-sm font-medium ${changeColor}`}>
-              {change} {periodLabel}
-            </span>
             <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
           </div>
         </div>
@@ -182,7 +162,7 @@ const Home = () => {
       case "daily":
         return `Day ${value}`;
       case "weekly":
-        return value; // Already formatted as "W45"
+        return value; // Already formatted as "Week 45"
       case "monthly":
         return value; // Already formatted as "Oct 2025"
       default:
@@ -192,67 +172,61 @@ const Home = () => {
 
   const chartData = getChartData();
 
-  // Simplified period-aware stat values - using backend pre-calculated data
+  // Simplified period-aware stat values
+  // In Home.jsx - Replace the period calculation functions:
+
+  // FIXED: Use real numbers from backend, not fake arrays
   const getPeriodTransactions = () => {
     switch (activeTab) {
       case "daily":
-        return dashboardData.stats.transactions.count;
+        return dashboardData.stats.transactions.daily || 0;
       case "weekly":
-        return dashboardData.weeklyTransactions.length;
+        return dashboardData.stats.transactions.weekly || 0;
       case "monthly":
-        return dashboardData.monthlyTransactions.length;
+        return dashboardData.stats.transactions.monthly || 0;
       default:
-        return dashboardData.stats.transactions.count;
+        return dashboardData.stats.transactions.daily || 0;
     }
   };
 
   const getPeriodSales = () => {
     switch (activeTab) {
       case "daily":
-        return dashboardData.stats.sales.amount;
+        return dashboardData.stats.sales.daily || 0;
       case "weekly":
-        // Sum all weekly sales for the current period
-        return dashboardData.weeklySales.reduce(
-          (sum, week) => sum + (week.amount || 0),
-          0
-        );
+        return dashboardData.stats.sales.weekly || 0;
       case "monthly":
-        // Sum all monthly sales for the current period
-        return dashboardData.monthlySales.reduce(
-          (sum, month) => sum + (month.amount || 0),
-          0
-        );
+        return dashboardData.stats.sales.monthly || 0;
       default:
-        return dashboardData.stats.sales.amount;
+        return dashboardData.stats.sales.daily || 0;
     }
   };
 
   const getPeriodStockIns = () => {
     switch (activeTab) {
       case "daily":
-        return dashboardData.stats.stockIns.count;
+        return dashboardData.stats.stockIns.daily || 0;
       case "weekly":
-        return dashboardData.weeklyStockIns.length;
+        return dashboardData.stats.stockIns.weekly || 0;
       case "monthly":
-        return dashboardData.monthlyStockIns.length;
+        return dashboardData.stats.stockIns.monthly || 0;
       default:
-        return dashboardData.stats.stockIns.count;
+        return dashboardData.stats.stockIns.daily || 0;
     }
   };
 
   const getPeriodSpoilage = () => {
     switch (activeTab) {
       case "daily":
-        return dashboardData.stats.spoilage.count;
+        return dashboardData.stats.spoilage.daily || 0;
       case "weekly":
-        return dashboardData.weeklySpoilage.length;
+        return dashboardData.stats.spoilage.weekly || 0;
       case "monthly":
-        return dashboardData.monthlySpoilage.length;
+        return dashboardData.stats.spoilage.monthly || 0;
       default:
-        return dashboardData.stats.spoilage.count;
+        return dashboardData.stats.spoilage.daily || 0;
     }
   };
-
   // Helper to get period label for change text
   const getPeriodLabel = () => {
     switch (activeTab) {
@@ -265,28 +239,6 @@ const Home = () => {
       default:
         return "today";
     }
-  };
-
-  // Since backend doesn't provide change percentages, we'll show static or calculated changes
-  // For now, using placeholder changes - you can implement real change calculation if needed
-  const getPeriodTransactionChange = () => {
-    // Placeholder - implement real change calculation based on historical data if needed
-    return "+0%";
-  };
-
-  const getPeriodSalesChange = () => {
-    // Placeholder - implement real change calculation based on historical data if needed
-    return "+0%";
-  };
-
-  const getPeriodStockInChange = () => {
-    // Placeholder - implement real change calculation based on historical data if needed
-    return "+0%";
-  };
-
-  const getPeriodSpoilageChange = () => {
-    // Placeholder - implement real change calculation based on historical data if needed
-    return "+0%";
   };
 
   // Category and color configuration - matches backend categories
@@ -447,7 +399,7 @@ const Home = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6"> {/**Im the author */}
+      <div className="p-6">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             <p className="font-medium">Error loading dashboard</p>
@@ -470,9 +422,7 @@ const Home = () => {
               getPeriodLabel().slice(1)
             }'s Transactions`}
             value={getPeriodTransactions()}
-            change={getPeriodTransactionChange()}
             color="bg-blue-500"
-            periodLabel={getPeriodLabel()}
             navigateTo="/reports/transactions"
           />
           <StatCard
@@ -482,28 +432,21 @@ const Home = () => {
               getPeriodLabel().slice(1)
             }'s Sales`}
             value={formatCurrency(getPeriodSales())}
-            change={getPeriodSalesChange()}
             color="bg-green-500"
-            periodLabel={getPeriodLabel()}
             navigateTo="/reports/sales"
           />
           <StatCard
             icon={Package}
             title={`Stock In ${getPeriodLabel()}`}
             value={getPeriodStockIns()}
-            change={getPeriodStockInChange()}
             color="bg-purple-500"
-            periodLabel={getPeriodLabel()}
             navigateTo="/inventory/stock-in"
           />
           <StatCard
             icon={AlertTriangle}
             title={`Spoiled ${getPeriodLabel()}`}
             value={getPeriodSpoilage()}
-            change={getPeriodSpoilageChange()}
             color="bg-red-500"
-            isNegative={true}
-            periodLabel={getPeriodLabel()}
             navigateTo="/inventory/spoilages"
           />
         </div>
