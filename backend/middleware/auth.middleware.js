@@ -1,4 +1,4 @@
-// backend/controllers/auth.middleware.js
+// backend/middleware/auth.middleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
@@ -12,8 +12,8 @@ const auth = async (req, res, next) => {
   try {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch the latest user data from database to check isActive status
-    const user = await User.findById(verified.id).select("isActive");
+    // Fetch the complete user data from database
+    const user = await User.findById(verified.id).select("_id isActive name email role"); // Add _id here
     if (!user) {
       return res.status(401).json({ message: "User not found." });
     }
@@ -25,7 +25,7 @@ const auth = async (req, res, next) => {
       });
     }
 
-    req.user = verified; // attach decoded user data (id, role, email)
+    req.user = user; // attach the complete user document with _id
     next();
   } catch (err) {
     res.status(400).json({ message: "Invalid Token" });

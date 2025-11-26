@@ -1,9 +1,19 @@
-// backend/controllers/notification.controller.js
-import { generateNotifications } from "../utils/notificationUtils.js";
+import Notification from "../models/Notification.js";
+import Ingredient from "../models/Ingredient.js";
 
+// Get notifications for current user
 export const getNotifications = async (req, res) => {
   try {
-    const notifications = await generateNotifications();
+    const userId = req.user._id;
+    
+    const notifications = await Notification.find({
+      user: userId,
+      isCleared: false
+    })
+    .populate("ingredientId", "name unit quantity expiration alertLevel")
+    .sort({ createdAt: -1 })
+    .limit(100);
+
     res.json(notifications);
   } catch (err) {
     console.error("Error fetching notifications:", err);
@@ -11,19 +21,208 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// Add this endpoint to manually trigger notifications (for testing)
-export const triggerNotifications = async (req, res) => {
+// Clear notification (soft delete)
+export const clearNotification = async (req, res) => {
   try {
-    const io = req.app.get("io");
-    const notifications = await generateNotifications();
-    
-    if (io) {
-      io.emit("notifications_update", notifications);
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const notification = await Notification.findOneAndUpdate(
+      { _id: id, user: userId },
+      { isCleared: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
     }
-    
-    res.json({ message: "Notifications triggered successfully", notifications });
+
+    res.json({ message: "Notification cleared successfully" });
   } catch (err) {
-    console.error("Error triggering notifications:", err);
+    console.error("Error clearing notification:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Clear all notifications for user
+export const clearAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    await Notification.updateMany(
+      { user: userId, isCleared: false },
+      { isCleared: true }
+    );
+
+    res.json({ message: "All notifications cleared successfully" });
+  } catch (err) {
+    console.error("Error clearing all notifications:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Generate and save notifications based on ingredient conditions
+export const generateAndSaveNotifications = async (userId) => {
+  try {
+    const today = new Date();
+    const expiringSoonThreshold = 3; // days
+
+    const ingredients = await Ingredient.find({ 
+      status: { $ne: "inactive" },
+      user: userId 
+    });
+    
+    const notifications = [];
+
+    for (const ing of ingredients) {
+      const threshold = Number(ing.alertLevel) || Number(ing.alert) || 10;
+
+      // Check if notification already exists for this condition
+      const existingNotification = await Notification.findOne({
+        user: userId,
+        ingredientId: ing._id,
+        type: { $in: ['low_stock', 'out_of_stock', 'expiring', 'expired'] },
+        isCleared: false
+      });
+
+      // Low stock check
+      if (Number(ing.quantity) <= threshold && Number(ing.quantity) > 0) {
+        if (!existingNotification || existingNotification.type !== 'low_stock') {
+          const notification = await Notification.create({
+            user: userId,
+            type: "low_stock",
+            priority: Number(ing.quantity) <= 5 ? "high" : "medium",
+            title: "Low Stock Alert",
+            message: `${ing.name} is running low (${ing.quantity} ${ing.unit || 'units'} left). Alert level: ${threshold}`,
+            ingredientId: ing._id
+          });
+          notifications.push(notification);
+        }
+      }
+
+      // Out of stock check 
+      if (Number(ing.quantity) <= 0) {
+        if (!existingNotification || existingNotification.type !== 'out_of_stock') {
+          const notification = await Notification.create({
+            user: userId,
+            type: "out_of_stock", 
+            priority: "critical",
+            title: "Out of Stock!",
+            message: `${ing.name} is completely out of stock!`,
+            ingredientId: ing._id
+          });
+          notifications.push(notification);
+        }
+      }
+
+      // Expiration check
+      if (ing.expiration) {
+        const expirationDate = new Date(ing.expiration);
+        const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysLeft <= expiringSoonThreshold && daysLeft >= 0) {
+          const priority = daysLeft <= 1 ? "critical" : daysLeft <= 3 ? "high" : "medium";
+          if (!existingNotification || existingNotification.type !== 'expiring') {
+            const notification = await Notification.create({
+              user: userId,
+              type: "expiring",
+              priority: priority,
+              title: "Expiring Soon",
+              message: `${ing.name} expires in ${daysLeft} day(s) on ${expirationDate.toLocaleDateString()}`,
+              ingredientId: ing._id
+            });
+            notifications.push(notification);
+          }
+        }
+        
+        // Already expired
+        if (daysLeft < 0) {
+          if (!existingNotification || existingNotification.type !== 'expired') {
+            const notification = await Notification.create({
+              user: userId,
+              type: "expired",
+              priority: "critical",
+              title: "Expired Ingredient!",
+              message: `${ing.name} expired ${Math.abs(daysLeft)} day(s) ago!`,
+              ingredientId: ing._id
+            });
+            notifications.push(notification);
+          }
+        }
+      }
+    }
+
+    return notifications;
+  } catch (error) {
+    console.error("Error generating and saving notifications:", error);
+    return [];
+  }
+};
+
+// Manually trigger notification generation
+export const triggerNotificationGeneration = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const newNotifications = await generateAndSaveNotifications(userId);
+    
+    // Emit real-time update
+    const io = req.app.get("io");
+    if (io) {
+      const userNotifications = await Notification.find({
+        user: userId,
+        isCleared: false
+      })
+      .populate("ingredientId", "name unit quantity expiration alertLevel")
+      .sort({ createdAt: -1 });
+      
+      io.to(userId.toString()).emit("notifications_update", userNotifications);
+    }
+
+    res.json({ 
+      message: "Notifications generated successfully", 
+      generated: newNotifications.length,
+      notifications: newNotifications 
+    });
+  } catch (err) {
+    console.error("Error triggering notification generation:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get notification statistics
+export const getNotificationStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const stats = await Notification.aggregate([
+      { 
+        $match: { 
+          user: userId,
+          isCleared: false 
+        } 
+      },
+      {
+        $group: {
+          _id: "$priority",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const total = await Notification.countDocuments({
+      user: userId,
+      isCleared: false
+    });
+
+    res.json({
+      total,
+      byPriority: stats.reduce((acc, stat) => {
+        acc[stat._id] = stat.count;
+        return acc;
+      }, {})
+    });
+  } catch (err) {
+    console.error("Error fetching notification stats:", err);
     res.status(500).json({ message: err.message });
   }
 };
