@@ -13,8 +13,8 @@ const auth = async (req, res, next) => {
 
     // Fetch the complete user data from database
     const user = await User.findById(verified.id).select(
-      "_id isActive name email role"
-    ); // Add _id here
+      "_id firstName lastName username isActive role"
+    );
     if (!user) {
       return res.status(401).json({ message: "User not found." });
     }

@@ -5,16 +5,16 @@ import { logActivity } from "../middleware/activitylogger.middleware.js";
 /* CRUD for users (user management) */
 export const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role } = req.body;
+    const { firstName, lastName, username, password, role } = req.body;
 
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName || !lastName || !username || !password) {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
     // Check if user already exists
-    const exists = await User.findOne({ email });
+    const exists = await User.findOne({ username });
     if (exists) {
-      return res.status(400).json({ message: "Email already used." });
+      return res.status(400).json({ message: "Username already used." });
     }
 
     // Hash password
@@ -24,7 +24,7 @@ export const createUser = async (req, res) => {
     const user = await User.create({
       firstName,
       lastName,
-      email,
+      username,
       password: hashed,
       role: role || "staff",
       isActive: true,
@@ -34,7 +34,7 @@ export const createUser = async (req, res) => {
     await logActivity(
       req,
       "CREATE_USER",
-      `Created a new user: ${firstName} ${lastName} (${email})`
+      `Created a new user: ${firstName} ${lastName} (${username})`
     );
 
     // Return user without password
@@ -83,7 +83,7 @@ export const updateUser = async (req, res) => {
     await logActivity(
       req,
       "UPDATE_USER",
-      `Updated user: ${user.firstName} ${user.lastName} (${user.email})`
+      `Updated user: ${user.firstName} ${user.lastName} (${user.username})`
     );
 
     res.json(user);

@@ -171,47 +171,111 @@ export const getDashboardStats = async (req, res) => {
       amount: item.amount,
     }));
 
-    // Weekly Sales - use same date range as weekly stat card (current week)
-    const weeklySalesData = await Transaction.aggregate([
-      {
-        $match: {
-          transactionDate: { $gte: startOfWeek, $lte: endOfWeek },
-        },
-      },
-      {
-        $project: {
-          totalAmount: 1,
-          // Group by day of week for current week
-          dayOfWeek: { $dayOfWeek: "$transactionDate" },
-        },
-      },
-      {
-        $group: {
-          _id: "$dayOfWeek",
-          amount: { $sum: "$totalAmount" },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
+    // Weekly Sales - FIXED: Use same calculation as weekly stat card but for multiple weeks
+    const getWeekRanges = () => {
+      const ranges = [];
+      const today = new Date();
 
-    // Convert day numbers to day names for current week
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const formattedWeeklySales = weeklySalesData.map((item) => ({
-      week: dayNames[item._id - 1] || `Day ${item._id}`,
-      amount: item.amount,
-    }));
+      // Get current week and previous 3 weeks
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = new Date(today);
+        // Calculate Monday of the week (weeks ago)
+        const daysSinceMonday = (today.getDay() + 6) % 7;
+        weekStart.setDate(today.getDate() - daysSinceMonday - i * 7);
+        weekStart.setHours(0, 0, 0, 0);
 
-    // If no weekly data, create empty array with current week days
-    if (formattedWeeklySales.length === 0) {
-      const currentDate = new Date(startOfWeek);
-      for (let i = 0; i < 7; i++) {
-        formattedWeeklySales.push({
-          week: dayNames[currentDate.getDay()],
-          amount: 0,
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        ranges.push({
+          start: new Date(weekStart),
+          end: new Date(weekEnd),
+          label: formatWeekLabel(weekStart, weekEnd),
         });
-        currentDate.setDate(currentDate.getDate() + 1);
       }
-    }
+
+      return ranges;
+    };
+
+    const formatWeekLabel = (start, end) => {
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      const startMonth = monthNames[start.getMonth()];
+      const endMonth = monthNames[end.getMonth()];
+
+      if (start.getMonth() === end.getMonth()) {
+        return `${startMonth} ${start.getDate()}-${end.getDate()}`;
+      } else {
+        return `${startMonth} ${start.getDate()}-${endMonth} ${end.getDate()}`;
+      }
+    };
+
+    const weekRanges = getWeekRanges();
+    console.log("=== WEEK RANGES ===");
+    weekRanges.forEach((range, index) => {
+      console.log(
+        `Week ${index + 1}:`,
+        range.label,
+        range.start.toISOString(),
+        "to",
+        range.end.toISOString()
+      );
+    });
+
+    // Get sales data for each week using the same sumSales function as stat cards
+    const weeklySalesPromises = weekRanges.map(async (range) => {
+      try {
+        const amount = await sumSales(range.start, range.end);
+        return {
+          week: range.label,
+          amount: amount,
+        };
+      } catch (error) {
+        console.error(`Error fetching week ${range.label}:`, error);
+        return {
+          week: range.label,
+          amount: 0,
+        };
+      }
+    });
+
+    const weeklySalesResults = await Promise.all(weeklySalesPromises);
+    const finalWeeklySales = weeklySalesResults.filter((item) => item !== null);
+
+    console.log("=== WEEKLY SALES RESULTS ===");
+    console.log(finalWeeklySales);
+
+    // IMPORTANT: Ensure current week in chart matches weeklySalesAmount from stat card
+    // Find the current week in our results and update it to match the stat card value
+    const currentWeekLabel = formatWeekLabel(startOfWeek, endOfWeek);
+    const updatedWeeklySales = finalWeeklySales.map((week) => {
+      if (week.week === currentWeekLabel) {
+        console.log(
+          `Updating current week ${currentWeekLabel} from ${week.amount} to ${weeklySalesAmount}`
+        );
+        return {
+          ...week,
+          amount: weeklySalesAmount, // Use the exact same value as the stat card
+        };
+      }
+      return week;
+    });
+
+    console.log("=== UPDATED WEEKLY SALES (MATCHING STAT CARD) ===");
+    console.log(updatedWeeklySales);
 
     // Monthly Sales - last 6 months (this should match your expected monthly totals)
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
@@ -355,7 +419,7 @@ export const getDashboardStats = async (req, res) => {
 
       // Chart data - now aligned with stat card calculations
       dailySales: formattedDailySales,
-      weeklySales: formattedWeeklySales,
+      weeklySales: updatedWeeklySales, // Use the updated version that matches stat card
       monthlySales: formattedMonthlySales,
 
       bestSelling: categories,

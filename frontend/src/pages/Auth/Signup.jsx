@@ -1,43 +1,47 @@
-// src/pages/Auth/Signup.jsx
-import React, { useContext, useState } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import React, { useState } from "react";
 import AuthLayout from "../../layouts/AuthLayout";
 import { useNavigate, Link } from "react-router-dom";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from "../../api/axios";
 
 const Signup = () => {
-  const { register, loading } = useContext(AuthContext);
   const navigate = useNavigate();
-
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
-    email: "",
+    username: "",
     password: "",
-    role: "staff",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
-    const res = await register(
-      form.firstName,
-      form.lastName,
-      form.email,
-      form.password,
-      form.role
-    );
+    try {
+      const res = await axios.post("/auth/register", {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        username: form.username,
+        password: form.password,
+      });
 
-    if (res.success) {
-      toast.success("Account created successfully! Welcome email sent. 📧");
-      setTimeout(() => navigate("/login"), 2000);
-    } else {
-      toast.error(res.message || "Signup failed");
+      if (res.data.token) {
+        toast.success("Account created successfully! Welcome! 👋");
+        setTimeout(() => navigate("/login"), 2000);
+      }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || "Signup failed";
+      toast.error(errorMessage);
+      console.error("Signup error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,8 +57,12 @@ const Signup = () => {
       <div className="text-center mb-8">
         <div className="flex justify-center items-center mb-4">
           <div className="bg-gradient-to-br from-[#E89271] to-[#d67a5c] rounded-full p-4 shadow-lg">
-            <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3zM6 7h12v2H6V7zm6 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+            <svg
+              className="w-12 h-12 text-white"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3zM6 7h12v2H6V7zm6 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
             </svg>
           </div>
         </div>
@@ -65,7 +73,9 @@ const Signup = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-gray-700 mb-2 font-medium">First Name</label>
+            <label className="block text-gray-700 mb-2 font-medium">
+              First Name
+            </label>
             <input
               type="text"
               name="firstName"
@@ -77,7 +87,9 @@ const Signup = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 mb-2 font-medium">Last Name</label>
+            <label className="block text-gray-700 mb-2 font-medium">
+              Last Name
+            </label>
             <input
               type="text"
               name="lastName"
@@ -91,20 +103,24 @@ const Signup = () => {
         </div>
 
         <div>
-          <label className="block text-gray-700 mb-2 font-medium">Email</label>
+          <label className="block text-gray-700 mb-2 font-medium">
+            Username
+          </label>
           <input
-            type="email"
-            name="email"
-            placeholder="Enter your email"
+            type="text"
+            name="username"
+            placeholder="Enter your username"
             required
-            value={form.email}
+            value={form.username}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-gray-700 mb-2 font-medium">Password</label>
+          <label className="block text-gray-700 mb-2 font-medium">
+            Password
+          </label>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -146,7 +162,10 @@ const Signup = () => {
 
         <p className="text-center text-gray-600 text-sm mt-6">
           Already have an account?{" "}
-          <Link to="/login" className="text-[#E89271] hover:underline font-medium">
+          <Link
+            to="/login"
+            className="text-[#E89271] hover:underline font-medium"
+          >
             Sign in
           </Link>
         </p>

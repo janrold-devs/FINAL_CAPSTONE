@@ -1,6 +1,13 @@
 // backend/models/Transaction.js
 import mongoose from "mongoose";
 
+const addonSchema = new mongoose.Schema({
+  addonId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+  addonName: { type: String, required: true },
+  quantity: { type: Number, default: 1 },
+  price: { type: Number, required: true },
+});
+
 const itemSchema = new mongoose.Schema({
   product: {
     type: mongoose.Schema.Types.ObjectId,
@@ -8,9 +15,12 @@ const itemSchema = new mongoose.Schema({
     required: true,
   },
   category: { type: String },
+  size: { type: Number },
+  subcategory: { type: String },
   price: { type: Number, required: true },
   quantity: { type: Number, required: true },
   totalCost: { type: Number, required: true },
+  addons: [addonSchema], // Use the updated addon schema
 });
 
 const transactionSchema = new mongoose.Schema(
@@ -28,7 +38,7 @@ const transactionSchema = new mongoose.Schema(
       required: true,
     },
     referenceNumber: { type: String },
-    totalAmount: { type: Number, required: true }, // sum of all itemsSold[].totalCost
+    totalAmount: { type: Number, required: true },
   },
   { timestamps: true }
 );

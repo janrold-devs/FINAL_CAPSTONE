@@ -1,14 +1,17 @@
+// product.controller.js
 import Product from "../models/Product.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 import { deleteOldImage } from "../middleware/upload.middleware.js";
 
 export const createProduct = async (req, res) => {
   try {
-    const { productName, sizes, category, status, ingredients } = req.body;
+    const { productName, sizes, category, status, ingredients, isAddon } =
+      req.body;
 
     // Parse ingredients if it's a string (from FormData)
-     const parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
-    const parsedIngredients = typeof ingredients === 'string' ? JSON.parse(ingredients) : ingredients;
+    const parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
+    const parsedIngredients =
+      typeof ingredients === "string" ? JSON.parse(ingredients) : ingredients;
 
     const data = {
       productName,
@@ -17,6 +20,7 @@ export const createProduct = async (req, res) => {
       status,
       ingredients: parsedIngredients,
       image: req.file ? `/uploads/products/${req.file.filename}` : "",
+      isAddon: isAddon || false, // Add this line for add-ons
     };
 
     const doc = await Product.create(data);
@@ -24,7 +28,9 @@ export const createProduct = async (req, res) => {
     await logActivity(
       req,
       "CREATE_PRODUCT",
-      `Created product: ${doc.productName} (${doc.category})`
+      `Created ${data.isAddon ? "add-on" : "product"}: ${doc.productName} (${
+        doc.category
+      })`
     );
 
     res.status(201).json(doc);
@@ -40,14 +46,30 @@ export const createProduct = async (req, res) => {
 
 export const getProducts = async (req, res) => {
   try {
-    const list = await Product.find().populate("ingredients.ingredient");
+    const includeAddons = req.query.includeAddons === "true";
+    const includeRegular = req.query.includeRegular !== "false"; // Default to true
+
+    let query = { status: { $ne: "unavailable" } };
+
+    if (!includeAddons && includeRegular) {
+      // Only exclude add-ons but include regular products
+      query.$and = [
+        { $or: [{ isAddon: { $exists: false } }, { isAddon: false }] },
+        { category: { $ne: "Add-ons" } },
+      ];
+    } else if (includeAddons && !includeRegular) {
+      // Only include add-ons
+      query.$or = [{ isAddon: true }, { category: "Add-ons" }];
+    }
+    // If both are true or both are false, include all available products
+
+    const list = await Product.find(query).populate("ingredients.ingredient");
     res.json(list);
   } catch (err) {
     console.error("Error getting products:", err);
     res.status(500).json({ message: err.message });
   }
 };
-
 export const getProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).populate(
@@ -63,7 +85,15 @@ export const getProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    const { productName, sizes, category, status, ingredients, image } = req.body;
+    const {
+      productName,
+      sizes,
+      category,
+      status,
+      ingredients,
+      image,
+      isAddon,
+    } = req.body;
 
     // Find existing product
     const existingProduct = await Product.findById(req.params.id);
@@ -74,9 +104,10 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    /// Parse sizes and ingredients
-    const parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
-    const parsedIngredients = typeof ingredients === 'string' ? JSON.parse(ingredients) : ingredients;
+    // Parse sizes and ingredients
+    const parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
+    const parsedIngredients =
+      typeof ingredients === "string" ? JSON.parse(ingredients) : ingredients;
 
     const data = {
       productName,
@@ -84,6 +115,7 @@ export const updateProduct = async (req, res) => {
       category,
       status,
       ingredients: parsedIngredients,
+      isAddon: isAddon || false,
     };
 
     // Handle image update
@@ -105,7 +137,9 @@ export const updateProduct = async (req, res) => {
     await logActivity(
       req,
       "UPDATE_PRODUCT",
-      `Updated product: ${updated.productName} (${updated.category})`
+      `Updated ${data.isAddon ? "add-on" : "product"}: ${
+        updated.productName
+      } (${updated.category})`
     );
 
     res.json(updated);
@@ -132,12 +166,28 @@ export const deleteProduct = async (req, res) => {
     await logActivity(
       req,
       "DELETE_PRODUCT",
-      `Deleted product: ${deleted.productName} (${deleted.category})`
+      `Deleted ${deleted.isAddon ? "add-on" : "product"}: ${
+        deleted.productName
+      } (${deleted.category})`
     );
 
     res.json({ message: "Product deleted" });
   } catch (err) {
     console.error("Error deleting product:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Add this new function for getting products by category
+export const getProductsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const list = await Product.find({ category }).populate(
+      "ingredients.ingredient"
+    );
+    res.json(list);
+  } catch (err) {
+    console.error("Error getting products by category:", err);
     res.status(500).json({ message: err.message });
   }
 };

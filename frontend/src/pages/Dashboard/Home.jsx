@@ -162,7 +162,7 @@ const Home = () => {
       case "daily":
         return `Day ${value}`;
       case "weekly":
-        return value; // Already formatted as "Week 45"
+        return value; // Now shows "Oct 21-27" format
       case "monthly":
         return value; // Already formatted as "Oct 2025"
       default:
@@ -171,9 +171,6 @@ const Home = () => {
   };
 
   const chartData = getChartData();
-
-  // Simplified period-aware stat values
-  // In Home.jsx - Replace the period calculation functions:
 
   // FIXED: Use real numbers from backend, not fake arrays
   const getPeriodTransactions = () => {
@@ -227,6 +224,7 @@ const Home = () => {
         return dashboardData.stats.spoilage.daily || 0;
     }
   };
+
   // Helper to get period label for change text
   const getPeriodLabel = () => {
     switch (activeTab) {
@@ -557,7 +555,7 @@ const Home = () => {
                         case "daily":
                           return `Day ${label}`;
                         case "weekly":
-                          return label;
+                          return label; // Now shows the date range like "Oct 21-27"
                         case "monthly":
                           return label;
                         default:

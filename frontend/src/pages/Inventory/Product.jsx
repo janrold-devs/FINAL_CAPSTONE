@@ -24,12 +24,17 @@ const Product = () => {
   const [deleteId, setDeleteId] = useState(null);
 
   // Fetch products
+  // Product.jsx - Update the fetchProducts function
   const fetchProducts = async () => {
     setLoading(true);
     try {
       const res = await axios.get("/products");
-      setProducts(res.data);
-      setFilteredProducts(res.data);
+      // Filter out add-ons from the product list
+      const regularProducts = res.data.filter(
+        (product) => !product.isAddon && product.category !== "Add-ons"
+      );
+      setProducts(regularProducts);
+      setFilteredProducts(regularProducts);
     } catch (err) {
       toast.error("Failed to fetch products");
     } finally {
@@ -99,15 +104,15 @@ const Product = () => {
         { value: "iced latte", label: "Iced Latte" },
         { value: "bubble tea", label: "Bubble Tea" },
         { value: "fruit tea", label: "Fruit Tea" },
-        { value: "amerikano", label: "Amerikano"},
+        { value: "amerikano", label: "Amerikano" },
         { value: "non caffeine", label: "Non Caffeine" },
         { value: "frappe", label: "Frappe" },
-        { value: "choco", label: "Choco"},
-        { value: "hot drink", label: "Hot Drink"},
-        { value: "shiro", label: "Shiro"},
+        { value: "choco", label: "Choco" },
+        { value: "hot drink", label: "Hot Drink" },
+        { value: "shiro", label: "Shiro" },
       ],
     },
-  
+
     {
       key: "size",
       label: "Size",
@@ -263,12 +268,16 @@ const Product = () => {
                             </div>
                           ) : (
                             <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center mx-auto">
-                              <span className="text-gray-400 text-xs italic">No image</span>
+                              <span className="text-gray-400 text-xs italic">
+                                No image
+                              </span>
                             </div>
                           )}
                         </td>
                         <td className="px-6 py-5 text-sm font-medium text-gray-900 align-top">
-                          <div className="truncate max-w-[200px]">{p.productName}</div>
+                          <div className="truncate max-w-[200px]">
+                            {p.productName}
+                          </div>
                         </td>
 
                         <td className="px-6 py-5 text-sm text-gray-700 capitalize align-top">
@@ -282,15 +291,20 @@ const Product = () => {
                                 <span
                                   key={i._id || i.ingredient?._id || idx}
                                   className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 break-words whitespace-normal"
-                                  title={`${i.ingredient?.name || "Unknown"} (${i.quantity}${i.ingredient?.unit || i.unit || ""})`}
+                                  title={`${i.ingredient?.name || "Unknown"} (${
+                                    i.quantity
+                                  }${i.ingredient?.unit || i.unit || ""})`}
                                 >
-                                  {i.ingredient?.name || "Unknown"} ({i.quantity}
+                                  {i.ingredient?.name || "Unknown"} (
+                                  {i.quantity}
                                   {i.ingredient?.unit || i.unit || ""})
                                 </span>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-gray-400 text-sm italic">None</span>
+                            <span className="text-gray-400 text-sm italic">
+                              None
+                            </span>
                           )}
                         </td>
 
@@ -304,14 +318,15 @@ const Product = () => {
                               </div>
                             )}
                             {/* For new multi-size products */}
-                            {p.sizes && p.sizes.map((sizeObj, index) => (
-                              <div 
-                                key={index}
-                                className="text-sm font-medium text-gray-900 text-center"
-                              >
-                                {sizeObj.size} oz
-                              </div>
-                            ))}
+                            {p.sizes &&
+                              p.sizes.map((sizeObj, index) => (
+                                <div
+                                  key={index}
+                                  className="text-sm font-medium text-gray-900 text-center"
+                                >
+                                  {sizeObj.size} oz
+                                </div>
+                              ))}
                           </div>
                         </td>
 
@@ -325,14 +340,15 @@ const Product = () => {
                               </div>
                             )}
                             {/* For new multi-price products */}
-                            {p.sizes && p.sizes.map((sizeObj, index) => (
-                              <div 
-                                key={index}
-                                className="text-sm font-semibold text-gray-900 text-center"
-                              >
-                                ₱{(sizeObj.price || 0).toFixed(2)}
-                              </div>
-                            ))}
+                            {p.sizes &&
+                              p.sizes.map((sizeObj, index) => (
+                                <div
+                                  key={index}
+                                  className="text-sm font-semibold text-gray-900 text-center"
+                                >
+                                  ₱{(sizeObj.price || 0).toFixed(2)}
+                                </div>
+                              ))}
                           </div>
                         </td>
 

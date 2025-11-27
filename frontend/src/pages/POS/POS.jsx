@@ -15,9 +15,11 @@ import {
   Settings,
   User,
   X,
+  Pencil,
 } from "lucide-react";
 import LoaderModal from "../../components/modals/LoaderModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import AddonModal from "../../components/modals/AddonModal";
 
 const POS = () => {
   const BACKEND_URL =
@@ -29,106 +31,124 @@ const POS = () => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
-  const [cashier, setCashier] = useState(""); // cashier user ID
-  const [cashierName, setCashierName] = useState(""); // cashier display name
+  const [cashier, setCashier] = useState("");
+  const [cashierName, setCashierName] = useState("");
   const [modeOfPayment, setModeOfPayment] = useState("Cash");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [transactionLoading, setTransactionLoading] = useState(false);
+  const [addons, setAddons] = useState([]);
+  const [availableQuantities, setAvailableQuantities] = useState({});
+  const [ingredientsList, setIngredientsList] = useState([]);
 
-  // For editing add-ons
+  // Add-ons management states
+  const [showAddonModal, setShowAddonModal] = useState(false);
+  const [editingAddon, setEditingAddon] = useState(null);
+  const [showAddonsManager, setShowAddonsManager] = useState(false);
+
+  // For editing add-ons in cart
   const [editIdx, setEditIdx] = useState(null);
   const [editAddons, setEditAddons] = useState([]);
-  // For managing add-on prices - load from localStorage or use defaults
-  const defaultAddons = [
-    { name: "Espresso Shot", value: "espresso", price: 5 },
-    { name: "Pearls", value: "pearls", price: 10 },
-    { name: "Crystals", value: "crystals", price: 10 },
-    { name: "Cream Puff", value: "creamPuff", price: 10 },
-  ];
-  const [addons, setAddons] = useState(() => {
-    const stored = localStorage.getItem("posAddons");
-    return stored ? JSON.parse(stored) : defaultAddons;
-  });
-  const [editingAddonPrice, setEditingAddonPrice] = useState(null);
-  const [tempAddonPrice, setTempAddonPrice] = useState("");
-  const [showAddonsManager, setShowAddonsManager] = useState(false);
-  const [newAddonName, setNewAddonName] = useState("");
-  const [newAddonPrice, setNewAddonPrice] = useState("");
 
-  const categories = [
-    "All",
-    "Iced Latte",
-    "Fruit Tea",
-    "Amerikano",
-    "Hot Drink",
-    "Bubble Tea",
-    "Non Caffeine",
-    "Frappe",
-    "Choco Series",
-    "Shiro Series",
-  ];
+  // Fetch categories from products
+  const categories = React.useMemo(() => {
+    const uniqueCategories = [...new Set(products.map((p) => p.category))];
+    return ["All", ...uniqueCategories];
+  }, [products]);
 
-  // Enhanced pricing logic to handle products with same name but different sizes
+  // Calculate available quantity for a product
+  const calculateAvailableQuantity = (product, size) => {
+    if (!product.ingredients || product.ingredients.length === 0) {
+      return Infinity;
+    }
+
+    let maxAvailable = Infinity;
+
+    product.ingredients.forEach((ingredientItem) => {
+      const ingredient = ingredientItem.ingredient;
+      if (!ingredient) return;
+
+      const requiredQuantity = ingredientItem.quantity || 0;
+      const sizeMultiplier = size === 32 ? 2 : 1;
+      const adjustedRequiredQuantity = requiredQuantity * sizeMultiplier;
+
+      if (ingredient.quantity > 0) {
+        const availableForIngredient = Math.floor(
+          ingredient.quantity / adjustedRequiredQuantity
+        );
+        maxAvailable = Math.min(maxAvailable, availableForIngredient);
+      } else {
+        maxAvailable = 0;
+      }
+    });
+
+    return maxAvailable === Infinity ? 0 : maxAvailable;
+  };
+
+  // Enhanced pricing logic
   function getProductPrice(product, size, subcategory, addonItems = []) {
-    // First, check if this specific product has the requested size as its default size
+    if (product.sizes && product.sizes.length > 0) {
+      const sizeObj = product.sizes.find((s) => s.size === size);
+      if (sizeObj && sizeObj.price) {
+        let base = sizeObj.price;
+
+        // Add-ons with current prices
+        const addonsTotal = (addonItems || []).reduce((sum, addonItem) => {
+          const addonProduct = addons.find((a) => a._id === addonItem.value);
+          return (
+            sum +
+            (addonProduct?.sizes?.[0]?.price || 0) * (addonItem.quantity || 1)
+          );
+        }, 0);
+
+        return base + addonsTotal;
+      }
+    }
+
+    // Fallback for old products
     if (product.size && size === product.size) {
       let base = product.price || 0;
-
-      // Add-ons with current prices and quantities
       const addonsTotal = (addonItems || []).reduce((sum, addonItem) => {
-        const addon = addons.find((a) => a.value === addonItem.value);
-        return sum + (addon?.price || 0) * (addonItem.quantity || 1);
+        const addonProduct = addons.find((a) => a._id === addonItem.value);
+        return (
+          sum +
+          (addonProduct?.sizes?.[0]?.price || 0) * (addonItem.quantity || 1)
+        );
       }, 0);
       return base + addonsTotal;
     }
 
-    // If not, look for other products with the same name and the requested size
-    const matchingProduct = products.find(
-      (p) =>
-        p.productName === product.productName &&
-        p.size === size &&
-        p.category === product.category
-    );
-
-    if (matchingProduct && matchingProduct.price) {
-      let base = matchingProduct.price;
-
-      // Add-ons with current prices and quantities
-      const addonsTotal = (addonItems || []).reduce((sum, addonItem) => {
-        const addon = addons.find((a) => a.value === addonItem.value);
-        return sum + (addon?.price || 0) * (addonItem.quantity || 1);
-      }, 0);
-      return base + addonsTotal;
-    }
-
-    // No matching product found for this size
     return null;
   }
 
-  // Helper function to check if a size is available for a product
-  function isSizeAvailable(product, size) {
-    // Check if this product itself has the size
-    if (product.size === size) {
-      return true;
+  // Helper function to check available sizes for a product
+  function getAvailableSizes(product) {
+    const sizes = [];
+
+    if (product.sizes && product.sizes.length > 0) {
+      product.sizes.forEach((sizeObj) => {
+        const availableQty = calculateAvailableQuantity(product, sizeObj.size);
+        if (availableQty > 0) {
+          sizes.push({
+            size: sizeObj.size,
+            price: sizeObj.price,
+            available: availableQty,
+          });
+        }
+      });
+    } else if (product.size) {
+      const availableQty = calculateAvailableQuantity(product, product.size);
+      if (availableQty > 0) {
+        sizes.push({
+          size: product.size,
+          price: product.price,
+          available: availableQty,
+        });
+      }
     }
 
-    // Check if there's another product with same name and category that has this size
-    return products.some(
-      (p) =>
-        p.productName === product.productName &&
-        p.category === product.category &&
-        p.size === size
-    );
-  }
-
-  // Helper function to format price for display
-  function formatPriceDisplay(price) {
-    if (price === null || price === undefined) {
-      return "no price";
-    }
-    return `₱${price}`;
+    return sizes;
   }
 
   // Fetch current user profile
@@ -140,13 +160,8 @@ const POS = () => {
         return null;
       }
 
-      // Decode the token to get user ID
       const decoded = JSON.parse(atob(token.split(".")[1]));
-      console.log("Decoded token:", decoded);
-
-      // Fetch user data from backend
       const response = await api.get(`/users/${decoded.id}`);
-      console.log("User profile response:", response.data);
       return response.data;
     } catch (err) {
       console.error("Failed to fetch user profile:", err);
@@ -155,71 +170,159 @@ const POS = () => {
     }
   };
 
-  // Fetch products and users
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch current user first
-        const currentUser = await fetchCurrentUser();
+  // Fetch add-ons from products
+  // Fetch add-ons from products
+  const fetchAddons = async () => {
+    try {
+      console.log("Fetching add-ons...");
+      const response = await api.get("/products?includeAddons=true");
+      const allProducts = response.data;
+      console.log("All products for add-ons:", allProducts.length, "items");
 
-        // Then fetch products and all users
-        const [prodRes, userRes] = await Promise.all([
-          api.get("/products"),
-          api.get("/users"),
-        ]);
+      const addonProducts = allProducts.filter(
+        (product) => product.category === "Add-ons" || product.isAddon
+      );
+      console.log("Filtered addons:", addonProducts.length, "items");
+      console.log("Fetched addons:", addonProducts); // Debug log
+      setAddons(addonProducts);
+    } catch (err) {
+      console.error("Failed to fetch add-ons:", err);
+      console.error("Add-ons error details:", err.response?.data);
+      toast.error("Failed to load add-ons");
+    }
+  };
 
-        setProducts(prodRes.data.filter((p) => p.status === "available"));
-        setUsers(userRes.data);
+  // Fetch ingredients
+  const fetchIngredients = async () => {
+    try {
+      const res = await api.get("/ingredients");
+      setIngredientsList(res.data);
+    } catch (err) {
+      console.error("Failed to fetch ingredients:", err);
+      toast.error("Failed to load ingredients");
+    }
+  };
 
-        // Set cashier to current user
-        if (currentUser) {
-          setCashier(currentUser._id);
-          setCashierName(`${currentUser.firstName} ${currentUser.lastName}`);
+  // Fetch products, users, add-ons, and ingredients
+  const fetchData = async () => {
+    console.log("Starting fetchData...");
+    setLoading(true);
+    try {
+      console.log("Fetching current user...");
+      const currentUser = await fetchCurrentUser();
+      console.log("Current user:", currentUser);
+
+      console.log("Fetching products and users...");
+      const [prodRes, userRes] = await Promise.all([
+        api.get("/products?includeAddons=true"),
+        api.get("/users"),
+      ]);
+
+      console.log("Products response:", prodRes.data.length, "items");
+      console.log("Users response:", userRes.data.length, "users");
+
+      // Filter out add-ons from regular products
+      const regularProducts = prodRes.data.filter(
+        (p) =>
+          p.status === "available" && !p.isAddon && p.category !== "Add-ons"
+      );
+      console.log(
+        "Regular products after filtering:",
+        regularProducts.length,
+        "items"
+      );
+
+      setProducts(regularProducts);
+      setUsers(userRes.data);
+
+      // Fetch add-ons and ingredients
+      console.log("Fetching add-ons and ingredients...");
+      await fetchAddons();
+      await fetchIngredients();
+
+      // Set cashier to current user
+      if (currentUser) {
+        setCashier(currentUser._id);
+        setCashierName(`${currentUser.firstName} ${currentUser.lastName}`);
+        console.log(
+          "Cashier set to:",
+          currentUser.firstName,
+          currentUser.lastName
+        );
+      } else {
+        const adminUser = userRes.data.find((u) => u.role === "admin");
+        if (adminUser) {
+          setCashier(adminUser._id);
+          setCashierName(`${adminUser.firstName} ${adminUser.lastName}`);
           console.log(
-            "Set cashier to current user:",
-            `${currentUser.firstName} ${currentUser.lastName}`
+            "Cashier set to admin:",
+            adminUser.firstName,
+            adminUser.lastName
           );
+        } else if (userRes.data.length > 0) {
+          setCashier(userRes.data[0]._id);
+          setCashierName(
+            `${userRes.data[0].firstName} ${userRes.data[0].lastName}`
+          );
+          console.log(
+            "Cashier set to first user:",
+            userRes.data[0].firstName,
+            userRes.data[0].lastName
+          );
+          toast.warning("No logged-in user detected, using default user");
         } else {
-          // Fallback: try to find admin user
-          const adminUser = userRes.data.find((u) => u.role === "admin");
-          if (adminUser) {
-            setCashier(adminUser._id);
-            setCashierName(`${adminUser.firstName} ${adminUser.lastName}`);
-            console.log(
-              "Fallback to admin user:",
-              `${adminUser.firstName} ${adminUser.lastName}`
-            );
-          } else if (userRes.data.length > 0) {
-            // Final fallback: use first user
-            setCashier(userRes.data[0]._id);
-            setCashierName(
-              `${userRes.data[0].firstName} ${userRes.data[0].lastName}`
-            );
-            console.log(
-              "Fallback to first user:",
-              `${userRes.data[0].firstName} ${userRes.data[0].lastName}`
-            );
-            toast.warning("No logged-in user detected, using default user");
-          }
+          console.log("No users found in the system");
+          toast.error("No users found in the system");
         }
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        toast.error("Failed to load products or users");
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error("Error in fetchData:", err);
+      console.error("Error details:", err.response?.data);
+      console.error("Error message:", err.message);
+      toast.error("Failed to load products or users");
+    } finally {
+      setLoading(false);
+      console.log("fetchData completed");
+    }
+  };
+
+  // Don't forget to call it in useEffect!
+  useEffect(() => {
+    console.log("POS component mounted, calling fetchData...");
     fetchData();
   }, []);
 
-  // Add product to cart with specified size (numeric size)
+  // Update available quantities when products change
+  useEffect(() => {
+    const quantities = {};
+    products.forEach((product) => {
+      if (product.sizes && product.sizes.length > 0) {
+        product.sizes.forEach((sizeObj) => {
+          quantities[`${product._id}-${sizeObj.size}`] =
+            calculateAvailableQuantity(product, sizeObj.size);
+        });
+      } else if (product.size) {
+        quantities[`${product._id}-${product.size}`] =
+          calculateAvailableQuantity(product, product.size);
+      }
+    });
+    setAvailableQuantities(quantities);
+  }, [products]);
+
+  // Add product to cart
   const addToCart = (product, size) => {
     const price = getProductPrice(product, size, "", []);
+    const availableQty = calculateAvailableQuantity(product, size);
 
-    // Don't add to cart if no price for this size
     if (price === null) {
       toast.error(`No price available for ${product.productName} (${size}oz)`);
+      return;
+    }
+
+    if (availableQty <= 0) {
+      toast.error(
+        `Insufficient ingredients for ${product.productName} (${size}oz)`
+      );
       return;
     }
 
@@ -241,7 +344,6 @@ const POS = () => {
             : item
         );
       }
-      // Add with specified size
       return [
         ...prev,
         {
@@ -301,7 +403,7 @@ const POS = () => {
     );
   };
 
-  // Handle size change in cart (now numeric)
+  // Handle size change in cart
   const handleSizeChange = (idx, newSize) => {
     const newSizeNum = Number(newSize);
     const item = cart[idx];
@@ -312,7 +414,6 @@ const POS = () => {
       item.addons
     );
 
-    // Don't allow size change if no price for new size
     if (newPrice === null) {
       toast.error(
         `No price available for ${item.product.productName} (${newSizeNum}oz)`
@@ -349,13 +450,14 @@ const POS = () => {
     );
   };
 
-  // Calculate total - handle null prices
+  // Calculate total
   const total = cart.reduce((sum, item) => {
     const itemPrice = item.price === null ? 0 : item.price;
     return sum + itemPrice * item.quantity;
   }, 0);
 
-  // Checkout handler (size is numeric)
+  // Checkout handler
+  // In handleCheckout function - around line 500
   const handleCheckout = async () => {
     if (!cashier) {
       toast.error("No cashier assigned. Please contact administrator.");
@@ -366,7 +468,6 @@ const POS = () => {
       return;
     }
 
-    // Check if any items have no price
     const itemsWithNoPrice = cart.filter((item) => item.price === null);
     if (itemsWithNoPrice.length > 0) {
       toast.error(
@@ -382,38 +483,79 @@ const POS = () => {
       toast.error("Please enter a reference number for non-cash payments.");
       return;
     }
+
     setTransactionLoading(true);
     try {
-      const itemsSold = cart.map((item) => ({
-        product: item.product._id,
-        category: item.product.category,
-        size: item.size, // numeric
-        subcategory: item.subcategory,
-        price: item.price,
-        quantity: item.quantity,
-        totalCost: item.price * item.quantity,
-        addons: item.addons || [],
-      }));
+      console.log("🔄 Starting checkout process...");
 
-      await api.post("/transactions", {
+      // FIX: Include add-on names and prices in the transaction data
+      const itemsSold = cart.map((item) => {
+        // Process add-ons with names and prices
+        const processedAddons = (item.addons || []).map((addonItem) => {
+          const addonProduct = addons.find((a) => a._id === addonItem.value);
+          return {
+            addonId: addonItem.value,
+            addonName: addonProduct?.productName || "Unknown Add-on",
+            quantity: addonItem.quantity || 1,
+            price: addonProduct?.sizes?.[0]?.price || 0,
+          };
+        });
+
+        return {
+          product: item.product._id,
+          category: item.product.category,
+          size: item.size,
+          subcategory: item.subcategory,
+          price: item.price,
+          quantity: item.quantity,
+          totalCost: item.price * item.quantity,
+          addons: processedAddons,
+        };
+      });
+
+      console.log("📦 Sending transaction data:", {
         cashier,
         itemsSold,
         modeOfPayment,
         referenceNumber: modeOfPayment !== "Cash" ? referenceNumber : "",
       });
 
+      const response = await api.post("/transactions", {
+        cashier,
+        itemsSold,
+        modeOfPayment,
+        referenceNumber: modeOfPayment !== "Cash" ? referenceNumber : "",
+      });
+
+      console.log("✅ Transaction successful:", response.data);
+
       toast.success("Transaction successful!");
       setCart([]);
       setReferenceNumber("");
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message || "Checkout failed. Please try again."
+
+      // Refresh products to update availability
+      const prodRes = await api.get("/products?includeAddons=true");
+      const regularProducts = prodRes.data.filter(
+        (p) =>
+          p.status === "available" && p.category !== "Add-ons" && !p.isAddon
       );
+      setProducts(regularProducts);
+    } catch (err) {
+      console.error("❌ Checkout error:", err);
+      console.error("Error response:", err.response?.data);
+
+      const errorMessage =
+        err.response?.data?.message || "Checkout failed. Please try again.";
+      toast.error(errorMessage);
+
+      // Log detailed error for debugging
+      if (err.response?.data) {
+        console.error("Server error details:", err.response.data);
+      }
     } finally {
       setTransactionLoading(false);
     }
   };
-
   // Filter products by search
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
@@ -425,7 +567,7 @@ const POS = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Remove duplicates - keep products with images, remove duplicates without images
+  // Remove duplicates
   const uniqueProducts = filteredProducts.reduce((acc, current) => {
     const existingProduct = acc.find(
       (p) =>
@@ -433,32 +575,61 @@ const POS = () => {
     );
 
     if (!existingProduct) {
-      // If no existing product with same name and category, add current one
       acc.push(current);
     } else if (current.image && !existingProduct.image) {
-      // If current has image but existing doesn't, replace existing with current
       const index = acc.indexOf(existingProduct);
       acc[index] = current;
     } else if (current.image && existingProduct.image) {
-      // If both have images, keep the one with the default size or first one
-      // You can add additional logic here if needed
       if (!existingProduct.size && current.size) {
         const index = acc.indexOf(existingProduct);
         acc[index] = current;
       }
     }
-    // If current doesn't have image but existing does, do nothing (keep existing)
-
     return acc;
   }, []);
 
-  // Handle opening edit modal for add-ons
+  // Add-ons Management Functions
+  const handleSaveAddon = async (formData) => {
+    try {
+      if (editingAddon) {
+        await api.put(`/products/${editingAddon._id}`, formData);
+        toast.success("Add-on updated successfully!");
+      } else {
+        await api.post("/products", formData);
+        toast.success("Add-on created successfully!");
+      }
+      setShowAddonModal(false);
+      setEditingAddon(null);
+      await fetchAddons(); // Refresh add-ons list
+    } catch (err) {
+      console.error("Error saving add-on:", err);
+      toast.error("Failed to save add-on");
+    }
+  };
+
+  const handleEditAddon = (addon) => {
+    setEditingAddon(addon);
+    setShowAddonModal(true);
+  };
+
+  const handleDeleteAddon = async (addonId) => {
+    try {
+      await api.delete(`/products/${addonId}`);
+      toast.success("Add-on deleted successfully!");
+      await fetchAddons(); // Refresh add-ons list
+    } catch (err) {
+      console.error("Error deleting add-on:", err);
+      toast.error("Failed to delete add-on");
+    }
+  };
+
+  // Handle opening edit modal for add-ons in cart
   const openEditAddons = (idx, currentAddons) => {
     setEditIdx(idx);
     setEditAddons(currentAddons || []);
   };
 
-  // Handle saving add-ons
+  // Handle saving add-ons to cart item
   const saveEditAddons = () => {
     setCart((prev) =>
       prev.map((item, i) =>
@@ -478,118 +649,6 @@ const POS = () => {
     );
     setEditIdx(null);
     setEditAddons([]);
-  };
-
-  // Handle editing add-on price
-  const startEditAddonPrice = (addonIndex) => {
-    setEditingAddonPrice(addonIndex);
-    setTempAddonPrice(addons[addonIndex].price.toString());
-  };
-
-  const saveAddonPrice = (addonIndex) => {
-    const newPrice = parseFloat(tempAddonPrice);
-    if (isNaN(newPrice) || newPrice < 0) {
-      toast.error("Please enter a valid price");
-      return;
-    }
-
-    const updatedAddons = [...addons];
-    updatedAddons[addonIndex] = {
-      ...updatedAddons[addonIndex],
-      price: newPrice,
-    };
-    setAddons(updatedAddons);
-    localStorage.setItem("posAddons", JSON.stringify(updatedAddons));
-    setEditingAddonPrice(null);
-    setTempAddonPrice("");
-
-    // Update cart items that have this addon
-    setCart((prev) =>
-      prev.map((item) => {
-        if (
-          item.addons &&
-          item.addons.some(
-            (addon) => addon.value === updatedAddons[addonIndex].value
-          )
-        ) {
-          return {
-            ...item,
-            price: getProductPrice(
-              item.product,
-              item.size,
-              item.subcategory,
-              item.addons
-            ),
-          };
-        }
-        return item;
-      })
-    );
-
-    toast.success(
-      `Updated ${updatedAddons[addonIndex].name} price to ₱${newPrice}`
-    );
-  };
-
-  const cancelEditAddonPrice = () => {
-    setEditingAddonPrice(null);
-    setTempAddonPrice("");
-  };
-
-  // Add new add-on
-  const addNewAddon = () => {
-    if (!newAddonName.trim() || !newAddonPrice) {
-      toast.error("Please enter both name and price for the new add-on");
-      return;
-    }
-
-    const price = parseFloat(newAddonPrice);
-    if (isNaN(price) || price < 0) {
-      toast.error("Please enter a valid price");
-      return;
-    }
-
-    const newAddon = {
-      name: newAddonName.trim(),
-      value: newAddonName.trim().toLowerCase().replace(/\s+/g, "_"),
-      price: price,
-    };
-
-    const updatedAddons = [...addons, newAddon];
-    setAddons(updatedAddons);
-    localStorage.setItem("posAddons", JSON.stringify(updatedAddons));
-    setNewAddonName("");
-    setNewAddonPrice("");
-    toast.success(`Added new add-on: ${newAddonName}`);
-  };
-
-  // Delete add-on
-  const deleteAddon = (addonIndex) => {
-    const addonToDelete = addons[addonIndex];
-    const updatedAddons = addons.filter((_, index) => index !== addonIndex);
-    setAddons(updatedAddons);
-    localStorage.setItem("posAddons", JSON.stringify(updatedAddons));
-
-    // Remove this addon from all cart items
-    setCart((prev) =>
-      prev.map((item) => {
-        const updatedAddons = item.addons.filter(
-          (addon) => addon.value !== addonToDelete.value
-        );
-        return {
-          ...item,
-          addons: updatedAddons,
-          price: getProductPrice(
-            item.product,
-            item.size,
-            item.subcategory,
-            updatedAddons
-          ),
-        };
-      })
-    );
-
-    toast.success(`Deleted add-on: ${addonToDelete.name}`);
   };
 
   // Handle add-on quantity changes in cart
@@ -631,7 +690,6 @@ const POS = () => {
               quantity: currentQty - 1,
             };
           } else {
-            // Remove addon if quantity becomes 0
             updatedAddons.splice(addonIndex, 1);
           }
 
@@ -674,6 +732,14 @@ const POS = () => {
     );
   };
 
+  // Format price for display
+  function formatPriceDisplay(price) {
+    if (price === null || price === undefined) {
+      return "no price";
+    }
+    return `₱${price.toFixed(2)}`;
+  }
+
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-rose-50">
@@ -688,7 +754,7 @@ const POS = () => {
           message="Processing transaction..."
         />
 
-        {/* Add-ons Edit Modal */}
+        {/* Add-ons Edit Modal for Cart Items */}
         {editIdx !== null && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-96 max-h-[80vh] overflow-y-auto">
@@ -696,46 +762,44 @@ const POS = () => {
               <div className="space-y-3 mb-4">
                 {addons.map((addon) => (
                   <div
-                    key={addon.value}
+                    key={addon._id}
                     className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"
                   >
                     <label className="flex items-center gap-2 flex-1">
                       <input
                         type="checkbox"
-                        checked={editAddons.some(
-                          (a) => a.value === addon.value
-                        )}
+                        checked={editAddons.some((a) => a.value === addon._id)}
                         onChange={(e) => {
                           if (e.target.checked) {
                             setEditAddons([
                               ...editAddons,
-                              { value: addon.value, quantity: 1 },
+                              { value: addon._id, quantity: 1 },
                             ]);
                           } else {
                             setEditAddons(
-                              editAddons.filter((a) => a.value !== addon.value)
+                              editAddons.filter((a) => a.value !== addon._id)
                             );
                           }
                         }}
                         className="rounded"
                       />
-                      <span className="font-medium">{addon.name}</span>
+                      <span className="font-medium">{addon.productName}</span>
                     </label>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-[#E89271]">
-                        ₱{addon.price} each
+                        ₱{addon.sizes?.[0]?.price?.toFixed(2)} each
                       </span>
-                      {editAddons.some((a) => a.value === addon.value) && (
+                      {editAddons.some((a) => a.value === addon._id) && (
                         <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-300">
                           <button
                             onClick={() => {
                               const existing = editAddons.find(
-                                (a) => a.value === addon.value
+                                (a) => a.value === addon._id
                               );
                               if (existing && existing.quantity > 1) {
                                 setEditAddons(
                                   editAddons.map((a) =>
-                                    a.value === addon.value
+                                    a.value === addon._id
                                       ? { ...a, quantity: a.quantity - 1 }
                                       : a
                                   )
@@ -747,17 +811,17 @@ const POS = () => {
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="px-2 text-sm font-medium">
-                            {editAddons.find((a) => a.value === addon.value)
+                            {editAddons.find((a) => a.value === addon._id)
                               ?.quantity || 1}
                           </span>
                           <button
                             onClick={() => {
                               const existing = editAddons.find(
-                                (a) => a.value === addon.value
+                                (a) => a.value === addon._id
                               );
                               setEditAddons(
                                 editAddons.map((a) =>
-                                  a.value === addon.value
+                                  a.value === addon._id
                                     ? { ...a, quantity: (a.quantity || 1) + 1 }
                                     : a
                                 )
@@ -792,6 +856,20 @@ const POS = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Add-on Management Modal */}
+        {showAddonModal && (
+          <AddonModal
+            show={showAddonModal}
+            onClose={() => {
+              setShowAddonModal(false);
+              setEditingAddon(null);
+            }}
+            onSubmit={handleSaveAddon}
+            editingAddon={editingAddon}
+            ingredientsList={ingredientsList}
+          />
         )}
 
         <div className="container mx-auto p-6">
@@ -836,17 +914,17 @@ const POS = () => {
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
                     {uniqueProducts.map((p) => {
-                      const price16 = getProductPrice(p, 16, "", []);
-                      const price32 = getProductPrice(p, 32, "", []);
-
-                      // Use the new isSizeAvailable function to determine which sizes are available
-                      const has16oz = isSizeAvailable(p, 16);
-                      const has32oz = isSizeAvailable(p, 32);
+                      const availableSizes = getAvailableSizes(p);
+                      const isOutOfStock = availableSizes.length === 0;
 
                       return (
                         <div
                           key={p._id}
-                          className="border-2 border-gray-200 rounded-xl p-4 flex flex-col items-center hover:shadow-xl hover:border-[#E89271] transition-all"
+                          className={`border-2 rounded-xl p-4 flex flex-col items-center transition-all ${
+                            isOutOfStock
+                              ? "border-gray-300 bg-gray-100 opacity-50"
+                              : "border-gray-200 hover:shadow-xl hover:border-[#E89271]"
+                          }`}
                         >
                           {p.image ? (
                             <img
@@ -865,40 +943,41 @@ const POS = () => {
                             <div className="font-semibold text-gray-800 text-sm mb-3">
                               {p.productName}
                             </div>
-                            {p.size && (
-                              <div className="text-xs text-gray-500 mb-2">
-                                Default: {p.size}oz
-                              </div>
-                            )}
-                            {/* Size Buttons with Icons and Prices */}
-                            <div className="space-y-2 w-full">
-                              {/* 16oz Button */}
-                              <button
-                                onClick={() => addToCart(p, 16)}
-                                disabled={!has16oz}
-                                className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-colors text-sm font-medium ${
-                                  has16oz
-                                    ? "border-gray-200 hover:border-[#E89271] hover:bg-gray-50 text-gray-700 cursor-pointer"
-                                    : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
-                                }`}
-                              >
-                                <Wine className="w-4 h-4 text-[#E89271]" />
-                                16 oz • {formatPriceDisplay(price16)}
-                              </button>
 
-                              {/* 32oz Button */}
-                              <button
-                                onClick={() => addToCart(p, 32)}
-                                disabled={!has32oz}
-                                className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-colors text-sm font-medium ${
-                                  has32oz
-                                    ? "border-gray-200 hover:border-[#E89271] hover:bg-gray-50 text-gray-700 cursor-pointer"
-                                    : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
-                                }`}
-                              >
-                                <Droplet className="w-4 h-4 text-[#E89271]" />
-                                32 oz • {formatPriceDisplay(price32)}
-                              </button>
+                            {/* Stock Status */}
+                            <div className="text-xs mb-2">
+                              {isOutOfStock ? (
+                                <span className="text-red-600 font-semibold">
+                                  Out of Stock
+                                </span>
+                              ) : (
+                                <span className="text-green-600 font-semibold">
+                                  Available:{" "}
+                                  {Math.max(
+                                    ...availableSizes.map((s) => s.available)
+                                  )}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Dynamic Size Buttons */}
+                            <div className="space-y-2 w-full">
+                              {availableSizes.map((sizeInfo) => (
+                                <button
+                                  key={sizeInfo.size}
+                                  onClick={() => addToCart(p, sizeInfo.size)}
+                                  disabled={isOutOfStock}
+                                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-colors text-sm font-medium border-gray-200 hover:border-[#E89271] hover:bg-gray-50 text-gray-700 cursor-pointer"
+                                >
+                                  {sizeInfo.size === 16 ? (
+                                    <Wine className="w-4 h-4 text-[#E89271]" />
+                                  ) : (
+                                    <Droplet className="w-4 h-4 text-[#E89271]" />
+                                  )}
+                                  {sizeInfo.size} oz •{" "}
+                                  {formatPriceDisplay(sizeInfo.price)}
+                                </button>
+                              ))}
                             </div>
                           </div>
                         </div>
@@ -939,75 +1018,78 @@ const POS = () => {
                       Manage Add-ons
                     </h4>
 
-                    {/* Add New Add-on */}
+                    {/* Add New Add-on Button */}
                     <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
-                      <h5 className="font-medium text-gray-700 mb-2">
-                        Add New Add-on
-                      </h5>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          value={newAddonName}
-                          onChange={(e) => setNewAddonName(e.target.value)}
-                          placeholder="Add-on name"
-                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
-                        />
-                        <input
-                          type="number"
-                          value={newAddonPrice}
-                          onChange={(e) => setNewAddonPrice(e.target.value)}
-                          placeholder="Price"
-                          min="0"
-                          step="0.01"
-                          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-                        />
+                      <div className="flex justify-between items-center mb-2">
+                        <h5 className="font-medium text-gray-700">
+                          Add-ons List
+                        </h5>
+                        <button
+                          onClick={() => {
+                            setEditingAddon(null);
+                            setShowAddonModal(true);
+                          }}
+                          className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          New Add-on
+                        </button>
                       </div>
-                      <button
-                        onClick={addNewAddon}
-                        className="w-full bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700 transition-colors"
-                      >
-                        Add New Add-on
-                      </button>
+                      <p className="text-xs text-gray-500">
+                        Add-ons are managed separately from regular products
+                      </p>
                     </div>
 
-                    {/* Current Add-ons */}
-                    <div className="space-y-2">
-                      {addons.map((addon, index) => (
+                    {/* Current Add-ons List */}
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {addons.map((addon) => (
                         <div
-                          key={addon.value}
+                          key={addon._id}
                           className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
                         >
-                          <div>
-                            <span className="text-sm font-medium text-gray-700 block">
-                              {addon.name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              ID: {addon.value}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-[#E89271]">
-                              ₱{addon.price}
-                            </span>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => startEditAddonPrice(index)}
-                                className="text-blue-500 hover:text-blue-700 transition-colors"
-                                title="Edit price"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => deleteAddon(index)}
-                                className="text-red-500 hover:text-red-700 transition-colors"
-                                title="Delete add-on"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                {addon.productName}
+                              </span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                Add-on
+                              </span>
                             </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Ingredient:{" "}
+                              {addon.ingredients?.[0]?.ingredient?.name ||
+                                "N/A"}{" "}
+                              • Qty: {addon.ingredients?.[0]?.quantity}{" "}
+                              {addon.ingredients?.[0]?.ingredient?.unit}
+                            </div>
+                            <div className="text-xs font-semibold text-[#E89271]">
+                              Price: ₱{addon.sizes?.[0]?.price?.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEditAddon(addon)}
+                              className="text-blue-500 hover:text-blue-700 transition-colors p-1"
+                              title="Edit add-on"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAddon(addon._id)}
+                              className="text-red-500 hover:text-red-700 transition-colors p-1"
+                              title="Delete add-on"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       ))}
+                      {addons.length === 0 && (
+                        <div className="text-center py-4 text-gray-500">
+                          <p className="text-sm">No add-ons created yet</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1044,7 +1126,7 @@ const POS = () => {
                                 <span className="text-xs">Add-ons</span>
                               </button>
                             </div>
-                            {/* Size Selector (numeric) */}
+                            {/* Size Selector */}
                             {[
                               "Iced Latte",
                               "Bubble Tea",
@@ -1089,16 +1171,16 @@ const POS = () => {
                             {item.addons && item.addons.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {item.addons.map((addonItem, addonIdx) => {
-                                  const addon = addons.find(
-                                    (a) => a.value === addonItem.value
+                                  const addonProduct = addons.find(
+                                    (a) => a._id === addonItem.value
                                   );
-                                  return addon ? (
+                                  return addonProduct ? (
                                     <div
-                                      key={addon.value}
+                                      key={addonProduct._id}
                                       className="flex items-center justify-between bg-white px-2 py-1 rounded border border-gray-200"
                                     >
                                       <span className="text-xs text-gray-600">
-                                        {addon.name}
+                                        {addonProduct.productName}
                                       </span>
                                       <div className="flex items-center gap-1">
                                         <div className="flex items-center gap-1 bg-gray-100 rounded">
@@ -1186,7 +1268,7 @@ const POS = () => {
                           <div className="font-bold text-[#E89271]">
                             {item.price === null
                               ? "no price"
-                              : `₱${item.price * item.quantity}`}
+                              : `₱${(item.price * item.quantity).toFixed(2)}`}
                           </div>
                         </div>
                       </div>
@@ -1204,7 +1286,7 @@ const POS = () => {
 
                 {/* Payment Details */}
                 <div className="space-y-3 mb-4">
-                  {/* Cashier Display (Read-only) */}
+                  {/* Cashier Display */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Cashier

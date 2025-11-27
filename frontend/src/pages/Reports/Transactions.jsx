@@ -26,6 +26,20 @@ const Transactions = () => {
     previousStart: null,
     previousEnd: null,
   });
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [customDateType, setCustomDateType] = useState("daily");
+  const [currentSelectedDate, setCurrentSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [previousSelectedDate, setPreviousSelectedDate] = useState(
+    new Date(Date.now() - 86400000).toISOString().split("T")[0] // Yesterday
+  );
+  const [currentSelectedMonth, setCurrentSelectedMonth] = useState(
+    new Date().toISOString().substring(0, 7)
+  );
+  const [previousSelectedMonth, setPreviousSelectedMonth] = useState(
+    new Date(Date.now() - 86400000 * 30).toISOString().substring(0, 7) // Last month
+  );
 
   // Fetch transactions
   useEffect(() => {
@@ -65,6 +79,11 @@ const Transactions = () => {
         year: "numeric",
       });
     };
+
+    if (start.getTime() === end.getTime()) {
+      return format(start);
+    }
+
     return `${format(start)} - ${format(end)}`;
   };
 
@@ -206,6 +225,103 @@ const Transactions = () => {
     setFilteredTransactions(currentPeriodTransactions);
   };
 
+  // Handle custom date selection with comparison
+  const handleCustomDateApply = () => {
+    let currentStart, currentEnd, previousStart, previousEnd;
+
+    switch (customDateType) {
+      case "daily":
+        // Current day
+        currentStart = new Date(currentSelectedDate);
+        currentEnd = new Date(currentSelectedDate);
+        currentEnd.setHours(23, 59, 59, 999);
+
+        // Previous day
+        previousStart = new Date(previousSelectedDate);
+        previousEnd = new Date(previousSelectedDate);
+        previousEnd.setHours(23, 59, 59, 999);
+        break;
+
+      case "weekly":
+        // Current week (7 days including and before selected date)
+        currentStart = new Date(currentSelectedDate);
+        currentStart.setDate(currentStart.getDate() - 6);
+        currentStart.setHours(0, 0, 0, 0);
+        currentEnd = new Date(currentSelectedDate);
+        currentEnd.setHours(23, 59, 59, 999);
+
+        // Previous week (7 days including and before selected date)
+        previousStart = new Date(previousSelectedDate);
+        previousStart.setDate(previousStart.getDate() - 6);
+        previousStart.setHours(0, 0, 0, 0);
+        previousEnd = new Date(previousSelectedDate);
+        previousEnd.setHours(23, 59, 59, 999);
+        break;
+
+      case "monthly":
+        // Current month
+        const [currentYear, currentMonth] = currentSelectedMonth
+          .split("-")
+          .map(Number);
+        currentStart = new Date(currentYear, currentMonth - 1, 1);
+        currentEnd = new Date(currentYear, currentMonth, 0);
+        currentEnd.setHours(23, 59, 59, 999);
+
+        // Previous month
+        const [previousYear, previousMonth] = previousSelectedMonth
+          .split("-")
+          .map(Number);
+        previousStart = new Date(previousYear, previousMonth - 1, 1);
+        previousEnd = new Date(previousYear, previousMonth, 0);
+        previousEnd.setHours(23, 59, 59, 999);
+        break;
+
+      default:
+        return;
+    }
+
+    const currentPeriodTransactions = transactions.filter((t) => {
+      const transactionDate = new Date(t.transactionDate);
+      return transactionDate >= currentStart && transactionDate <= currentEnd;
+    });
+
+    const previousPeriodTransactions = transactions.filter((t) => {
+      const transactionDate = new Date(t.transactionDate);
+      return transactionDate >= previousStart && transactionDate <= previousEnd;
+    });
+
+    const currentCount = currentPeriodTransactions.length;
+    const previousCount = previousPeriodTransactions.length;
+    const currentTotal = currentPeriodTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+    const previousTotal = previousPeriodTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+
+    setComparisonData({
+      current: currentPeriodTransactions,
+      previous: previousPeriodTransactions,
+      currentCount,
+      previousCount,
+      currentTotal,
+      previousTotal,
+    });
+
+    setDateRange({
+      currentStart,
+      currentEnd,
+      previousStart,
+      previousEnd,
+    });
+
+    setFilteredTransactions(currentPeriodTransactions);
+    setTimePeriod("custom");
+    setShowCustomDatePicker(false);
+  };
+
   // Handle time period button click
   const handleTimePeriodClick = (period) => {
     if (timePeriod === period) {
@@ -218,20 +334,59 @@ const Transactions = () => {
     }
   };
 
-  // Calculate percentage change
-  const calculateChange = (current, previous) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return ((current - previous) / previous) * 100;
+  // Handle custom date button click
+  const handleCustomDateClick = () => {
+    setShowCustomDatePicker(!showCustomDatePicker);
+    if (!showCustomDatePicker) {
+      setTimePeriod("custom");
+      // Set default values based on current customDateType
+      const now = new Date();
+      const yesterday = new Date(Date.now() - 86400000);
+      const lastMonth = new Date(Date.now() - 86400000 * 30);
+
+      setCurrentSelectedDate(now.toISOString().split("T")[0]);
+      setPreviousSelectedDate(yesterday.toISOString().split("T")[0]);
+      setCurrentSelectedMonth(now.toISOString().substring(0, 7));
+      setPreviousSelectedMonth(lastMonth.toISOString().substring(0, 7));
+    }
   };
 
-  const countChangePercentage = calculateChange(
-    comparisonData.currentCount,
-    comparisonData.previousCount
-  );
-  const totalChangePercentage = calculateChange(
-    comparisonData.currentTotal,
-    comparisonData.previousTotal
-  );
+  // Handle custom date type change
+  const handleCustomDateTypeChange = (type) => {
+    setCustomDateType(type);
+    // Reset to current dates when switching types
+    const now = new Date();
+    const yesterday = new Date(Date.now() - 86400000);
+    const lastMonth = new Date(Date.now() - 86400000 * 30);
+
+    setCurrentSelectedDate(now.toISOString().split("T")[0]);
+    setPreviousSelectedDate(yesterday.toISOString().split("T")[0]);
+    setCurrentSelectedMonth(now.toISOString().substring(0, 7));
+    setPreviousSelectedMonth(lastMonth.toISOString().substring(0, 7));
+  };
+
+  // Get week range description for weekly view
+  const getWeekRangeDescription = (dateString) => {
+    const date = new Date(dateString);
+    const start = new Date(date);
+    start.setDate(date.getDate() - 6);
+
+    const format = (date) => {
+      return date.toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+    };
+
+    return `${format(start)} - ${format(date)}`;
+  };
+
+  // Get month name for monthly view
+  const getMonthName = (monthString) => {
+    const [year, month] = monthString.split("-").map(Number);
+    const date = new Date(year, month - 1, 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  };
 
   // Filter configuration for transactions
   const transactionFilterConfig = [
@@ -324,9 +479,7 @@ const Transactions = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Transaction Records
             </h1>
-            <p className="text-gray-600">
-              View Transaction Records and Comparison
-            </p>
+            <p className="text-gray-600">View Transaction Records</p>
           </div>
         </div>
 
@@ -346,7 +499,7 @@ const Transactions = () => {
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                Daily Comparison
+                Daily
               </button>
               <button
                 onClick={() => handleTimePeriodClick("weekly")}
@@ -356,7 +509,7 @@ const Transactions = () => {
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                Weekly Comparison
+                Weekly
               </button>
               <button
                 onClick={() => handleTimePeriodClick("monthly")}
@@ -366,17 +519,209 @@ const Transactions = () => {
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                Monthly Comparison
+                Monthly
+              </button>
+              <button
+                onClick={handleCustomDateClick}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "custom"
+                    ? "bg-purple-100 text-purple-700 border-purple-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Custom Date
               </button>
             </div>
           </div>
 
-          {/* Comparison Cards */}
+          {/* Custom Date Picker */}
+          {showCustomDatePicker && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex flex-col gap-4">
+                {/* Date Type Selection */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleCustomDateTypeChange("daily")}
+                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${
+                      customDateType === "daily"
+                        ? "bg-blue-100 text-blue-700 border-blue-300"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Single Day
+                  </button>
+                  <button
+                    onClick={() => handleCustomDateTypeChange("weekly")}
+                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${
+                      customDateType === "weekly"
+                        ? "bg-blue-100 text-blue-700 border-blue-300"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    7-Day Range
+                  </button>
+                  <button
+                    onClick={() => handleCustomDateTypeChange("monthly")}
+                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${
+                      customDateType === "monthly"
+                        ? "bg-blue-100 text-blue-700 border-blue-300"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                </div>
+
+                {/* Date Inputs - Two columns for comparison */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Current Period */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-700 text-sm">
+                      Current Period
+                    </h4>
+
+                    {customDateType === "daily" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Select Date:
+                        </label>
+                        <input
+                          type="date"
+                          value={currentSelectedDate}
+                          onChange={(e) =>
+                            setCurrentSelectedDate(e.target.value)
+                          }
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    )}
+
+                    {customDateType === "weekly" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          End Date (last 7 days):
+                        </label>
+                        <input
+                          type="date"
+                          value={currentSelectedDate}
+                          onChange={(e) =>
+                            setCurrentSelectedDate(e.target.value)
+                          }
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-sm text-gray-600">
+                          {getWeekRangeDescription(currentSelectedDate)}
+                        </span>
+                      </div>
+                    )}
+
+                    {customDateType === "monthly" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Select Month:
+                        </label>
+                        <input
+                          type="month"
+                          value={currentSelectedMonth}
+                          onChange={(e) =>
+                            setCurrentSelectedMonth(e.target.value)
+                          }
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-sm text-gray-600">
+                          {getMonthName(currentSelectedMonth)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Previous Period */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-700 text-sm">
+                      Previous Period
+                    </h4>
+
+                    {customDateType === "daily" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Select Date:
+                        </label>
+                        <input
+                          type="date"
+                          value={previousSelectedDate}
+                          onChange={(e) =>
+                            setPreviousSelectedDate(e.target.value)
+                          }
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    )}
+
+                    {customDateType === "weekly" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          End Date (last 7 days):
+                        </label>
+                        <input
+                          type="date"
+                          value={previousSelectedDate}
+                          onChange={(e) =>
+                            setPreviousSelectedDate(e.target.value)
+                          }
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-sm text-gray-600">
+                          {getWeekRangeDescription(previousSelectedDate)}
+                        </span>
+                      </div>
+                    )}
+
+                    {customDateType === "monthly" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Select Month:
+                        </label>
+                        <input
+                          type="month"
+                          value={previousSelectedMonth}
+                          onChange={(e) =>
+                            setPreviousSelectedMonth(e.target.value)
+                          }
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-sm text-gray-600">
+                          {getMonthName(previousSelectedMonth)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCustomDateApply}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    Apply
+                  </button>
+                  <button
+                    onClick={() => setShowCustomDatePicker(false)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Data Cards */}
           {timePeriod && (
             <div className="mt-6 space-y-4">
               {/* Date Range Display */}
               <div className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
-                <span>Comparison Periods:</span>
+                <span>Periods:</span>
                 <div className="flex items-center gap-4">
                   <span>
                     Current:{" "}
@@ -396,22 +741,12 @@ const Transactions = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Transactions Count Comparison */}
+                {/* Transactions Count */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-gray-700">
                       Transactions
                     </h3>
-                    <div
-                      className={`px-2 py-1 rounded text-sm font-medium ${
-                        countChangePercentage >= 0
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {countChangePercentage >= 0 ? "+" : ""}
-                      {countChangePercentage.toFixed(1)}%
-                    </div>
                   </div>
 
                   <div className="flex items-end justify-between">
@@ -420,7 +755,7 @@ const Transactions = () => {
                         {comparisonData.currentCount}
                       </div>
                       <div className="text-sm text-gray-600">
-                        Current {timePeriod}
+                        Current period
                       </div>
                     </div>
 
@@ -429,26 +764,16 @@ const Transactions = () => {
                         {comparisonData.previousCount}
                       </div>
                       <div className="text-sm text-gray-500">
-                        Previous {timePeriod}
+                        Previous period
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Revenue Comparison */}
+                {/* Revenue */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-gray-700">Revenue</h3>
-                    <div
-                      className={`px-2 py-1 rounded text-sm font-medium ${
-                        totalChangePercentage >= 0
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {totalChangePercentage >= 0 ? "+" : ""}
-                      {totalChangePercentage.toFixed(1)}%
-                    </div>
                   </div>
 
                   <div className="flex items-end justify-between">
@@ -457,7 +782,7 @@ const Transactions = () => {
                         ₱{comparisonData.currentTotal.toFixed(2)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        Current {timePeriod}
+                        Current period
                       </div>
                     </div>
 
@@ -466,7 +791,7 @@ const Transactions = () => {
                         ₱{comparisonData.previousTotal.toFixed(2)}
                       </div>
                       <div className="text-sm text-gray-500">
-                        Previous {timePeriod}
+                        Previous period
                       </div>
                     </div>
                   </div>

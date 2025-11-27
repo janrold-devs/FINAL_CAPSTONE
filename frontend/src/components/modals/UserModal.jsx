@@ -39,15 +39,15 @@ const UserModal = ({ show, onClose, onSubmit, user, setUser, isEdit }) => {
             required
           />
 
-          <label className="block font-semibold text-sm mb-1">Email</label>
+          <label className="block font-semibold text-sm mb-1">Username</label>
           <input
-            type="email"
+            type="text"
             className="border border-gray-300 p-2 w-full rounded focus:outline-none"
-            value={user?.email || ""}
+            value={user?.username || ""}
             onChange={(e) =>
               setUser({
                 ...user,
-                email: e.target.value,
+                username: e.target.value,
               })
             }
             required
@@ -56,9 +56,7 @@ const UserModal = ({ show, onClose, onSubmit, user, setUser, isEdit }) => {
           <label className="block font-semibold text-sm mb-1">Role</label>
           <select
             value={user?.role || "staff"}
-            onChange={(e) =>
-              setUser({ ...user, role: e.target.value })
-            }
+            onChange={(e) => setUser({ ...user, role: e.target.value })}
             className="border border-gray-300 p-2 w-full rounded focus:outline-none"
           >
             <option value="admin">Admin</option>
@@ -70,7 +68,9 @@ const UserModal = ({ show, onClose, onSubmit, user, setUser, isEdit }) => {
           </label>
           <input
             type="password"
-            placeholder={isEdit ? "Leave blank to keep current" : "Enter password"}
+            placeholder={
+              isEdit ? "Leave blank to keep current" : "Enter password"
+            }
             className="border border-gray-300 p-2 w-full rounded focus:outline-none"
             onChange={(e) =>
               setUser({

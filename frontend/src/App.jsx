@@ -22,17 +22,94 @@ const App = () => {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/inventory/ingredients" element={<ProtectedRoute><Ingredient /></ProtectedRoute>} />
-        <Route path="/inventory/products" element={<ProtectedRoute><Product /></ProtectedRoute>} />
-        <Route path="/inventory/spoilages" element={<ProtectedRoute><Spoilage /></ProtectedRoute>} />
-        <Route path="/inventory/stock-in" element={<ProtectedRoute><StockIn /></ProtectedRoute>} />
-        <Route path="/pos" element={<ProtectedRoute><POS /></ProtectedRoute>} />
-        <Route path="/reports/sales" element={<ProtectedRoute requiredRole="admin"><Sales /></ProtectedRoute>} />
-        <Route path="/reports/transactions" element={<ProtectedRoute requiredRole="admin"><Transactions /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/users/logs" element={<ProtectedRoute requiredRole="admin"><Logs /></ProtectedRoute>} />
-        <Route path="/users/user-management" element={<ProtectedRoute requiredRole="admin"><UserManagement /></ProtectedRoute>} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory/ingredients"
+          element={
+            <ProtectedRoute>
+              <Ingredient />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory/products"
+          element={
+            <ProtectedRoute>
+              <Product />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory/spoilages"
+          element={
+            <ProtectedRoute>
+              <Spoilage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory/stock-in"
+          element={
+            <ProtectedRoute>
+              <StockIn />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pos"
+          element={
+            <ProtectedRoute>
+              <POS />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports/sales"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <Sales />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports/transactions"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <Transactions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/logs"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <Logs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/user-management"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <UserManagement />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

@@ -64,7 +64,7 @@ const TransactionModal = ({ transaction, onClose }) => {
                     Size
                   </th>
                   <th className="text-left py-2 font-semibold text-gray-700">
-                    Subcategory
+                    Add-ons
                   </th>
                   <th className="text-right py-2 font-semibold text-gray-700">
                     Qty
@@ -78,51 +78,89 @@ const TransactionModal = ({ transaction, onClose }) => {
                 </tr>
               </thead>
               <tbody>
-                {transaction.itemsSold.map((item, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-gray-200 last:border-b-0"
-                  >
-                    <td className="py-2">
-                      <div className="text-gray-800">
-                        {item.product?.productName || "Unknown"}
-                      </div>
-                      {/* Show add-ons if any */}
-                      {item.addons && item.addons.length > 0 && (
-                        <div className="text-[10px] text-gray-500 mt-1">
-                          Add-ons:{" "}
-                          {item.addons
-                            .map((val) => {
-                              if (val === "espresso") return "Espresso Shot";
-                              if (val === "pearls") return "Pearls";
-                              if (val === "crystals") return "Crystals";
-                              if (val === "creamPuff") return "Cream Puff";
-                              return val;
-                            })
-                            .join(", ")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-2 text-gray-600">
-                      {item.category || "—"}
-                    </td>
-                    <td className="py-2 text-gray-600">
-                      {item.size || item.product?.size || "—"}
-                    </td>
-                    <td className="py-2 text-gray-600">
-                      {item.subcategory || item.product?.subcategory || "—"}
-                    </td>
-                    <td className="py-2 text-right text-gray-800">
-                      {item.quantity}
-                    </td>
-                    <td className="py-2 text-right text-gray-600">
-                      ₱{item.price?.toFixed(2)}
-                    </td>
-                    <td className="py-2 text-right font-semibold text-gray-800">
-                      ₱{item.totalCost?.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {transaction.itemsSold.map((item, idx) => {
+                  // Calculate base product price without add-ons
+                  const baseProductPrice =
+                    item.price -
+                    (item.addons?.reduce(
+                      (sum, addon) =>
+                        sum + (addon.price || 0) * (addon.quantity || 1),
+                      0
+                    ) || 0);
+
+                  return (
+                    <React.Fragment key={idx}>
+                      {/* Main Product Row */}
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2">
+                          <div className="text-gray-800 font-medium">
+                            {item.product?.productName || "Unknown"}
+                          </div>
+                        </td>
+                        <td className="py-2 text-gray-600">
+                          {item.category || "—"}
+                        </td>
+                        <td className="py-2 text-gray-600">
+                          {item.size ? `${item.size} oz` : "—"}
+                        </td>
+                        <td className="py-2 text-gray-600">
+                          {/* Show add-ons count */}
+                          {item.addons && item.addons.length > 0 ? (
+                            <span className="text-blue-600 text-xs">
+                              {item.addons.length} add-on(s)
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="py-2 text-right text-gray-800 font-medium">
+                          {item.quantity}
+                        </td>
+                        <td className="py-2 text-right text-gray-600">
+                          ₱{baseProductPrice.toFixed(2)}
+                        </td>
+                        <td className="py-2 text-right font-semibold text-gray-800">
+                          ₱{item.totalCost?.toFixed(2)}
+                        </td>
+                      </tr>
+
+                      {/* Add-ons Rows */}
+                      {item.addons &&
+                        item.addons.map((addon, addonIdx) => (
+                          <tr
+                            key={`${idx}-${addonIdx}`}
+                            className="bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <td className="py-1 pl-4">
+                              <div className="text-gray-600 text-xs flex items-center">
+                                <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                {addon.addonName || "Add-on"}
+                              </div>
+                            </td>
+                            <td className="py-1 text-gray-500 text-xs">
+                              Add-on
+                            </td>
+                            <td className="py-1 text-gray-500 text-xs">—</td>
+                            <td className="py-1 text-gray-500 text-xs">
+                              <div className="text-xs">Extra</div>
+                            </td>
+                            <td className="py-1 text-right text-gray-600 text-xs font-medium">
+                              {addon.quantity || 1}
+                            </td>
+                            <td className="py-1 text-right text-gray-500 text-xs">
+                              ₱{addon.price?.toFixed(2) || "0.00"}
+                            </td>
+                            <td className="py-1 text-right text-gray-600 text-xs font-medium">
+                              ₱
+                              {(
+                                (addon.price || 0) * (addon.quantity || 1)
+                              ).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

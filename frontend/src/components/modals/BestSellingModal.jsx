@@ -4,7 +4,7 @@ import {
   TrendingUp,
   Package,
   Tag,
-  DollarSign,
+  PhilippinePeso,
   BarChart3,
 } from "lucide-react";
 
@@ -36,18 +36,18 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
     if (product.productName && product.productName.trim() !== "") {
       return product.productName;
     }
-    
+
     // If productName is not available, check for name as fallback
     if (product.name && product.name.trim() !== "") {
       return product.name;
     }
-    
+
     // Final fallback: create a descriptive name from category and size
     if (product.category) {
-      const sizeSuffix = product.size ? ` ${product.size}oz` : '';
+      const sizeSuffix = product.size ? ` ${product.size}oz` : "";
       return `${product.category}${sizeSuffix}`;
     }
-    
+
     return "Unnamed Product";
   };
 
@@ -115,7 +115,7 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <DollarSign className="w-8 h-8 text-green-600" />
+                    <PhilippinePeso className="w-8 h-8 text-green-600" />
                     <div>
                       <p className="text-sm text-green-600 font-medium">
                         Total Revenue

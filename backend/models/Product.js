@@ -1,20 +1,31 @@
-
 import mongoose from "mongoose";
 
-const productSchema = new mongoose.Schema({
-  image: { type: String }, //image URL
-  productName: { type: String, required: true },
-  // REPLACE single size/price with sizes array
-  sizes: [{
-    size: { type: Number, required: true },
-    price: { type: Number, required: true }
-  }],
-  ingredients: [{
-    ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
-    quantity: { type: Number } // how much of that ingredient is used
-  }],
-  category: { type: String, required: true }, // e.g. milk tea, frappe
-  status: { type: String, enum: ["available", "unavailable"], default: "available" }
-}, { timestamps: true });
+const productSchema = new mongoose.Schema(
+  {
+    image: { type: String },
+    productName: { type: String, required: true },
+    sizes: [
+      {
+        size: { type: Number, required: true },
+        price: { type: Number, required: true },
+      },
+    ],
+    ingredients: [
+      {
+        ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
+        quantity: { type: Number },
+      },
+    ],
+    category: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ["available", "unavailable"],
+      default: "available",
+    },
+    // NEW: Add isAddon field to identify add-on products
+    isAddon: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
 
 export default mongoose.model("Product", productSchema);

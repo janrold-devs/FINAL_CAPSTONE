@@ -28,7 +28,7 @@ const UserManagement = () => {
   const [formUser, setFormUser] = useState({
     firstName: "",
     lastName: "",
-    email: "",
+    username: "",
     password: "",
     role: "staff",
   });
@@ -36,7 +36,6 @@ const UserManagement = () => {
   const token = localStorage.getItem("token");
 
   // Fetch all users with better error handling
-  // In your fetchUsers function in UserManagement.jsx
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -69,7 +68,7 @@ const UserManagement = () => {
     setFormUser({
       firstName: "",
       lastName: "",
-      email: "",
+      username: "",
       password: "",
       role: "staff",
     });
@@ -82,7 +81,7 @@ const UserManagement = () => {
     setFormUser({
       firstName: user.firstName || "",
       lastName: user.lastName || "",
-      email: user.email || "",
+      username: user.username || "",
       password: "", // Don't pre-fill password for security
       role: user.role || "staff",
     });
@@ -116,7 +115,7 @@ const UserManagement = () => {
         if (
           !formUser.firstName ||
           !formUser.lastName ||
-          !formUser.email ||
+          !formUser.username ||
           !formUser.password
         ) {
           toast.error("All fields are required");
@@ -134,7 +133,7 @@ const UserManagement = () => {
       setFormUser({
         firstName: "",
         lastName: "",
-        email: "",
+        username: "",
         password: "",
         role: "staff",
       });
@@ -146,7 +145,6 @@ const UserManagement = () => {
     }
   };
 
-  // Handle deactivate/reactivate - FIXED VERSION
   // Handle deactivate/reactivate - USING PUT instead of PATCH
   const handleStatusToggle = async () => {
     try {
@@ -201,7 +199,7 @@ const UserManagement = () => {
     }
   };
 
-  // Filter configuration for users - UPDATED to match User model
+  // Filter configuration for users - UPDATED
   const userFilterConfig = [
     {
       key: "role",
@@ -209,7 +207,6 @@ const UserManagement = () => {
       options: [
         { value: "admin", label: "Admin" },
         { value: "staff", label: "Staff" },
-        // Removed "cashier" since it's not in the User model enum
       ],
     },
     {
@@ -226,7 +223,7 @@ const UserManagement = () => {
   const userSortConfig = [
     { key: "firstName", label: "First Name" },
     { key: "lastName", label: "Last Name" },
-    { key: "email", label: "Email" },
+    { key: "username", label: "Username" },
     { key: "role", label: "Role" },
     { key: "isActive", label: "Status" },
     { key: "createdAt", label: "Date Created" },
@@ -263,12 +260,17 @@ const UserManagement = () => {
         0
       )}`.toUpperCase();
     }
-    return user.email?.charAt(0)?.toUpperCase() || "U";
+    return user.username?.charAt(0)?.toUpperCase() || "U";
   };
 
   // Check if user is active (handle undefined)
   const isUserActive = (user) => {
     return user.isActive !== false;
+  };
+
+  // Get user's full name
+  const getFullName = (user) => {
+    return `${user.firstName || ""} ${user.lastName || ""}`.trim() || "N/A";
   };
 
   return (
@@ -373,10 +375,10 @@ const UserManagement = () => {
         <SearchFilter
           data={users}
           onFilteredDataChange={setFilteredUsers}
-          searchFields={["firstName", "lastName", "email"]}
+          searchFields={["firstName", "lastName", "username"]}
           filterConfig={userFilterConfig}
           sortConfig={userSortConfig}
-          placeholder="Search by name or email..."
+          placeholder="Search by name or username..."
         />
 
         {/* Table Section */}
@@ -410,7 +412,10 @@ const UserManagement = () => {
                       User
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Email
+                      Full Name
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Username
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Role
@@ -457,9 +462,7 @@ const UserManagement = () => {
                                   !isActive ? "text-gray-500" : "text-gray-900"
                                 }`}
                               >
-                                {user.firstName && user.lastName
-                                  ? `${user.firstName} ${user.lastName}`
-                                  : "N/A"}
+                                {getFullName(user)}
                               </div>
                               <div className="text-xs text-gray-500">User</div>
                             </div>
@@ -471,7 +474,16 @@ const UserManagement = () => {
                               !isActive ? "text-gray-500" : "text-gray-700"
                             }`}
                           >
-                            {user.email}
+                            {getFullName(user)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div
+                            className={`text-sm ${
+                              !isActive ? "text-gray-500" : "text-gray-700"
+                            }`}
+                          >
+                            {user.username}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -574,7 +586,7 @@ const UserManagement = () => {
             selectedUser
               ? `Are you sure you want to ${
                   !isUserActive(selectedUser) ? "reactivate" : "deactivate"
-                } ${selectedUser.firstName} ${selectedUser.lastName}? ${
+                } ${getFullName(selectedUser)}? ${
                   !isUserActive(selectedUser)
                     ? "The user will be able to access the system again."
                     : "The user will no longer be able to access the system."
