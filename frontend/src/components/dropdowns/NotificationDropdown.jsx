@@ -27,6 +27,11 @@ const NotificationDropdown = () => {
 
   const BACKEND_BASE_URL = getBackendBaseUrl();
 
+  // Fetch notifications on component mount
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
   // Initialize socket connection
   useEffect(() => {
     console.log("🔗 Connecting to:", BACKEND_BASE_URL);
@@ -45,6 +50,8 @@ const NotificationDropdown = () => {
     newSocket.on("connect", () => {
       console.log("✅ Connected to notification server");
       setConnected(true);
+      // Fetch notifications again when socket connects to ensure we have the latest
+      fetchNotifications();
     });
 
     newSocket.on("disconnect", (reason) => {
@@ -110,7 +117,10 @@ const NotificationDropdown = () => {
       setNotifications(response.data);
     } catch (error) {
       console.error("❌ Error fetching notifications:", error);
-      alert("Failed to load notifications. Please try again.");
+      // Don't show alert for initial load, only show if user manually refreshes
+      if (open) {
+        alert("Failed to load notifications. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -152,7 +162,7 @@ const NotificationDropdown = () => {
     }
   };
 
-  // Fetch on open
+  // Fetch on open (additional fetch when user opens dropdown)
   useEffect(() => {
     if (open) {
       fetchNotifications();
@@ -226,9 +236,7 @@ const NotificationDropdown = () => {
         className="relative flex items-center justify-center w-10 h-10 cursor-pointer transition-all duration-200 hover:bg-[#eab9a5] rounded-lg group"
       >
         <Bell
-          className={`w-6 h-6 text-white transition-transform ${
-            totalCount > 0 ? "animate-bounce" : ""
-          } group-hover:scale-110`}
+          className="w-6 h-6 text-white transition-transform group-hover:scale-110"
         />
 
         {/* Notification Badge - Show total count */}
