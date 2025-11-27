@@ -1,63 +1,73 @@
+// controllers/auth.controller.js
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { logActivity } from "../middleware/activitylogger.middleware.js";
+import { sendPendingApprovalEmail } from "../services/emailService.js";
 
 export const register = async (req, res) => {
   try {
     console.log("Register request body:", req.body);
 
-    const { firstName, lastName, username, password } = req.body;
+    const { firstName, lastName, username, password, email } = req.body;
 
-    if (!firstName || !lastName || !username || !password) {
+    if (!firstName || !lastName || !username || !password || !email) {
       console.log("Missing fields:", {
         firstName,
         lastName,
         username,
         password: !!password,
+        email,
       });
       return res.status(400).json({ message: "All fields are required." });
     }
 
-    // Check if username already exists
-    const existingUser = await User.findOne({ username });
+    // Check if username or email already exists
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
+    });
     if (existingUser) {
-      console.log("Username already exists:", username);
-      return res.status(400).json({ message: "Username already exists." });
+      console.log("Username or email already exists:", username, email);
+      return res.status(400).json({ message: "Username or email already exists." });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user with pending status
     const user = await User.create({
       firstName,
       lastName,
       username,
+      email,
       password: hashedPassword,
-      role: "staff", // Default role for registered users
+      role: "staff",
+      status: "pending",
     });
 
-    console.log("User created successfully:", user.username);
+    console.log("User created with pending status:", user.username);
 
-    // Generate token
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      process.env.JWT_SECRET || "fallback_secret",
-      { expiresIn: "7d" }
+    // Send pending approval email
+    await sendPendingApprovalEmail(user);
+
+    // Log admin notification
+    await logActivity(
+      req,
+      "USER_REGISTRATION_REQUEST",
+      `New user registration pending approval: ${firstName} ${lastName} (${username}) - ${email}`
     );
 
-    // Return user data without password
-    const userResponse = {
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      role: user.role,
-      isActive: user.isActive,
-      token,
-    };
-
-    res.status(201).json(userResponse);
+    res.status(201).json({
+      message: "Registration submitted for approval. You will receive an email notification once your account is approved.",
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+        email: user.email,
+        status: user.status
+      }
+    });
   } catch (err) {
     console.error("Registration error:", err);
     res.status(500).json({ message: err.message });
@@ -83,6 +93,14 @@ export const login = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials." });
+    }
+
+    // Check if user is approved
+    if (user.status !== "approved") {
+      console.log("User not approved:", username);
+      return res.status(403).json({
+        message: "Your account is pending approval. Please wait for administrator approval.",
+      });
     }
 
     // Check if user is active
@@ -114,8 +132,10 @@ export const login = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       username: user.username,
+      email: user.email,
       role: user.role,
       isActive: user.isActive,
+      status: user.status,
       token,
     };
 

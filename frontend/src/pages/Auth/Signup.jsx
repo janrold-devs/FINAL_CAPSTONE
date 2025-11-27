@@ -1,3 +1,4 @@
+// pages/Auth/Signup.jsx
 import React, { useState, useContext } from "react";
 import AuthLayout from "../../layouts/AuthLayout";
 import { useNavigate, Link } from "react-router-dom";
@@ -13,6 +14,7 @@ const Signup = () => {
     firstName: "",
     lastName: "",
     username: "",
+    email: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -28,9 +30,22 @@ const Signup = () => {
       !form.firstName.trim() ||
       !form.lastName.trim() ||
       !form.username.trim() ||
+      !form.email.trim() ||
       !form.password.trim()
     ) {
       toast.error("Please fill in all fields");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
       return;
     }
 
@@ -41,12 +56,22 @@ const Signup = () => {
         form.firstName,
         form.lastName,
         form.username,
+        form.email,
         form.password
       );
 
       if (result.success) {
-        toast.success("Account created successfully! Welcome! 👋");
-        setTimeout(() => navigate("/dashboard"), 2000);
+        toast.success("Registration submitted for approval! You will receive an email once your account is approved. 👋");
+        // Clear form
+        setForm({
+          firstName: "",
+          lastName: "",
+          username: "",
+          email: "",
+          password: "",
+        });
+        // Redirect to login after successful registration
+        setTimeout(() => navigate("/login"), 3000);
       } else {
         toast.error(result.message);
       }
@@ -63,8 +88,8 @@ const Signup = () => {
     <AuthLayout title="">
       <ToastContainer
         position="bottom-right"
-        autoClose={2000}
-        hideProgressBar
+        autoClose={5000}
+        hideProgressBar={false}
       />
 
       {/* Logo Section */}
@@ -82,6 +107,12 @@ const Signup = () => {
         </div>
         <h1 className="text-3xl font-bold text-gray-800">KKopi.Tea</h1>
         <p className="text-gray-600 mt-2">Create your account</p>
+        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> Your account requires admin approval before you can login.
+            You will receive an email with your credentials once approved.
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -120,6 +151,22 @@ const Signup = () => {
 
         <div>
           <label className="block text-gray-700 mb-2 font-medium">
+            Email
+          </label>
+          <input
+            type="email"
+            name="email"
+            placeholder="Enter your email"
+            required
+            value={form.email}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
+            disabled={loading}
+          />
+        </div>
+
+        <div>
+          <label className="block text-gray-700 mb-2 font-medium">
             Username
           </label>
           <input
@@ -142,12 +189,13 @@ const Signup = () => {
             <input
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder="Create a password"
+              placeholder="Create a password (min. 6 characters)"
               required
               value={form.password}
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
               disabled={loading}
+              minLength="6"
             />
             <button
               type="button"
@@ -172,10 +220,10 @@ const Signup = () => {
           {loading ? (
             <div className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-              Creating Account...
+              Submitting for Approval...
             </div>
           ) : (
-            "Create Account"
+            "Submit for Approval"
           )}
         </button>
 

@@ -16,6 +16,7 @@ import {
   Receipt,
   Activity,
   LogOut,
+  UserCheck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
@@ -101,6 +102,7 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
     { href: "/reports/sales", label: "Sales", icon: <Receipt size={20} /> },
     { divider: true },
     { href: "/users/user-management", label: "Users", icon: <UserIcon size={20} /> },
+    { href: "/users/user-approval", label: "User Approvals", icon: <UserCheck size={20} />},
     { href: "/users/logs", label: "Activity Log", icon: <Activity size={20} /> },
     { divider: true },
     { href: "/settings", label: "Settings", icon: <Settings size={20} /> },

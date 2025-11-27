@@ -7,4 +7,5 @@ export const ENV = {
     NODE_ENV: process.env.NODE_ENV,
     EMAIL_USER: process.env.EMAIL_USER,
     EMAIL_PASS: process.env.EMAIL_PASS,
+    RESEND_API_KEY: process.env.RESEND_API_KEY
 }

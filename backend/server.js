@@ -20,6 +20,7 @@ import activityLogRoutes from "./routes/activitylog.route.js";
 import itemTrackerRoutes from "./routes/itemmovement.route.js";
 import notificationRoutes from "./routes/notification.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
+import adminRoutes from "./routes/admin.route.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,9 +32,9 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  },
 });
 
 // Socket.IO connection handling
@@ -76,6 +77,7 @@ app.use("/api/activitylogs", activityLogRoutes);
 app.use("/api/itemtracker", itemTrackerRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/admin", adminRoutes);
 
 const PORT = ENV.PORT || 8000;
 server.listen(PORT, () => {
