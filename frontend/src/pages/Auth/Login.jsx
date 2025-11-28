@@ -88,7 +88,7 @@ const Login = () => {
           </div>
         </div>
         <h1 className="text-3xl font-bold text-gray-800">KKopi.Tea</h1>
-        <p className="text-gray-600 mt-2">Sign in to your account</p>
+        <p className="text-gray-600 mt-2">Login to your account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -149,7 +149,7 @@ const Login = () => {
               Logging in...
             </div>
           ) : (
-            "Sign In"
+            "Login"
           )}
         </button>
 
@@ -160,8 +160,8 @@ const Login = () => {
             className="text-[#E89271] hover:underline font-medium"
           >
             Create an account
-          </Link>
-        </p>
+          </Link> 
+        </p> 
       </form>
     </AuthLayout>
   );
