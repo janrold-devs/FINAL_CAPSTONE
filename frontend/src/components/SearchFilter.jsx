@@ -344,9 +344,8 @@ const SearchFilter = ({
           {hasActiveFilters && (
             <button
               onClick={clearAll}
-              className="flex items-center gap-1.5 px-2.5 py-2 text-gray-600 hover:text-gray-800 transition-colors text-sm"
+              className="flex items-center gap-1.5 px-2.5 py-2 text-white hover:text-gray-800 transition-colors text-sm bg-red-500 rounded-md"
             >
-              <X className="w-3.5 h-3.5" />
               Clear
             </button>
           )}

@@ -14,6 +14,7 @@ import Transactions from "./pages/Reports/Transactions";
 import Settings from "./pages/Settings/Settings";
 import Logs from "./pages/Users/Logs";
 import UserManagement from "./pages/Users/UserManagement";
+import UserApproval from "./pages/Users/UserApproval";
 
 const App = () => {
   return (
@@ -109,6 +110,14 @@ const App = () => {
               <UserManagement />
             </ProtectedRoute>
           }
+        />
+        <Route
+        path="/users/user-approval"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <UserApproval />
+          </ProtectedRoute>
+        }
         />
       </Routes>
     </BrowserRouter>

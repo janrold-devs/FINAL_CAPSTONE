@@ -28,7 +28,6 @@ export const AuthProvider = ({ children }) => {
         const userData = JSON.parse(savedUser);
         setUser(userData);
         setToken(savedToken);
-        
       } catch {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
@@ -37,13 +36,13 @@ export const AuthProvider = ({ children }) => {
     setReady(true);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (username, password) => {
     setLoading(true);
     try {
-      const res = await api.post("/auth/login", { email, password });
-      const { token, user: userData } = res.data;
+      const res = await api.post("/auth/login", { username, password });
+      const { token, ...userData } = res.data;
       if (!token || !userData) throw new Error("Invalid login response");
-      
+
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
@@ -53,37 +52,39 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: userData };
     } catch (err) {
       setLoading(false);
-      const message = err?.response?.data?.message || err.message || "Login failed";
+      const message =
+        err?.response?.data?.message || err.message || "Login failed";
       return { success: false, message };
     }
   };
 
-  const register = async (firstName, lastName, email, password, role = "staff") => {
+  const register = async (firstName, lastName, username, email, password) => {
     setLoading(true);
     try {
       const res = await api.post("/auth/register", {
         firstName,
         lastName,
+        username,
         email,
-        password,
-        role,
+        password
       });
-      
+
       const token = res.data?.token;
       const userData = res.data?.user;
-      
+
       if (token && userData) {
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
         setToken(token);
       }
-      
+
       setLoading(false);
       return { success: true, data: res.data };
     } catch (err) {
       setLoading(false);
-      const message = err?.response?.data?.message || err.message || "Register failed";
+      const message =
+        err?.response?.data?.message || err.message || "Register failed";
       return { success: false, message };
     }
   };
@@ -97,7 +98,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading, ready }}>
+    <AuthContext.Provider
+      value={{ user, token, login, register, logout, loading, ready }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,13 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import AuthLayout from "../../layouts/AuthLayout";
 import { useNavigate, Link } from "react-router-dom";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import axios from "../../api/axios";
+import { AuthContext } from "../../context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
   const [form, setForm] = useState({ username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,35 +29,27 @@ const Login = () => {
     try {
       console.log("Attempting login with:", { username: form.username });
 
-      const response = await axios.post("/auth/login", {
-        username: form.username.trim(),
-        password: form.password,
-      });
+      const result = await login(form.username.trim(), form.password);
 
-      console.log("Login response:", response.data);
-
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("user", JSON.stringify(response.data));
-        toast.success(`Welcome back, ${response.data.firstName}! 👋`);
+      if (result.success) {
+        console.log("Login successful:", result.user);
+        toast.success(`Welcome back, ${result.user.firstName}! 👋`);
         setTimeout(() => navigate("/dashboard"), 1000);
+      } else {
+        toast.error(result.message);
       }
     } catch (err) {
       console.error("Login error details:", err);
-
       let errorMessage = "Login failed";
 
       if (err.response) {
-        // Server responded with error status
         errorMessage =
           err.response.data?.message || `Server error: ${err.response.status}`;
         console.error("Server error response:", err.response.data);
       } else if (err.request) {
-        // Request was made but no response received
         errorMessage = "No response from server. Check if backend is running.";
         console.error("No response received:", err.request);
       } else {
-        // Other errors
         errorMessage = err.message;
       }
 
