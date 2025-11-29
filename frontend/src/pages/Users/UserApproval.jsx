@@ -150,9 +150,6 @@ const UserApproval = () => {
                 Users waiting for account approval
               </p>
             </div>
-            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-              <Clock className="w-8 h-8" />
-            </div>
           </div>
         </div>
 
