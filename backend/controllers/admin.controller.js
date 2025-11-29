@@ -16,9 +16,9 @@ export const getPendingUsers = async (req, res) => {
 export const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password } = req.body;
+    const { password, role } = req.body;
     
-    console.log(`Approving user ${id} with password:`, password ? "provided" : "not provided");
+    console.log(`Approving user ${id} with password:`, password ? "provided" : "not provided", "and role:", role);
 
     const user = await User.findById(id);
     if (!user) {
@@ -41,21 +41,25 @@ export const approveUser = async (req, res) => {
       user.password = hashedPassword;
     }
 
-    // Update user status to approved
+    // Update user status to approved and set role
     user.status = "approved";
     user.isActive = true;
+    if (role && ["admin", "staff"].includes(role)) {
+      user.role = role;
+    }
+
     await user.save();
 
-    console.log(`User ${user.username} approved successfully`);
+    console.log(`User ${user.username} approved successfully with role: ${user.role}`);
 
     // Send credentials email
-    const emailSent = await sendCredentialsEmail(user, plainPassword);
+    const emailSent = await sendCredentialsEmail(user, plainPassword, user.role);
 
     // Log activity
     await logActivity(
       req,
       "USER_APPROVED",
-      `Approved user: ${user.firstName} ${user.lastName} (${user.username}) - Email ${emailSent ? 'sent' : 'failed'}`
+      `Approved user: ${user.firstName} ${user.lastName} (${user.username}) as ${user.role} - Email ${emailSent ? 'sent' : 'failed'}`
     );
 
     res.json({
@@ -67,6 +71,7 @@ export const approveUser = async (req, res) => {
         lastName: user.lastName,
         username: user.username,
         email: user.email,
+        role: user.role,
         status: user.status
       }
     });
@@ -99,7 +104,7 @@ export const rejectUser = async (req, res) => {
     console.log(`User ${user.username} rejected successfully`);
 
     // Send rejection email
-    const emailSent = await sendRejectionEmail(user);
+    const emailSent = await sendRejectionEmail(user, reason);
 
     // Log activity
     await logActivity(

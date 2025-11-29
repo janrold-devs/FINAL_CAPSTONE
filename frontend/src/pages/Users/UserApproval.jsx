@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  UserCog,
 } from "lucide-react";
 
 const UserApproval = () => {
@@ -23,6 +24,7 @@ const UserApproval = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState({});
 
   const token = localStorage.getItem("token");
 
@@ -33,6 +35,13 @@ const UserApproval = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setPendingUsers(res.data);
+      
+      // Initialize selected roles with default "staff" for each user
+      const initialRoles = {};
+      res.data.forEach(user => {
+        initialRoles[user._id] = user.role || "staff";
+      });
+      setSelectedRoles(initialRoles);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to fetch pending users");
     } finally {
@@ -44,10 +53,22 @@ const UserApproval = () => {
     fetchPendingUsers();
   }, []);
 
+  const handleRoleChange = (userId, role) => {
+    setSelectedRoles(prev => ({
+      ...prev,
+      [userId]: role
+    }));
+  };
+
   const handleApprove = async (userId) => {
     try {
       setApproving(userId);
-      const payload = {};
+      const selectedRole = selectedRoles[userId] || "staff";
+      
+      const payload = {
+        role: selectedRole
+      };
+      
       if (tempPassword.trim()) {
         payload.password = tempPassword;
       }
@@ -57,9 +78,9 @@ const UserApproval = () => {
       });
 
       if (res.data.emailSent) {
-        toast.success("User approved and credentials email sent successfully!");
+        toast.success(`User approved as ${selectedRole} and credentials email sent successfully!`);
       } else {
-        toast.warning("User approved but email failed to send.");
+        toast.warning(`User approved as ${selectedRole} but email failed to send.`);
       }
 
       setTempPassword("");
@@ -203,8 +224,10 @@ const UserApproval = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">Role:</span>
-                          <span className="capitalize">{user.role}</span>
+                          <span className="font-medium">Status:</span>
+                          <span className="capitalize bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">
+                            {user.status}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -212,6 +235,21 @@ const UserApproval = () => {
 
                   {/* Approval Actions */}
                   <div className="flex flex-col gap-3 mt-4 lg:mt-0 lg:ml-6">
+                    {/* Role Selection */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <select
+                          value={selectedRoles[user._id] || "staff"}
+                          onChange={(e) => handleRoleChange(user._id, e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="staff">Staff</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <UserCog className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      </div>
+                    </div>
+
                     {/* Password Input for Approval */}
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -220,7 +258,7 @@ const UserApproval = () => {
                           placeholder="Set temporary password"
                           value={tempPassword}
                           onChange={(e) => setTempPassword(e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent mr-4"
                         />
                         <button
                           type="button"
@@ -254,7 +292,7 @@ const UserApproval = () => {
                         ) : (
                           <UserCheck className="w-4 h-4" />
                         )}
-                        Approve
+                        Approve as {selectedRoles[user._id] || "staff"}
                       </button>
                       <button
                         onClick={() => {

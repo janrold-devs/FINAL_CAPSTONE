@@ -22,19 +22,19 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import NotificationDropdown from "../components/dropdowns/NotificationDropdown";
 import Container from "../components/Container";
+import api from "../api/axios";
 
 function TopNav({ sidebarCollapsed }) {
   const { user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Fetch notifications (low stock or expiring soon)
+  // Fetch notifications using axios
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/notifications");
-        const data = await res.json();
-        setNotifications(data);
+        const res = await api.get("/notifications");
+        setNotifications(res.data);
       } catch (err) {
         console.error("Error fetching notifications:", err);
       }
@@ -84,12 +84,12 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
   const { user } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
-
   const { logout } = useContext(AuthContext);
 
   const toggleSidebar = () => setSidebarCollapsed((v) => !v);
 
-  const navItems = [
+  // Base navigation items that all users can see
+  const baseNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: <Gauge size={20} /> },
     { href: "/pos", label: "Kiosk", icon: <Monitor size={20} /> },
     { divider: true },
@@ -97,6 +97,10 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
     { href: "/inventory/ingredients", label: "Ingredients & Materials", icon: <Utensils size={20} /> },
     { href: "/inventory/stock-in", label: "Inventory in", icon: <MonitorCheck size={20} /> },
     { href: "/inventory/spoilages", label: "Spoiled & damaged", icon: <MilkOff size={20} /> },
+  ];
+
+  // Admin-only navigation items
+  const adminNavItems = [
     { divider: true },
     { href: "/reports/transactions", label: "Records", icon: <ArrowLeftRight size={20} /> },
     { href: "/reports/sales", label: "Sales", icon: <Receipt size={20} /> },
@@ -104,10 +108,24 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
     { href: "/users/user-management", label: "Users", icon: <UserIcon size={20} /> },
     { href: "/users/user-approval", label: "User Approvals", icon: <UserCheck size={20} />},
     { href: "/users/logs", label: "Activity Log", icon: <Activity size={20} /> },
+  ];
+
+  // Common navigation items for all users
+  const commonNavItems = [
     { divider: true },
     { href: "/settings", label: "Settings", icon: <Settings size={20} /> },
-    { href: "#logout", label: "Logout", icon: <LogOut size={20} onClick={logout}/> },
+    { href: "#logout", label: "Logout", icon: <LogOut size={20} />, onClick: logout },
   ];
+
+  // Combine navigation items based on user role
+  const getNavItems = () => {
+    if (user?.role === 'staff') {
+      return [...baseNavItems, ...commonNavItems];
+    }
+    return [...baseNavItems, ...adminNavItems, ...commonNavItems];
+  };
+
+  const navItems = getNavItems();
 
   return (
     <aside
