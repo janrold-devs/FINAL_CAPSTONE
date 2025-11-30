@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL = import.meta.env.PROD 
-  ? "/api"  // Relative path when served from same domain
+  ? "https://kkopitea-backend.onrender.com/api"  // Relative path when served from same domain
   : "http://localhost:8000/api";
 
 const api = axios.create({

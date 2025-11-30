@@ -91,7 +91,7 @@ if (isProduction) {
   app.use(express.static(frontendPath));
   
   // Handle SPA routing - serve index.html for all unknown routes
-  app.get("*", (req, res) => {
+  app.get("/*", (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
   
