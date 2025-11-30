@@ -31,11 +31,11 @@ const server = createServer(app);
 // Determine environment
 const isProduction = ENV.NODE_ENV === 'production';
 
-// CORS configuration
+// CORS configuration - UPDATE FOR RENDER
 const corsOptions = {
   origin: isProduction 
-    ? ["https://kkopitea-dasma.com", "https://www.kkopitea-dasma.com"]
-    : ["http://localhost:3000", "http://localhost:8000"],
+    ? ["https://kkopitea-dasma.com", "https://www.kkopitea-dasma.com"] 
+    : ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
@@ -83,25 +83,21 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
 
-// Serve frontend in production
-if (isProduction) {
-  // Path to frontend dist folder from backend directory
-  const frontendPath = path.join(__dirname, "../../frontend/dist");
-  
-  app.use(express.static(frontendPath));
-  
-  // Handle SPA routing - serve index.html for all unknown routes
-  app.get("/*", (req, res) => {
-    res.sendFile(path.join(frontendPath, "index.html"));
-  });
-  
-  console.log("Production mode: Serving frontend from", frontendPath);
-}
+// ⛔️ REMOVED: Frontend serving code (Handled by Hostinger)
 
-const PORT = ENV.PORT || 8000;
-server.listen(PORT, () => {
-  console.log(`Server running in ${isProduction ? 'production' : 'development'} mode on port ${PORT}`);
-  connectDB();
-});
+// Connect to database immediately
+connectDB();
+
+// Export the app for use by root server.js
+export default app;
+
+// Only start server directly if not in production (for local development)
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = ENV.PORT || 8000;
+  server.listen(PORT, () => {
+    console.log(`🚀 Backend server running in development mode on port ${PORT}`);
+    console.log(`📊 API: http://localhost:${PORT}/api`);
+  });
+}
 
 export { io };
