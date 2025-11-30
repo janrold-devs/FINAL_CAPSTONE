@@ -437,6 +437,9 @@ const ProductModal = ({
                           className="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs gap-2 border border-blue-200"
                         >
                           <span className="font-medium">{ing.name}</span>
+                          <span className="text-xs">
+                            ({ing.quantity} {ing.unit ? ing.unit.toLowerCase().replace('ml', 'ml') : ''})
+                          </span>
                           <input
                             type="number"
                             min="1"
@@ -473,23 +476,24 @@ const ProductModal = ({
 
                 {dropdownOpen && (
                   <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 z-10">
-                    {ingredientsList
-                      .filter(
-                        (i) =>
-                          i.category === form.ingredientCategory &&
-                          !form.ingredients.some(
-                            (x) => x.ingredient === i._id
-                          )
+                   {/* Sa ingredient selection part, dapat i-normalize din ang display ng units */}
+                {ingredientsList
+                  .filter(
+                    (i) =>
+                      i.category === form.ingredientCategory &&
+                      !form.ingredients.some(
+                        (x) => x.ingredient === i._id
                       )
-                      .map((ingredient) => (
-                        <div
-                          key={ingredient._id}
-                          className="px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
-                          onClick={() => toggleIngredient(ingredient)}
-                        >
-                          {ingredient.name}
-                        </div>
-                      ))}
+                  )
+                  .map((ingredient) => (
+                    <div
+                      key={ingredient._id}
+                      className="px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                      onClick={() => toggleIngredient(ingredient)}
+                    >
+                      {ingredient.name} ({ingredient.quantity} {ingredient.unit ? ingredient.unit.toLowerCase().replace('ml', 'ml') : ''})
+                    </div>
+                  ))}
                   </div>
                 )}
               </div>

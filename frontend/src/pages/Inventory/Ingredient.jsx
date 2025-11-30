@@ -26,17 +26,24 @@ const Ingredient = () => {
   });
 
   const fetchIngredients = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get("/ingredients");
-      setIngredients(res.data);
-    } catch (err) {
-      console.error("Error fetching ingredients:", err);
-      toast.error("Failed to fetch ingredients");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const res = await axios.get("/ingredients");
+    
+    // Normalize units in the data
+    const normalizedData = res.data.map(ingredient => ({
+      ...ingredient,
+      unit: ingredient.unit?.toLowerCase().replace('ml', 'ml') || ingredient.unit
+    }));
+    
+    setIngredients(normalizedData);
+  } catch (err) {
+    console.error("Error fetching ingredients:", err);
+    toast.error("Failed to fetch ingredients");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
