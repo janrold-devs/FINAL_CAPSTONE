@@ -1,14 +1,8 @@
+// frontend/src/pages/Reports/Sales.jsx
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import api from "../../api/axios";
-import {
-  Eye,
-  RefreshCw,
-  Receipt,
-  Plus,
-  TrendingUp,
-  Calendar,
-} from "lucide-react";
+import { Eye, RefreshCw, Receipt, TrendingUp, Calendar } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import SalesModal from "../../components/modals/SalesModal";
@@ -25,58 +19,219 @@ const Sales = () => {
   const [bestSellingData, setBestSellingData] = useState(null);
   const [bestSellingLoading, setBestSellingLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [timePeriod, setTimePeriod] = useState(null);
+  const [periodTotals, setPeriodTotals] = useState({
+    daily: { total: 0, transactions: 0 },
+    weekly: { total: 0, transactions: 0 },
+    monthly: { total: 0, transactions: 0 },
+  });
 
-  // Fetch all sales
+  // Fetch all sales AND calculate stats from transactions
   const fetchSales = async () => {
-    setLoading(true);
     try {
-      const res = await api.get("/sales/summary");
-      console.log("Sales data from API:", res.data);
+      setLoading(true);
 
-      // Debug: Log each sales batch details
-      res.data.forEach((sale, index) => {
-        console.log(`Sale ${index + 1}:`, {
-          batchNumber: sale.batchNumber,
-          date: sale.transactionDate,
-          transactionCount: sale.transactionsCount,
-          totalSales: sale.totalSales,
-          transactions: sale.transactions,
-        });
-      });
+      // Fetch sales data
+      const salesRes = await api.get("/sales/summary");
+      const salesData = salesRes.data;
 
-      setSales(res.data);
-      setFilteredSales(res.data);
+      console.log("📊 Sales data loaded:", salesData.length, "batches");
+      setSales(salesData);
+      setFilteredSales(salesData);
+
+      // Fetch transactions to calculate accurate totals
+      const transactionsRes = await api.get("/transactions");
+      const transactions = transactionsRes.data;
+
+      console.log(
+        "💰 Transactions loaded:",
+        transactions.length,
+        "transactions"
+      );
+
+      // Calculate period totals DIRECTLY from transactions
+      calculatePeriodTotalsFromTransactions(transactions);
     } catch (err) {
-      toast.error("Failed to fetch sales data");
       console.error("Fetch sales error:", err);
+      toast.error("Failed to fetch sales data");
+      setSales([]);
+      setFilteredSales([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to generate missing sales data
-  const generateMissingSales = async () => {
+  // Calculate totals for each period DIRECTLY from transactions
+  const calculatePeriodTotalsFromTransactions = (transactions) => {
+    const now = new Date();
+
+    // Daily (Today)
+    const dailyStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    const dailyEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1
+    );
+
+    // Weekly (This week - Monday to Sunday)
+    const currentDay = now.getDay();
+    const currentMonday = new Date(now);
+    currentMonday.setDate(
+      now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
+    );
+    const weeklyStart = new Date(
+      currentMonday.getFullYear(),
+      currentMonday.getMonth(),
+      currentMonday.getDate()
+    );
+    const weeklyEnd = new Date(
+      currentMonday.getFullYear(),
+      currentMonday.getMonth(),
+      currentMonday.getDate() + 7
+    );
+
+    // Monthly (This month)
+    const monthlyStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthlyEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    // Filter transactions for each period
+    const dailyTransactions = transactions.filter((transaction) => {
+      const transactionDate = new Date(transaction.transactionDate);
+      return transactionDate >= dailyStart && transactionDate < dailyEnd;
+    });
+
+    const weeklyTransactions = transactions.filter((transaction) => {
+      const transactionDate = new Date(transaction.transactionDate);
+      return transactionDate >= weeklyStart && transactionDate < weeklyEnd;
+    });
+
+    const monthlyTransactions = transactions.filter((transaction) => {
+      const transactionDate = new Date(transaction.transactionDate);
+      return transactionDate >= monthlyStart && transactionDate < monthlyEnd;
+    });
+
+    // Calculate totals from transactions
+    const dailyTotal = dailyTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+    const weeklyTotal = weeklyTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+    const monthlyTotal = monthlyTransactions.reduce(
+      (sum, t) => sum + (t.totalAmount || 0),
+      0
+    );
+
+    setPeriodTotals({
+      daily: {
+        total: dailyTotal,
+        transactions: dailyTransactions.length,
+      },
+      weekly: {
+        total: weeklyTotal,
+        transactions: weeklyTransactions.length,
+      },
+      monthly: {
+        total: monthlyTotal,
+        transactions: monthlyTransactions.length,
+      },
+    });
+
+    console.log("💰 Accurate period totals from transactions:", {
+      daily: dailyTotal,
+      weekly: weeklyTotal,
+      monthly: monthlyTotal,
+      dailyTransactions: dailyTransactions.length,
+      weeklyTransactions: weeklyTransactions.length,
+      monthlyTransactions: monthlyTransactions.length,
+    });
+  };
+
+  // Simple refresh function
+  const handleRefresh = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      // Generate sales for the last 7 days to catch any missing data
-      const endDate = new Date().toISOString().split("T")[0];
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
-      const startDateStr = startDate.toISOString().split("T")[0];
-
-      const response = await api.post("/sales/generate-from-transactions", {
-        startDate: startDateStr,
-        endDate: endDate,
-      });
-
-      toast.success(response.data.message);
-      fetchSales(); // Refresh the data
+      await fetchSales();
+      toast.success("Sales data refreshed");
     } catch (err) {
-      toast.error("Failed to generate sales data");
-      console.error("Generate sales error:", err);
+      toast.error("Failed to refresh sales data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Filter sales by time period
+  const filterByTimePeriod = (period) => {
+    if (!period) {
+      setFilteredSales(sales);
+      setTimePeriod(null);
+      return;
+    }
+
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (period) {
+      case "daily":
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1
+        );
+        break;
+      case "weekly":
+        const currentDay = now.getDay();
+        const currentMonday = new Date(now);
+        currentMonday.setDate(
+          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
+        );
+        startDate = new Date(
+          currentMonday.getFullYear(),
+          currentMonday.getMonth(),
+          currentMonday.getDate()
+        );
+        endDate = new Date(
+          currentMonday.getFullYear(),
+          currentMonday.getMonth(),
+          currentMonday.getDate() + 7
+        );
+        break;
+      case "monthly":
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        break;
+      default:
+        return;
+    }
+
+    console.log(`📅 ${period.toUpperCase()} filter:`, startDate, "to", endDate);
+
+    const filtered = sales.filter((sale) => {
+      const saleDate = new Date(sale.transactionDate);
+      return saleDate >= startDate && saleDate < endDate;
+    });
+
+    console.log(`📊 Found ${filtered.length} sales batches for ${period}`);
+    setFilteredSales(filtered);
+    setTimePeriod(period);
+  };
+
+  // Handle time period button click
+  const handleTimePeriodClick = (period) => {
+    if (timePeriod === period) {
+      setTimePeriod(null);
+      setFilteredSales(sales);
+    } else {
+      setTimePeriod(period);
+      filterByTimePeriod(period);
     }
   };
 
@@ -87,7 +242,6 @@ const Sales = () => {
       const res = await api.get(
         `/sales/analytics/best-selling?period=${period}`
       );
-      console.log("Best selling products data:", res.data);
       setBestSellingData(res.data);
       setShowBestSellingModal(true);
     } catch (err) {
@@ -105,13 +259,11 @@ const Sales = () => {
   };
 
   const handleViewSale = async (sale) => {
-    console.log("Selected sale:", sale);
-
     try {
       setLoading(true);
-      // Fetch full sales batch by ID
-      const res = await api.get(`/sales/${sale._id}`);
-      console.log("Fetched sale details:", res.data);
+      const res = await api.get(
+        `/sales/date/${sale.batchNumber.replace("BATCH-", "")}`
+      );
       setSelectedSale(res.data);
       setShowModal(true);
     } catch (err) {
@@ -125,28 +277,6 @@ const Sales = () => {
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedSale(null);
-  };
-
-  // Helper function to format date safely
-  const formatDate = (dateValue) => {
-    if (!dateValue) return "N/A";
-
-    try {
-      const date = new Date(dateValue);
-      if (isNaN(date.getTime())) {
-        console.error("Invalid date:", dateValue);
-        return "Invalid Date";
-      }
-
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      });
-    } catch (error) {
-      console.error("Date formatting error:", error, dateValue);
-      return "Error";
-    }
   };
 
   useEffect(() => {
@@ -217,28 +347,162 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* Generate Missing Sales Button
+            {/* Simple Refresh Button */}
             <button
-              onClick={generateMissingSales}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-xl hover:bg-green-700 transition-colors duration-200 font-medium"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus size={18} /> Generate Missing Sales
-            </button>
-            */}
-
-            <button
-              onClick={fetchSales}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium"
-            >
-              <RefreshCw size={18} /> Refresh Data
+              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+              {loading ? "Refreshing..." : "Refresh Data"}
             </button>
           </div>
+        </div>
+
+        {/* Sales Summary Cards - CALCULATED FROM TRANSACTIONS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Daily Sales Card */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-700">Today's Sales</h3>
+              <Calendar className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-gray-900">
+                ₱{periodTotals.daily.total.toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {periodTotals.daily.transactions} transactions
+              </div>
+              <div className="text-xs text-gray-500">
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly Sales Card */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-700">This Week's Sales</h3>
+              <Calendar className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-gray-900">
+                ₱{periodTotals.weekly.total.toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {periodTotals.weekly.transactions} transactions
+              </div>
+              <div className="text-xs text-gray-500">This week</div>
+            </div>
+          </div>
+
+          {/* Monthly Sales Card */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-700">
+                This Month's Sales
+              </h3>
+              <Calendar className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-gray-900">
+                ₱{periodTotals.monthly.total.toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {periodTotals.monthly.transactions} transactions
+              </div>
+              <div className="text-xs text-gray-500">
+                {new Date().toLocaleDateString("en-US", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Time Period Filter Section */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-600" />
+              <span className="font-semibold text-gray-700">Time Period:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleTimePeriodClick("daily")}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "daily"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Daily
+              </button>
+              <button
+                onClick={() => handleTimePeriodClick("weekly")}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "weekly"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => handleTimePeriodClick("monthly")}
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
+                  timePeriod === "monthly"
+                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                Monthly
+              </button>
+            </div>
+          </div>
+
+          {/* Current Filter Info */}
+          {timePeriod && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-blue-800">
+                    Showing {timePeriod} sales
+                  </h4>
+                  <p className="text-sm text-blue-600">
+                    {filteredSales.length} batches • ₱
+                    {filteredSales
+                      .reduce((sum, s) => sum + (s.totalSales || 0), 0)
+                      .toFixed(2)}{" "}
+                    total
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setTimePeriod(null);
+                    setFilteredSales(sales);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Show All
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Export Buttons */}
         <ExportButtons
           data={filteredSales}
-          fileName="Sales"
+          fileName={`Sales-${timePeriod || "all"}-${
+            new Date().toISOString().split("T")[0]
+          }`}
           columns={[
             { key: "batchNumber", label: "Batch Number" },
             { key: "transactionDate", label: "Date" },
@@ -249,7 +513,7 @@ const Sales = () => {
 
         {/* Search & Filter Section */}
         <SearchFilter
-          data={sales}
+          data={filteredSales}
           onFilteredDataChange={setFilteredSales}
           searchFields={["batchNumber", "totalSales"]}
           filterConfig={salesFilterConfig}
@@ -274,7 +538,9 @@ const Sales = () => {
             </p>
             <p className="text-gray-600">
               {sales.length === 0
-                ? "No sales data available. Click 'Generate Missing Sales' to create sales batches from your transactions."
+                ? "No sales data available."
+                : timePeriod !== null
+                ? `No sales data found for the current ${timePeriod} period`
                 : "Try adjusting your search or filters"}
             </p>
           </div>

@@ -79,14 +79,9 @@ const TransactionModal = ({ transaction, onClose }) => {
               </thead>
               <tbody>
                 {transaction.itemsSold.map((item, idx) => {
-                  // Calculate base product price without add-ons
-                  const baseProductPrice =
-                    item.price -
-                    (item.addons?.reduce(
-                      (sum, addon) =>
-                        sum + (addon.price || 0) * (addon.quantity || 1),
-                      0
-                    ) || 0);
+                  // Use snapshot data instead of populated product
+                  const snapshot = item.snapshot;
+                  const baseProductPrice = snapshot?.basePrice || item.price;
 
                   return (
                     <React.Fragment key={idx}>
@@ -94,20 +89,20 @@ const TransactionModal = ({ transaction, onClose }) => {
                       <tr className="border-b border-gray-200">
                         <td className="py-2">
                           <div className="text-gray-800 font-medium">
-                            {item.product?.productName || "Unknown"}
+                            {snapshot?.productName || "Unknown Product"}
                           </div>
                         </td>
                         <td className="py-2 text-gray-600">
-                          {item.category || "—"}
+                          {snapshot?.category || "—"}
                         </td>
                         <td className="py-2 text-gray-600">
-                          {item.size ? `${item.size} oz` : "—"}
+                          {snapshot?.size ? `${snapshot.size} oz` : "—"}
                         </td>
                         <td className="py-2 text-gray-600">
-                          {/* Show add-ons count */}
-                          {item.addons && item.addons.length > 0 ? (
+                          {/* Show add-ons count from snapshot */}
+                          {snapshot?.addons && snapshot.addons.length > 0 ? (
                             <span className="text-blue-600 text-xs">
-                              {item.addons.length} add-on(s)
+                              {snapshot.addons.length} add-on(s)
                             </span>
                           ) : (
                             "—"
@@ -124,40 +119,37 @@ const TransactionModal = ({ transaction, onClose }) => {
                         </td>
                       </tr>
 
-                      {/* Add-ons Rows */}
-                      {item.addons &&
-                        item.addons.map((addon, addonIdx) => (
-                          <tr
-                            key={`${idx}-${addonIdx}`}
-                            className="bg-gray-50 border-b border-gray-100 last:border-b-0"
-                          >
-                            <td className="py-1 pl-4">
-                              <div className="text-gray-600 text-xs flex items-center">
-                                <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                                {addon.addonName || "Add-on"}
-                              </div>
-                            </td>
-                            <td className="py-1 text-gray-500 text-xs">
-                              Add-on
-                            </td>
-                            <td className="py-1 text-gray-500 text-xs">—</td>
-                            <td className="py-1 text-gray-500 text-xs">
-                              <div className="text-xs">Extra</div>
-                            </td>
-                            <td className="py-1 text-right text-gray-600 text-xs font-medium">
-                              {addon.quantity || 1}
-                            </td>
-                            <td className="py-1 text-right text-gray-500 text-xs">
-                              ₱{addon.price?.toFixed(2) || "0.00"}
-                            </td>
-                            <td className="py-1 text-right text-gray-600 text-xs font-medium">
-                              ₱
-                              {(
-                                (addon.price || 0) * (addon.quantity || 1)
-                              ).toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
+                      {/* Add-ons Rows - Use snapshot addons */}
+                      {snapshot?.addons?.map((addon, addonIdx) => (
+                        <tr
+                          key={`${idx}-${addonIdx}`}
+                          className="bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        >
+                          <td className="py-1 pl-4">
+                            <div className="text-gray-600 text-xs flex items-center">
+                              <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                              {addon.addonName || "Add-on"}
+                            </div>
+                          </td>
+                          <td className="py-1 text-gray-500 text-xs">Add-on</td>
+                          <td className="py-1 text-gray-500 text-xs">—</td>
+                          <td className="py-1 text-gray-500 text-xs">
+                            <div className="text-xs">Extra</div>
+                          </td>
+                          <td className="py-1 text-right text-gray-600 text-xs font-medium">
+                            {addon.quantity || 1}
+                          </td>
+                          <td className="py-1 text-right text-gray-500 text-xs">
+                            ₱{addon.price?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="py-1 text-right text-gray-600 text-xs font-medium">
+                            ₱
+                            {(
+                              (addon.price || 0) * (addon.quantity || 1)
+                            ).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
                     </React.Fragment>
                   );
                 })}

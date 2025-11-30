@@ -1,3 +1,4 @@
+// components/modals/SalesModal.jsx
 import React from "react";
 
 const SalesModal = ({ show, onClose, salesData }) => {
@@ -16,10 +17,11 @@ const SalesModal = ({ show, onClose, salesData }) => {
           (t.itemsSold || []).reduce((s, item) => s + (item.quantity || 0), 0),
         0
       );
+
       const uniqueProducts = new Set(
         salesData.transactions.flatMap((t) =>
           (t.itemsSold || []).map(
-            (item) => item.product?._id || item.product || "unknown"
+            (item) => item.snapshot?.productName || "unknown"
           )
         )
       ).size;
@@ -33,10 +35,21 @@ const SalesModal = ({ show, onClose, salesData }) => {
 
   const stats = getStats();
 
+  // Function to calculate base product price without add-ons
+  const calculateBasePrice = (item) => {
+    const snapshot = item.snapshot;
+    const addonsTotal =
+      snapshot?.addons?.reduce(
+        (sum, addon) => sum + (addon.price || 0) * (addon.quantity || 1),
+        0
+      ) || 0;
+
+    return (snapshot?.basePrice || item.price) - addonsTotal;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 backdrop-blur-[1px]">
-      <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-3xl relative max-h-[90vh] overflow-y-auto">
-
+      <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-4xl relative max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Sales Batch Details</h2>
@@ -67,7 +80,7 @@ const SalesModal = ({ show, onClose, salesData }) => {
             </p>
           </div>
 
-          {/* Items Sold */}
+          {/* Items Sold with Add-ons */}
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-2">
               Items Sold
@@ -81,36 +94,99 @@ const SalesModal = ({ show, onClose, salesData }) => {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2">Product</th>
-                      <th className="text-center py-2">Quantity</th>
+                      <th className="text-left py-2">Category</th>
+                      <th className="text-left py-2">Size</th>
+                      <th className="text-left py-2">Add-ons</th>
+                      <th className="text-center py-2">Qty</th>
                       <th className="text-right py-2">Price</th>
                       <th className="text-right py-2">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {salesData.transactions.flatMap((t, tIndex) =>
-                      (t.itemsSold || []).map((item, i) => (
-                        <tr
-                          key={`${tIndex}-${i}`}
-                          className="border-b last:border-b-0"
-                        >
-                          <td className="py-2">
-                            {item.product?.productName || (
-                              <span className="text-gray-400 italic">
-                                Deleted Product
-                              </span>
-                            )}
-                          </td>
-                          <td className="text-center py-2 font-medium">
-                            {item.quantity}
-                          </td>
-                          <td className="text-right py-2 text-gray-600">
-                            ₱{item.price?.toLocaleString()}
-                          </td>
-                          <td className="text-right py-2 font-semibold text-green-700">
-                            ₱{item.totalCost?.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                      (t.itemsSold || []).map((item, i) => {
+                        // Use snapshot data instead of populated product
+                        const snapshot = item.snapshot;
+                        const basePrice = calculateBasePrice(item);
+
+                        return (
+                          <React.Fragment key={`${tIndex}-${i}`}>
+                            {/* Main Product Row */}
+                            <tr className="border-b last:border-b-0">
+                              <td className="py-2">
+                                <div className="text-gray-800 font-medium">
+                                  {snapshot?.productName || (
+                                    <span className="text-gray-400 italic">
+                                      Deleted Product
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2 text-gray-600">
+                                {snapshot?.category || "—"}
+                              </td>
+                              <td className="py-2 text-gray-600">
+                                {snapshot?.size ? `${snapshot.size} oz` : "—"}
+                              </td>
+                              <td className="py-2 text-gray-600">
+                                {snapshot?.addons &&
+                                snapshot.addons.length > 0 ? (
+                                  <span className="text-blue-600 text-xs">
+                                    {snapshot.addons.length} add-on(s)
+                                  </span>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="text-center py-2 text-gray-800 font-medium">
+                                {item.quantity}
+                              </td>
+                              <td className="text-right py-2 text-gray-600">
+                                ₱{basePrice.toFixed(2)}
+                              </td>
+                              <td className="text-right py-2 font-semibold text-green-700">
+                                ₱{item.totalCost?.toFixed(2)}
+                              </td>
+                            </tr>
+
+                            {/* Add-ons Rows - Use snapshot addons */}
+                            {snapshot?.addons?.map((addon, addonIdx) => (
+                              <tr
+                                key={`${tIndex}-${i}-${addonIdx}`}
+                                className="bg-gray-50 border-b border-gray-100 last:border-b-0"
+                              >
+                                <td className="py-1 pl-4">
+                                  <div className="text-gray-600 text-xs flex items-center">
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                    {addon.addonName || "Add-on"}
+                                  </div>
+                                </td>
+                                <td className="py-1 text-gray-500 text-xs">
+                                  Add-on
+                                </td>
+                                <td className="py-1 text-gray-500 text-xs">
+                                  —
+                                </td>
+                                <td className="py-1 text-gray-500 text-xs">
+                                  <div className="text-xs">Extra</div>
+                                </td>
+                                <td className="py-1 text-center text-gray-600 text-xs font-medium">
+                                  {addon.quantity || 1}
+                                </td>
+                                <td className="py-1 text-right text-gray-500 text-xs">
+                                  ₱{addon.price?.toFixed(2) || "0.00"}
+                                </td>
+                                <td className="py-1 text-right text-gray-600 text-xs font-medium">
+                                  ₱
+                                  {(
+                                    (addon.price || 0) * (addon.quantity || 1)
+                                  ).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -120,7 +196,7 @@ const SalesModal = ({ show, onClose, salesData }) => {
             )}
           </div>
 
-          {/* ===== Summary moved here (BOTTOM) ===== */}
+          {/* Summary */}
           <div className="border-t pt-4">
             <label className="block text-sm font-semibold text-gray-600 mb-2">
               Summary

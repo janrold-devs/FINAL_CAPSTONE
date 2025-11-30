@@ -4,10 +4,16 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredData = [] }) => {
+const ExportButtons = ({
+  data = [],
+  fileName = "Report",
+  columns = [],
+  filteredData = [],
+}) => {
   // Use filteredData if provided, otherwise use data
-  const displayData = filteredData && filteredData.length > 0 ? filteredData : data;
-  
+  const displayData =
+    filteredData && filteredData.length > 0 ? filteredData : data;
+
   if (!Array.isArray(displayData) || displayData.length === 0) return null;
 
   // 🔹 Define fields to exclude globally
@@ -27,15 +33,15 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
   // 🧠 Helper: Convert ISO date string to formatted date
   const formatISODate = (dateString) => {
     if (!dateString) return "—";
-    
+
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString; // Return original if invalid date
-      
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch (error) {
       return dateString; // Return original if parsing fails
@@ -45,57 +51,66 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
   // 🧠 Helper: Format ingredient objects to readable string
   const formatIngredient = (ingredientObj) => {
     if (!ingredientObj) return "—";
-    
+
     // If it's already a string, return as is
-    if (typeof ingredientObj === 'string') return ingredientObj;
-    
+    if (typeof ingredientObj === "string") return ingredientObj;
+
     // If it's an array of ingredients
     if (Array.isArray(ingredientObj)) {
-      return ingredientObj.map(ing => formatIngredient(ing)).filter(ing => ing !== "—").join(', ');
+      return ingredientObj
+        .map((ing) => formatIngredient(ing))
+        .filter((ing) => ing !== "—")
+        .join(", ");
     }
-    
+
     // Handle null or invalid ingredient objects
-    if (!ingredientObj || typeof ingredientObj !== 'object') {
+    if (!ingredientObj || typeof ingredientObj !== "object") {
       return "—";
     }
-    
+
     // If ingredient is null but has quantity and unit
-    if (ingredientObj.ingredient === null && (ingredientObj.quantity || ingredientObj.unit)) {
-      const qty = ingredientObj.quantity || '';
-      const unit = ingredientObj.unit || '';
+    if (
+      ingredientObj.ingredient === null &&
+      (ingredientObj.quantity || ingredientObj.unit)
+    ) {
+      const qty = ingredientObj.quantity || "";
+      const unit = ingredientObj.unit || "";
       return `Unknown Ingredient (${qty}${unit})`;
     }
-    
+
     // If it's a single ingredient object with nested structure
-    if (ingredientObj.ingredient && typeof ingredientObj.ingredient === 'object') {
+    if (
+      ingredientObj.ingredient &&
+      typeof ingredientObj.ingredient === "object"
+    ) {
       const ing = ingredientObj.ingredient;
       // Check if the nested ingredient object has valid data
       if (ing && ing.name) {
-        const qty = ingredientObj.quantity || '';
-        const unit = ingredientObj.unit || ing.unit || '';
+        const qty = ingredientObj.quantity || "";
+        const unit = ingredientObj.unit || ing.unit || "";
         return `${ing.name} (${qty}${unit})`;
       } else {
         // If nested ingredient is invalid, use quantity and unit from main object
-        const qty = ingredientObj.quantity || '';
-        const unit = ingredientObj.unit || '';
+        const qty = ingredientObj.quantity || "";
+        const unit = ingredientObj.unit || "";
         return `Unknown Ingredient (${qty}${unit})`;
       }
     }
-    
+
     // If it's a direct ingredient object with name
     if (ingredientObj.name) {
-      const qty = ingredientObj.quantity || '';
-      const unit = ingredientObj.unit || '';
+      const qty = ingredientObj.quantity || "";
+      const unit = ingredientObj.unit || "";
       return `${ingredientObj.name} (${qty}${unit})`;
     }
-    
+
     // If it has quantity and unit but no name
     if (ingredientObj.quantity || ingredientObj.unit) {
-      const qty = ingredientObj.quantity || '';
-      const unit = ingredientObj.unit || '';
+      const qty = ingredientObj.quantity || "";
+      const unit = ingredientObj.unit || "";
       return `Ingredient (${qty}${unit})`;
     }
-    
+
     // If we can't format it, return dash
     return "—";
   };
@@ -103,42 +118,52 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
   // 🧠 Helper: Clean any value for display
   const cleanValue = (value) => {
     if (value === null || value === undefined || value === "") return "—";
-    
+
     // Check if value is an ISO date string
-    if (typeof value === 'string' && 
-        (value.includes('T') && (value.endsWith('Z') || value.includes(':')) || 
-         /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value))) {
+    if (
+      typeof value === "string" &&
+      ((value.includes("T") && (value.endsWith("Z") || value.includes(":"))) ||
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value))
+    ) {
       return formatISODate(value);
     }
-    
+
     // Check if value is an array (like ingredients array)
     if (Array.isArray(value)) {
-      const formattedArray = value.map(item => formatIngredient(item)).filter(item => item !== "—");
-      return formattedArray.length > 0 ? formattedArray.join(', ') : "—";
+      const formattedArray = value
+        .map((item) => formatIngredient(item))
+        .filter((item) => item !== "—");
+      return formattedArray.length > 0 ? formattedArray.join(", ") : "—";
     }
-    
+
     // Check if value is an ingredient object
-    if (value && typeof value === 'object' && (value.ingredient !== undefined || value.quantity !== undefined || value.name !== undefined)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      (value.ingredient !== undefined ||
+        value.quantity !== undefined ||
+        value.name !== undefined)
+    ) {
       return formatIngredient(value);
     }
-    
+
     // Handle other objects
     if (typeof value === "object" && value !== null) {
       // For other objects, try to create a readable string
       if (value.name) {
         return value.name;
-      } else if (value.toString && value.toString() !== '[object Object]') {
+      } else if (value.toString && value.toString() !== "[object Object]") {
         return value.toString();
       } else {
         return "—";
       }
-    } 
-    
+    }
+
     // Handle Date objects
     if (value instanceof Date) {
       return formatISODate(value.toISOString());
     }
-    
+
     // Handle strings, numbers, booleans
     return value ?? "—";
   };
@@ -171,10 +196,10 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
 
   // Format current date for display (Dec 6, 2025 format)
   const formatCurrentDate = () => {
-    return new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -182,64 +207,64 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
   const handleExportPDF = () => {
     try {
       const doc = new jsPDF();
-      
+
       // 🎨 Add header with logo
       doc.setFillColor(250, 250, 250); // Light gray background
-      doc.rect(0, 0, 210, 40, 'F');
-      
+      doc.rect(0, 0, 210, 40, "F");
+
       // Create a circular background - ORANGE color
       doc.setFillColor(255, 140, 0); // Orange color
-      doc.circle(25, 20, 12, 'F');
-      
+      doc.circle(25, 20, 12, "F");
+
       // Add "KKOPI.TEA" text centered in the circle - Single line only
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8); // Larger font for single line
       doc.setFont("helvetica", "bold");
-      doc.text("KKOPI.TEA", 25, 22, { align: 'center' });
-      
+      doc.text("KKOPI.TEA", 25, 22, { align: "center" });
+
       // Add company name next to logo - Orange color
       doc.setTextColor(255, 140, 0);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("KKOPI.Tea", 45, 22);
-      
+
       // Add address
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
       doc.text("- Congressional ave Dasmariñas Cavite", 45, 27);
-      
+
       // Separator line - Orange color
       doc.setDrawColor(255, 140, 0);
       doc.line(14, 35, 196, 35);
-      
+
       // Report title and date
       doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
       doc.setFont("helvetica", "bold");
       doc.text(fileName, 14, 45);
-      
+
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.text(`Generated on: ${formatCurrentDate()}`, 14, 50);
-      
+
       // 🎨 Table with orange styling
       autoTable(doc, {
         head: [headers],
         body: rows,
         startY: 55,
-        theme: 'grid',
-        styles: { 
-          fontSize: 9, 
+        theme: "grid",
+        styles: {
+          fontSize: 9,
           cellPadding: 3,
-          font: 'helvetica',
+          font: "helvetica",
           lineColor: [200, 200, 200],
           lineWidth: 0.1,
         },
-        headStyles: { 
+        headStyles: {
           fillColor: [255, 140, 0], // Orange color matching logo
           textColor: 255,
-          fontStyle: 'bold',
+          fontStyle: "bold",
           lineWidth: 0.1,
           fontSize: 9,
         },
@@ -257,25 +282,30 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
-        
+
         // Footer line - Orange color
         doc.setDrawColor(255, 140, 0);
-        doc.line(14, doc.internal.pageSize.getHeight() - 20, 196, doc.internal.pageSize.getHeight() - 20);
-        
+        doc.line(
+          14,
+          doc.internal.pageSize.getHeight() - 20,
+          196,
+          doc.internal.pageSize.getHeight() - 20
+        );
+
         // Footer text
         doc.text(
           `KKOPI.Tea - ${fileName} - Page ${i} of ${pageCount}`,
           doc.internal.pageSize.getWidth() / 2,
           doc.internal.pageSize.getHeight() - 15,
-          { align: 'center' }
+          { align: "center" }
         );
-        
+
         // Confidential notice
         doc.text(
-          'Confidential Business Document',
+          "Confidential Business Document",
           doc.internal.pageSize.getWidth() / 2,
           doc.internal.pageSize.getHeight() - 10,
-          { align: 'center' }
+          { align: "center" }
         );
       }
 
@@ -504,7 +534,9 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [], filteredD
           </table>
           
           <div class="print-footer">
-            <strong>KKOPI.Tea</strong> - ${fileName} Report • Total Records: ${rows.length} • Confidential Business Document
+            <strong>KKOPI.Tea</strong> - ${fileName} Report • Total Records: ${
+      rows.length
+    } • Confidential Business Document
           </div>
         </div>
         

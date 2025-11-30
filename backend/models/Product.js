@@ -22,7 +22,6 @@ const productSchema = new mongoose.Schema(
       enum: ["available", "unavailable"],
       default: "available",
     },
-    // NEW: Add isAddon field to identify add-on products
     isAddon: { type: Boolean, default: false },
   },
   { timestamps: true }

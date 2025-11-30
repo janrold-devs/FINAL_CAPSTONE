@@ -1,40 +1,29 @@
 // backend/routes/sales.routes.js
 import express from "express";
 import {
-  createSales,
-  createSalesFromTransactions,
   getSales,
   getSale,
   getSalesSummary,
   getSalesByDate,
-  getSalesByBatchNumber,
-  generateSalesFromTransactions,
-  getBestSellingProducts, // Make sure this import is included
+  getBestSellingProducts,
+  refreshAndReconcileSales,
+  getVerifiedSale,
 } from "../controllers/sales.controller.js";
 import auth from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// ADD this new route for best selling products
-router.get("/analytics/best-selling", auth, getBestSellingProducts);
+router.get("/refresh-reconcile", auth, refreshAndReconcileSales);
+router.get("/verified/:id", auth, getVerifiedSale);
 
-// ADD this route for generating sales
-router.post("/generate-from-transactions", auth, generateSalesFromTransactions);
+// GET best selling products
+router.get("/analytics/best-selling", auth, getBestSellingProducts);
 
 // GET summary (must be before /:id to avoid route conflict)
 router.get("/summary", auth, getSalesSummary);
 
 // GET sales by date (e.g., /sales/date/2025-10-09)
 router.get("/date/:date", auth, getSalesByDate);
-
-// GET sales by batch number (e.g., /sales/batch/BATCH-2025-10-09)
-router.get("/batch/:batchNumber", auth, getSalesByBatchNumber);
-
-// POST create sales manually
-router.post("/", auth, createSales);
-
-// POST create sales from transactions
-router.post("/from-transactions", auth, createSalesFromTransactions);
 
 // GET all sales
 router.get("/", auth, getSales);

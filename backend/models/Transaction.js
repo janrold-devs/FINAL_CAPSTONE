@@ -20,7 +20,24 @@ const itemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   quantity: { type: Number, required: true },
   totalCost: { type: Number, required: true },
-  addons: [addonSchema], // Use the updated addon schema
+  addons: [addonSchema],
+
+  snapshot: {
+    productName: { type: String },
+    category: { type: String },
+    size: { type: Number },
+    price: { type: Number },
+    basePrice: { type: Number },
+    image: { type: String },
+    addons: [
+      {
+        addonId: { type: mongoose.Schema.Types.ObjectId },
+        addonName: { type: String },
+        price: { type: Number },
+        quantity: { type: Number },
+      },
+    ],
+  },
 });
 
 const transactionSchema = new mongoose.Schema(

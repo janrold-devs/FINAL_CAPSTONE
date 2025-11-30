@@ -4,14 +4,13 @@ import { Eye, Plus, Receipt, Calendar, ChevronDown } from "lucide-react";
 import TransactionModal from "../../components/modals/TransactionModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import ExportButtons from "../../components/ExportButtons";
-import SearchFilter from "../../components/SearchFilter";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [timePeriod, setTimePeriod] = useState("daily"); // Default to 'daily'
+  const [timePeriod, setTimePeriod] = useState("daily");
   const [comparisonData, setComparisonData] = useState({
     current: [],
     previous: [],
@@ -32,24 +31,26 @@ const Transactions = () => {
     new Date().toISOString().split("T")[0]
   );
   const [previousSelectedDate, setPreviousSelectedDate] = useState(
-    new Date(Date.now() - 86400000).toISOString().split("T")[0] // Yesterday
+    new Date(Date.now() - 86400000).toISOString().split("T")[0]
   );
   const [currentSelectedMonth, setCurrentSelectedMonth] = useState(
     new Date().toISOString().substring(0, 7)
   );
   const [previousSelectedMonth, setPreviousSelectedMonth] = useState(
-    new Date(Date.now() - 86400000 * 30).toISOString().substring(0, 7) // Last month
+    new Date(Date.now() - 86400000 * 30).toISOString().substring(0, 7)
   );
 
-  // Fetch transactions
+  // Fetch transactions - UPDATED for paginated response
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const res = await api.get("/transactions");
-        setTransactions(res.data);
-        // Don't filter here yet - wait for the next effect
-      } catch {
+        // Handle both paginated response and flat array
+        const transactionsData = res.data.transactions || res.data;
+        setTransactions(transactionsData);
+      } catch (error) {
+        console.error("Error fetching transactions:", error);
         setTransactions([]);
         setFilteredTransactions([]);
       } finally {
@@ -217,7 +218,7 @@ const Transactions = () => {
 
     setDateRange({
       currentStart,
-      currentEnd: new Date(currentEnd.getTime() - 1), // Subtract 1ms to show inclusive end date
+      currentEnd: new Date(currentEnd.getTime() - 1),
       previousStart,
       previousEnd: new Date(previousEnd.getTime() - 1),
     });
@@ -394,8 +395,9 @@ const Transactions = () => {
       key: "modeOfPayment",
       label: "Payment Method",
       options: [
-        { value: "cash", label: "Cash" },
-        { value: "gcash", label: "Gcash" },
+        { value: "Cash", label: "Cash" },
+        { value: "GCash", label: "GCash" },
+        { value: "Card", label: "Card" },
       ],
     },
     {
@@ -432,6 +434,7 @@ const Transactions = () => {
   const transactionSortConfig = [
     { key: "totalAmount", label: "Total Amount" },
     { key: "modeOfPayment", label: "Payment Method" },
+    { key: "transactionDate", label: "Date" },
   ];
 
   // Format date for display
@@ -458,6 +461,8 @@ const Transactions = () => {
         return "bg-green-100 text-green-800 border-green-200";
       case "gcash":
         return "bg-blue-100 text-blue-800 border-blue-200";
+      case "card":
+        return "bg-purple-100 text-purple-800 border-purple-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -770,10 +775,10 @@ const Transactions = () => {
                   </div>
                 </div>
 
-                {/* Revenue */}
+                {/* Sales */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-700">Revenue</h3>
+                    <h3 className="font-semibold text-gray-700">Sales</h3>
                   </div>
 
                   <div className="flex items-end justify-between">
@@ -804,7 +809,11 @@ const Transactions = () => {
         {/* Export Buttons */}
         <div>
           <ExportButtons
-            data={filteredTransactions || transactions}
+            data={
+              filteredTransactions.length > 0
+                ? filteredTransactions
+                : transactions
+            }
             fileName="Transactions"
             columns={[
               { key: "transactionDate", label: "Date" },
@@ -815,23 +824,6 @@ const Transactions = () => {
             ]}
           />
         </div>
-
-        {/* Search & Filter Section with Date Picker */}
-        <SearchFilter
-          data={timePeriod ? comparisonData.current : transactions}
-          onFilteredDataChange={setFilteredTransactions}
-          searchFields={[
-            "cashier.firstName",
-            "cashier.lastName",
-            "referenceNumber",
-            "modeOfPayment",
-          ]}
-          filterConfig={transactionFilterConfig}
-          sortConfig={transactionSortConfig}
-          placeholder="Search by cashier name, reference number, or payment method..."
-          dateField="transactionDate"
-          enableDateFilter={true}
-        />
 
         {/* Table Section */}
         {loading ? (
@@ -950,7 +942,7 @@ const Transactions = () => {
                               <Receipt className="w-8 h-8 text-gray-400" />
                             </div>
                             <p className="text-lg font-medium text-gray-900 mb-2">
-                              {timePeriod === "daily" && loading
+                              {transactions.length === 0 && loading
                                 ? "Loading transactions..."
                                 : "No transactions found"}
                             </p>
