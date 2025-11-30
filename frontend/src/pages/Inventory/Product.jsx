@@ -118,7 +118,7 @@ const Product = () => {
       label: "Size",
       options: [
         { value: "16", label: "16 oz" },
-        { value: "32", label: "32 oz" },
+        { value: "22", label: "22 oz" },
       ],
     },
   ];

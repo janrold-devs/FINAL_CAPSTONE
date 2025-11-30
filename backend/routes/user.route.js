@@ -24,10 +24,4 @@ router.get("/:id", auth, getUser);
 // PUT /api/users/:id
 router.put("/:id", auth, role(["admin"]), updateUser);
 
-// PATCH /api/users/:id/deactivate - Deactivate user
-//router.patch("/:id/deactivate", auth, role("admin"), deactivateUser);
-
-// PATCH /api/users/:id/reactivate - Reactivate user
-//router.patch("/:id/reactivate", auth, role("admin"), reactivateUser);
-
 export default router;

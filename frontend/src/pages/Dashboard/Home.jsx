@@ -15,6 +15,14 @@ import {
   Heart,
   Leaf,
   CupSoda,
+  Star,
+  ShoppingBag,
+  Gift,
+  Clock,
+  Users,
+  ShoppingCart,
+  Tag,
+  Bookmark,
 } from "lucide-react";
 import {
   AreaChart,
@@ -54,17 +62,122 @@ const Home = () => {
     dailySales: [],
     weeklySales: [],
     monthlySales: [],
-    bestSelling: {
-      coffee: [],
-      milktea: [],
-      frappe: [],
-      choco: [],
-      fruitTea: [],
-    },
+    bestSelling: {},
   });
+
+  // Available icons for random assignment
+  const availableIcons = {
+    Flame,
+    Trophy,
+    Award,
+    Zap,
+    Coffee,
+    Droplet,
+    Wind,
+    Heart,
+    Leaf,
+    CupSoda,
+    Star,
+    ShoppingBag,
+    Gift,
+    Clock,
+    Users,
+    TrendingUp,
+    Package,
+    ShoppingCart,
+    Tag,
+    Bookmark,
+  };
+
+  // Color palette for random assignment
+  const colorPalette = [
+    "bg-red-500",
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-purple-500",
+    "bg-pink-500",
+    "bg-indigo-500",
+    "bg-teal-500",
+    "bg-orange-500",
+    "bg-cyan-500",
+    "bg-lime-500",
+    "bg-amber-500",
+    "bg-emerald-500",
+    "bg-violet-500",
+    "bg-fuchsia-500",
+    "bg-rose-500",
+    "bg-sky-500",
+    "bg-stone-500",
+    "bg-neutral-500",
+    "bg-slate-500",
+  ];
+
+  // Dynamic category configuration
+  const createDynamicCategoryConfig = (bestSellingData) => {
+    const baseConfig = {
+      all: {
+        label: "All",
+        color: "bg-purple-500",
+        icon: Flame,
+      },
+    };
+
+    if (!bestSellingData) return baseConfig;
+
+    // Extract unique categories from best selling data
+    const categories = new Set();
+
+    Object.entries(bestSellingData).forEach(([categoryKey, products]) => {
+      if (Array.isArray(products)) {
+        products.forEach((product) => {
+          if (product.category && product.category !== "all") {
+            categories.add(product.category);
+          }
+        });
+      }
+      // Also include the category keys themselves
+      if (categoryKey !== "all") {
+        categories.add(categoryKey);
+      }
+    });
+
+    // Assign random icons and colors to each category
+    let usedColors = new Set(["bg-purple-500"]); // Reserve purple for "All"
+    let usedIcons = new Set(["Flame"]); // Reserve Flame for "All"
+
+    categories.forEach((category) => {
+      // Find unused color
+      let color = colorPalette.find((c) => !usedColors.has(c)) || "bg-gray-500";
+      usedColors.add(color);
+
+      // Find unused icon
+      const iconNames = Object.keys(availableIcons);
+      let iconName =
+        iconNames.find((name) => !usedIcons.has(name)) || "ShoppingBag";
+      usedIcons.add(iconName);
+
+      baseConfig[category] = {
+        label:
+          category.charAt(0).toUpperCase() +
+          category.slice(1).replace(/([A-Z])/g, " $1"),
+        color: color,
+        icon: availableIcons[iconName],
+      };
+    });
+
+    console.log("Dynamic category config created:", Object.keys(baseConfig));
+    return baseConfig;
+  };
+
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
   useEffect(() => {
     fetchDashboardData();
+
+    // Refresh every 30 seconds for real-time updates
+    const interval = setInterval(fetchDashboardData, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -85,6 +198,11 @@ const Home = () => {
       setLoading(false);
     }
   };
+
+  // Generate dynamic category config based on current data
+  const categoryConfig = React.useMemo(() => {
+    return createDynamicCategoryConfig(dashboardData.bestSelling || {});
+  }, [dashboardData.bestSelling]);
 
   // Simplified StatCard with navigation
   const StatCard = ({ icon: Icon, title, value, color, navigateTo }) => {
@@ -239,89 +357,29 @@ const Home = () => {
     }
   };
 
-  // Category and color configuration - matches backend categories
-  const categoryConfig = {
-    all: {
-      label: "All",
-      color: "bg-purple-500",
-      icon: Flame,
-    },
-
-    icedLatte: {
-      label: "Iced Latte",
-      color: "bg-amber-500",
-      icon: Coffee,
-    },
-
-    bubbleTea: {
-      label: "Bubble Tea",
-      color: "bg-violet-500",
-      icon: Droplet,
-    },
-
-    frappe: {
-      label: "Frappe",
-      color: "bg-blue-500",
-      icon: Wind,
-    },
-
-    choco: {
-      label: "Choco",
-      color: "bg-amber-900",
-      icon: Heart,
-    },
-
-    fruitTea: {
-      label: "Fruit Tea",
-      color: "bg-emerald-500",
-      icon: Leaf,
-    },
-
-    amerikano: {
-      label: "Amerikano",
-      color: "bg-gray-700",
-      icon: CupSoda,
-    },
-
-    hotDrink: {
-      label: "Hot Drink",
-      color: "bg-gray-900",
-      icon: CupSoda,
-    },
-
-    shiro: {
-      label: "Shiro",
-      color: "bg-orange-500",
-      icon: Flame,
-    },
-
-    nonCaffeine: {
-      label: "Non-Caffeine",
-      color: "bg-teal-600",
-      icon: Zap,
-    },
-  };
-
   // Get all products flattened and ranked
-  const [selectedCategory, setSelectedCategory] = useState("all");
-
   const getAllRankedProducts = () => {
     const allProducts = [];
 
     if (selectedCategory === "all") {
-      Object.entries(dashboardData.bestSelling).forEach(([key, products]) => {
-        if (Array.isArray(products)) {
-          products.forEach((product) => {
-            allProducts.push({
-              ...product,
-              category: key,
-              categoryLabel: categoryConfig[key]?.label || key,
+      Object.entries(dashboardData.bestSelling || {}).forEach(
+        ([categoryKey, products]) => {
+          if (Array.isArray(products)) {
+            products.forEach((product) => {
+              // Use the actual category from product data
+              const productCategory = product.category || categoryKey;
+              allProducts.push({
+                ...product,
+                category: productCategory,
+                categoryLabel:
+                  categoryConfig[productCategory]?.label || productCategory,
+              });
             });
-          });
+          }
         }
-      });
+      );
     } else {
-      const products = dashboardData.bestSelling[selectedCategory] || [];
+      const products = dashboardData.bestSelling?.[selectedCategory] || [];
       if (Array.isArray(products)) {
         products.forEach((product) => {
           allProducts.push({
@@ -343,7 +401,7 @@ const Home = () => {
   const BestSellerCard = ({ product, rank }) => {
     const categoryColor =
       categoryConfig[product.category]?.color || "bg-gray-500";
-    const categoryIcon = categoryConfig[product.category]?.icon;
+    const CategoryIcon = categoryConfig[product.category]?.icon;
 
     // Professional rank icons for top 3
     const getRankIcon = (rank) => {
@@ -373,11 +431,11 @@ const Home = () => {
             <h3 className="font-bold text-gray-900 text-sm truncate group-hover:text-purple-600 transition-colors mb-1">
               {product.name}
             </h3>
-            {categoryIcon && (
+            {CategoryIcon && (
               <div
                 className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded text-white ${categoryColor}`}
               >
-                {React.createElement(categoryIcon, { className: "w-3 h-3" })}
+                <CategoryIcon className="w-3 h-3" />
                 {product.categoryLabel}
               </div>
             )}
@@ -391,6 +449,49 @@ const Home = () => {
             <div className="text-xs opacity-90">sold</div>
           </div>
         </div>
+      </div>
+    );
+  };
+
+  // Dynamic Category Filter Tabs Component
+  const CategoryFilterTabs = () => {
+    const dynamicCategories = Object.entries(categoryConfig)
+      .filter(([key]) => key !== "all")
+      .map(([key, config]) => ({
+        key,
+        ...config,
+      }));
+
+    return (
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+        {/* All tab */}
+        <button
+          onClick={() => setSelectedCategory("all")}
+          className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            selectedCategory === "all"
+              ? "bg-purple-500 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          }`}
+        >
+          <Flame className="w-4 h-4" />
+          All
+        </button>
+
+        {/* Dynamic category tabs */}
+        {dynamicCategories.map(({ key, label, color, icon: IconComponent }) => (
+          <button
+            key={key}
+            onClick={() => setSelectedCategory(key)}
+            className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              selectedCategory === key
+                ? `${color} text-white`
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            <IconComponent className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
       </div>
     );
   };
@@ -410,6 +511,14 @@ const Home = () => {
             </button>
           </div>
         )}
+
+        {/* Last Updated Indicator 
+        {dashboardData.lastUpdated && (
+          <div className="mb-4 text-xs text-gray-500 text-right">
+            Last updated:{" "}
+            {new Date(dashboardData.lastUpdated).toLocaleTimeString()}
+          </div>
+        )} */}
 
         {/* Updated Stat Cards with Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -587,39 +696,8 @@ const Home = () => {
               </p>
             </div>
 
-            {/* Category Filter Tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-              <button
-                onClick={() => setSelectedCategory("all")}
-                className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                  selectedCategory === "all"
-                    ? "bg-purple-500 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <Flame className="w-4 h-4" />
-                All
-              </button>
-              {Object.entries(categoryConfig)
-                .filter(([key]) => key !== "all")
-                .map(([key, config]) => {
-                  const IconComponent = config.icon;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedCategory(key)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                        selectedCategory === key
-                          ? `${config.color} text-white`
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      <IconComponent className="w-4 h-4" />
-                      {config.label}
-                    </button>
-                  );
-                })}
-            </div>
+            {/* Dynamic Category Filter Tabs */}
+            <CategoryFilterTabs />
 
             {/* Products List - Fixed height matching chart */}
             <div className="h-80 overflow-y-auto space-y-2 pr-2">
@@ -639,7 +717,7 @@ const Home = () => {
                 <>
                   {rankedProducts.map((product, index) => (
                     <BestSellerCard
-                      key={`${product.name}-${index}`}
+                      key={`${product.name}-${index}-${product.category}`}
                       product={product}
                       rank={index + 1}
                     />

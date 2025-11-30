@@ -4,24 +4,75 @@ import StockIn from "../models/StockIn.js";
 import Spoilage from "../models/Spoilage.js";
 import Product from "../models/Product.js";
 
+// Helper function definitions at the top
+const formatWeekLabel = (start, end) => {
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const startMonth = monthNames[start.getMonth()];
+  const endMonth = monthNames[end.getMonth()];
+
+  if (start.getMonth() === end.getMonth()) {
+    return `${startMonth} ${start.getDate()}-${end.getDate()}`;
+  } else {
+    return `${startMonth} ${start.getDate()}-${endMonth} ${end.getDate()}`;
+  }
+};
+
+const formatMonthLabel = (date) => {
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+};
+
 export const getDashboardStats = async (req, res) => {
   try {
     const now = new Date();
+    const currentDay = now.getDate();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    console.log(
+      `=== CURRENT DATE: ${currentYear}-${currentMonth + 1}-${currentDay} ===`
+    );
 
     // DAILY - Use local time (since transactions are likely stored in local time)
     const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
+      currentYear,
+      currentMonth,
+      currentDay,
       0,
       0,
       0,
       0
     );
     const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
+      currentYear,
+      currentMonth,
+      currentDay,
       23,
       59,
       59,
@@ -41,10 +92,10 @@ export const getDashboardStats = async (req, res) => {
     endOfWeek.setHours(23, 59, 59, 999);
 
     // MONTH
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonth = new Date(currentYear, currentMonth, 1);
     const endOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
+      currentYear,
+      currentMonth + 1,
       0,
       23,
       59,
@@ -52,50 +103,56 @@ export const getDashboardStats = async (req, res) => {
       999
     );
 
-    console.log("=== DATE RANGES ===");
+    console.log("=== REAL-TIME DATE RANGES ===");
     console.log(
       "Today:",
-      startOfToday.toISOString(),
+      startOfToday.toLocaleString(),
       "to",
-      endOfToday.toISOString()
+      endOfToday.toLocaleString()
     );
     console.log(
       "Week:",
-      startOfWeek.toISOString(),
+      startOfWeek.toLocaleString(),
       "to",
-      endOfWeek.toISOString()
+      endOfWeek.toLocaleString()
     );
     console.log(
       "Month:",
-      startOfMonth.toISOString(),
+      startOfMonth.toLocaleString(),
       "to",
-      endOfMonth.toISOString()
+      endOfMonth.toLocaleString()
     );
 
-    // COUNT HELPERS
+    // COUNT HELPERS - Use consistent methods for ALL periods
     const countTransactions = async (start, end) => {
-      const count = await Transaction.countDocuments({
+      const transactions = await Transaction.find({
         transactionDate: { $gte: start, $lte: end },
       });
-      console.log(`Transactions in range: ${count}`);
-      return count;
+      return transactions.length;
     };
 
     const sumSales = async (start, end) => {
-      const result = await Transaction.aggregate([
-        { $match: { transactionDate: { $gte: start, $lte: end } } },
-        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-      ]);
-      return result?.[0]?.total || 0;
+      const transactions = await Transaction.find({
+        transactionDate: { $gte: start, $lte: end },
+      });
+      return transactions.reduce((sum, transaction) => {
+        return sum + (transaction.totalAmount || 0);
+      }, 0);
     };
 
-    const countStockIns = async (start, end) =>
-      await StockIn.countDocuments({ date: { $gte: start, $lte: end } });
+    const countStockIns = async (start, end) => {
+      const stockIns = await StockIn.find({ date: { $gte: start, $lte: end } });
+      return stockIns.length;
+    };
 
-    const countSpoilage = async (start, end) =>
-      await Spoilage.countDocuments({ createdAt: { $gte: start, $lte: end } });
+    const countSpoilage = async (start, end) => {
+      const spoilages = await Spoilage.find({
+        createdAt: { $gte: start, $lte: end },
+      });
+      return spoilages.length;
+    };
 
-    // --- REAL COUNTS ---
+    // Get ALL data using consistent methods
     const [
       // DAILY
       dailyTransactions,
@@ -114,6 +171,9 @@ export const getDashboardStats = async (req, res) => {
       monthlySalesAmount,
       monthlyStockIns,
       monthlySpoilage,
+
+      // All transactions for this month (for chart)
+      monthlyTransactionsForChart,
     ] = await Promise.all([
       // DAILY
       countTransactions(startOfToday, endOfToday),
@@ -132,9 +192,14 @@ export const getDashboardStats = async (req, res) => {
       sumSales(startOfMonth, endOfMonth),
       countStockIns(startOfMonth, endOfMonth),
       countSpoilage(startOfMonth, endOfMonth),
+
+      // Get all transactions for this month for accurate chart data
+      Transaction.find({
+        transactionDate: { $gte: startOfMonth, $lte: endOfToday }, // Only up to today
+      }),
     ]);
 
-    console.log("=== REAL RESULTS ===");
+    console.log("=== CONSISTENT RESULTS ===");
     console.log("Daily Transactions:", dailyTransactions);
     console.log("Daily Sales:", dailySalesAmount);
     console.log("Weekly Transactions:", weeklyTransactions);
@@ -142,36 +207,45 @@ export const getDashboardStats = async (req, res) => {
     console.log("Monthly Transactions:", monthlyTransactions);
     console.log("Monthly Sales:", monthlySalesAmount);
 
-    // --- SALES GRAPH DATA - MUST MATCH STAT CARD CALCULATIONS ---
+    // --- SALES GRAPH DATA - Only show passed days and current day ---
 
-    // Daily Sales for current month - use same date range as monthly stat card
-    const dailySalesData = await Transaction.aggregate([
-      {
-        $match: {
-          transactionDate: { $gte: startOfMonth, $lte: endOfMonth },
-        },
-      },
-      {
-        $project: {
-          totalAmount: 1,
-          day: { $dayOfMonth: "$transactionDate" },
-        },
-      },
-      {
-        $group: {
-          _id: "$day",
-          amount: { $sum: "$totalAmount" },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
+    // Calculate daily sales manually from transactions for perfect accuracy
+    const dailySalesMap = new Map();
 
-    const formattedDailySales = dailySalesData.map((item) => ({
-      day: item._id,
-      amount: item.amount,
-    }));
+    // Only initialize days that have passed (1 to currentDay)
+    for (let day = 1; day <= currentDay; day++) {
+      dailySalesMap.set(day, 0);
+    }
 
-    // Weekly Sales - FIXED: Use same calculation as weekly stat card but for multiple weeks
+    console.log(`=== INITIALIZED DAYS: 1 to ${currentDay} ===`);
+
+    // Populate with actual transaction data
+    monthlyTransactionsForChart.forEach((transaction) => {
+      const transactionDate = new Date(transaction.transactionDate);
+      const transactionDay = transactionDate.getDate();
+
+      // Only count transactions for days that have passed (including today)
+      if (transactionDay <= currentDay) {
+        const currentAmount = dailySalesMap.get(transactionDay) || 0;
+        dailySalesMap.set(
+          transactionDay,
+          currentAmount + (transaction.totalAmount || 0)
+        );
+      }
+    });
+
+    // Convert to array format for chart - only show days 1 to currentDay
+    const formattedDailySales = Array.from(dailySalesMap.entries())
+      .map(([day, amount]) => ({
+        day,
+        amount,
+      }))
+      .sort((a, b) => a.day - b.day);
+
+    console.log("=== DAILY SALES CHART DATA (Only passed days) ===");
+    console.log(formattedDailySales);
+
+    // Weekly Sales - Use consistent calculation
     const getWeekRanges = () => {
       const ranges = [];
       const today = new Date();
@@ -188,43 +262,22 @@ export const getDashboardStats = async (req, res) => {
         weekEnd.setDate(weekStart.getDate() + 6);
         weekEnd.setHours(23, 59, 59, 999);
 
-        ranges.push({
-          start: new Date(weekStart),
-          end: new Date(weekEnd),
-          label: formatWeekLabel(weekStart, weekEnd),
-        });
+        // Only include weeks that have some overlap with current time period
+        // (weeks that are either current or in the past)
+        if (weekEnd <= today || weekStart <= today) {
+          ranges.push({
+            start: new Date(weekStart),
+            end: new Date(weekEnd),
+            label: formatWeekLabel(weekStart, weekEnd),
+          });
+        }
       }
 
       return ranges;
     };
 
-    const formatWeekLabel = (start, end) => {
-      const monthNames = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-      const startMonth = monthNames[start.getMonth()];
-      const endMonth = monthNames[end.getMonth()];
-
-      if (start.getMonth() === end.getMonth()) {
-        return `${startMonth} ${start.getDate()}-${end.getDate()}`;
-      } else {
-        return `${startMonth} ${start.getDate()}-${endMonth} ${end.getDate()}`;
-      }
-    };
-
     const weekRanges = getWeekRanges();
-    console.log("=== WEEK RANGES ===");
+    console.log("=== WEEK RANGES (Only relevant weeks) ===");
     weekRanges.forEach((range, index) => {
       console.log(
         `Week ${index + 1}:`,
@@ -235,7 +288,7 @@ export const getDashboardStats = async (req, res) => {
       );
     });
 
-    // Get sales data for each week using the same sumSales function as stat cards
+    // Get sales data for each week using the same consistent method
     const weeklySalesPromises = weekRanges.map(async (range) => {
       try {
         const amount = await sumSales(range.start, range.end);
@@ -258,74 +311,61 @@ export const getDashboardStats = async (req, res) => {
     console.log("=== WEEKLY SALES RESULTS ===");
     console.log(finalWeeklySales);
 
-    // IMPORTANT: Ensure current week in chart matches weeklySalesAmount from stat card
-    // Find the current week in our results and update it to match the stat card value
-    const currentWeekLabel = formatWeekLabel(startOfWeek, endOfWeek);
-    const updatedWeeklySales = finalWeeklySales.map((week) => {
-      if (week.week === currentWeekLabel) {
-        console.log(
-          `Updating current week ${currentWeekLabel} from ${week.amount} to ${weeklySalesAmount}`
-        );
+    // Monthly Sales - only show months up to current month
+    const monthlyRanges = [];
+
+    // Generate monthly ranges for the last 6 months, but only up to current month
+    for (let i = 6; i >= 0; i--) {
+      const monthStart = new Date(currentYear, currentMonth - i, 1);
+      const monthEnd = new Date(
+        currentYear,
+        currentMonth - i + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
+
+      // Only include months that are in the past or current
+      if (monthStart <= now) {
+        monthlyRanges.push({
+          start: monthStart,
+          end: monthEnd,
+          label: formatMonthLabel(monthStart),
+        });
+      }
+    }
+
+    const monthlySalesPromises = monthlyRanges.map(async (range) => {
+      try {
+        const amount = await sumSales(range.start, range.end);
         return {
-          ...week,
-          amount: weeklySalesAmount, // Use the exact same value as the stat card
+          month: range.label,
+          amount: amount,
+        };
+      } catch (error) {
+        console.error(`Error fetching month ${range.label}:`, error);
+        return {
+          month: range.label,
+          amount: 0,
         };
       }
-      return week;
     });
 
-    console.log("=== UPDATED WEEKLY SALES (MATCHING STAT CARD) ===");
-    console.log(updatedWeeklySales);
+    const monthlySalesResults = await Promise.all(monthlySalesPromises);
+    const formattedMonthlySales = monthlySalesResults.filter(
+      (item) => item !== null
+    );
 
-    // Monthly Sales - last 6 months (this should match your expected monthly totals)
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-    const monthlySalesData = await Transaction.aggregate([
-      {
-        $match: {
-          transactionDate: { $gte: sixMonthsAgo, $lte: new Date() },
-        },
-      },
-      {
-        $project: {
-          totalAmount: 1,
-          year: { $year: "$transactionDate" },
-          month: { $month: "$transactionDate" },
-        },
-      },
-      {
-        $group: {
-          _id: { year: "$year", month: "$month" },
-          amount: { $sum: "$totalAmount" },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-    ]);
-
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    const formattedMonthlySales = monthlySalesData.map((item) => ({
-      month: `${monthNames[item._id.month - 1]} ${item._id.year}`,
-      amount: item.amount,
-    }));
+    console.log("=== MONTHLY SALES RESULTS ===");
+    console.log(formattedMonthlySales);
 
     // --- BEST SELLING PRODUCTS ---
     const bestSellingByCategory = await Transaction.aggregate([
       {
         $match: {
-          transactionDate: { $gte: startOfMonth, $lte: endOfMonth },
+          transactionDate: { $gte: startOfMonth, $lte: endOfToday }, // Only up to today
         },
       },
       { $unwind: "$itemsSold" },
@@ -354,75 +394,69 @@ export const getDashboardStats = async (req, res) => {
       },
     ]);
 
-    const categories = {
-      icedLatte: [],
-      bubbleTea: [],
-      frappe: [],
-      choco: [],
-      fruitTea: [],
-      amerikano: [],
-      hotDrink: [],
-      shiro: [],
-      nonCaffeine: [],
-    };
+    // Dynamic category grouping based on actual product categories
+    const categories = {};
 
     bestSellingByCategory.forEach((item) => {
-      const cat = item.category.toLowerCase();
+      const category = item.category || "uncategorized";
 
-      if (cat.includes("latte")) {
-        categories.icedLatte.push(item);
-      } else if (cat.includes("bubble")) {
-        categories.bubbleTea.push(item);
-      } else if (cat.includes("frappe")) {
-        categories.frappe.push(item);
-      } else if (cat.includes("choco")) {
-        categories.choco.push(item);
-      } else if (cat.includes("fruit")) {
-        categories.fruitTea.push(item);
-      } else if (cat.includes("amerikano")) {
-        categories.amerikano.push(item);
-      } else if (cat.includes("hot")) {
-        categories.hotDrink.push(item);
-      } else if (cat.includes("shiro")) {
-        categories.shiro.push(item);
-      } else if (cat.includes("caffeine") || cat.includes("non")) {
-        categories.nonCaffeine.push(item);
-      } else {
-        categories.fruitTea.push(item);
+      // Create category if it doesn't exist
+      if (!categories[category]) {
+        categories[category] = [];
       }
+
+      categories[category].push(item);
     });
 
-    // --- FINAL RESPONSE WITH REAL NUMBERS ---
-    res.json({
-      stats: {
-        transactions: {
-          daily: dailyTransactions,
-          weekly: weeklyTransactions,
-          monthly: monthlyTransactions,
-        },
-        sales: {
-          daily: dailySalesAmount,
-          weekly: weeklySalesAmount,
-          monthly: monthlySalesAmount,
-        },
-        stockIns: {
-          daily: dailyStockIns,
-          weekly: weeklyStockIns,
-          monthly: monthlyStockIns,
-        },
-        spoilage: {
-          daily: dailySpoilage,
-          weekly: weeklySpoilage,
-          monthly: monthlySpoilage,
-        },
+    // Sort each category by units
+    Object.keys(categories).forEach((category) => {
+      categories[category].sort((a, b) => b.units - a.units);
+    });
+
+    console.log("=== DYNAMIC CATEGORIES ===");
+    console.log("Categories found:", Object.keys(categories));
+
+    // --- FINAL RESPONSE WITH CONSISTENT NUMBERS ---
+    const stats = {
+      transactions: {
+        daily: dailyTransactions,
+        weekly: weeklyTransactions,
+        monthly: monthlyTransactions,
       },
+      sales: {
+        daily: dailySalesAmount,
+        weekly: weeklySalesAmount,
+        monthly: monthlySalesAmount,
+      },
+      stockIns: {
+        daily: dailyStockIns,
+        weekly: weeklyStockIns,
+        monthly: monthlyStockIns,
+      },
+      spoilage: {
+        daily: dailySpoilage,
+        weekly: weeklySpoilage,
+        monthly: monthlySpoilage,
+      },
+    };
 
-      // Chart data - now aligned with stat card calculations
+    console.log("=== FINAL CONSISTENT STATS ===");
+    console.log("Current Day:", currentDay);
+    console.log("Days in Chart:", formattedDailySales.length);
+    console.log("Daily Transactions:", stats.transactions.daily);
+    console.log("Daily Sales:", stats.sales.daily);
+    console.log("Weekly Sales:", stats.sales.weekly);
+    console.log("Monthly Sales:", stats.sales.monthly);
+
+    res.json({
+      stats,
+      // Chart data - all using consistent calculation methods
       dailySales: formattedDailySales,
-      weeklySales: updatedWeeklySales, // Use the updated version that matches stat card
+      weeklySales: finalWeeklySales,
       monthlySales: formattedMonthlySales,
-
       bestSelling: categories,
+      lastUpdated: new Date().toISOString(),
+      currentDay: currentDay, // For debugging in frontend
     });
   } catch (error) {
     console.error("Dashboard Error:", error);

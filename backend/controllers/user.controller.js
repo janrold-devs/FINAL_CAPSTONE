@@ -2,19 +2,22 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 
-/* CRUD for users (user management) */
 export const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, username, password, role } = req.body;
+    const { firstName, lastName, username, password, role, email } = req.body;
 
-    if (!firstName || !lastName || !username || !password) {
+    if (!firstName || !lastName || !username || !password || !email) {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
     // Check if user already exists
-    const exists = await User.findOne({ username });
+    const exists = await User.findOne({
+      $or: [{ username }, { email }],
+    });
     if (exists) {
-      return res.status(400).json({ message: "Username already used." });
+      return res
+        .status(400)
+        .json({ message: "Username or email already used." });
     }
 
     // Hash password
@@ -25,6 +28,7 @@ export const createUser = async (req, res) => {
       firstName,
       lastName,
       username,
+      email,
       password: hashed,
       role: role || "staff",
       isActive: true,
@@ -49,7 +53,10 @@ export const createUser = async (req, res) => {
 
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    const users = await User.find().select("-password").sort({
+      isActive: -1, // Active users first
+      createdAt: -1,
+    });
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });

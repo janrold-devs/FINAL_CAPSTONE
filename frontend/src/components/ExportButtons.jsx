@@ -108,8 +108,7 @@ const ExportButtons = ({ data = [], fileName = "Report", columns = [] }) => {
             <tbody>
               ${rows
                 .map(
-                  (r) =>
-                    `<tr>${r.map((v) => `<td>${v}</td>`).join("")}</tr>`
+                  (r) => `<tr>${r.map((v) => `<td>${v}</td>`).join("")}</tr>`
                 )
                 .join("")}
             </tbody>

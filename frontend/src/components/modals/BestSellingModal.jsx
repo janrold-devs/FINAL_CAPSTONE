@@ -28,27 +28,32 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
     }
   };
 
-  // FIXED: Generate a display name based on available data
-  const getProductDisplayName = (product) => {
-    if (!product) return "Unknown Product";
+  // Get default size and price from sizes array
+  const getProductSizeAndPrice = (product) => {
+    if (!product) return { size: null, price: 0 };
 
-    // Use the correct field name from your Product page - productName
-    if (product.productName && product.productName.trim() !== "") {
-      return product.productName;
+    // Use the size and price directly from the product (provided by backend)
+    if (product.size && product.price) {
+      return {
+        size: product.size,
+        price: product.price,
+      };
     }
 
-    // If productName is not available, check for name as fallback
-    if (product.name && product.name.trim() !== "") {
-      return product.name;
+    // Fallback to first size in sizes array
+    if (
+      product.sizes &&
+      Array.isArray(product.sizes) &&
+      product.sizes.length > 0
+    ) {
+      const firstSize = product.sizes[0];
+      return {
+        size: firstSize.size,
+        price: firstSize.price,
+      };
     }
 
-    // Final fallback: create a descriptive name from category and size
-    if (product.category) {
-      const sizeSuffix = product.size ? ` ${product.size}oz` : "";
-      return `${product.category}${sizeSuffix}`;
-    }
-
-    return "Unnamed Product";
+    return { size: null, price: 0 };
   };
 
   return (
@@ -96,7 +101,7 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
           ) : (
             <div className="space-y-4">
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 shadow-sm">
                   <div className="flex items-center gap-3">
                     <Package className="w-8 h-8 text-blue-600" />
@@ -113,24 +118,7 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                     </div>
                   </div>
                 </div>
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <PhilippinePeso className="w-8 h-8 text-green-600" />
-                    <div>
-                      <p className="text-sm text-green-600 font-medium">
-                        Total Revenue
-                      </p>
-                      <p className="text-2xl font-bold text-green-900">
-                        {formatCurrency(
-                          data.products.reduce(
-                            (sum, product) => sum + (product.totalAmount || 0),
-                            0
-                          )
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 shadow-sm">
                   <div className="flex items-center gap-3">
                     <TrendingUp className="w-8 h-8 text-purple-600" />
@@ -176,81 +164,85 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {data.products.map((product, index) => (
-                        <tr
-                          key={product._id || index}
-                          className="hover:bg-gray-50 transition-colors duration-150 group"
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-center">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                  index === 0
-                                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                                    : index === 1
-                                    ? "bg-gray-100 text-gray-800 border border-gray-200"
-                                    : index === 2
-                                    ? "bg-orange-100 text-orange-800 border border-orange-200"
-                                    : "bg-blue-100 text-blue-800 border border-blue-200"
-                                }`}
-                              >
-                                <span className="text-sm font-bold">
-                                  {index + 1}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                              {getProductDisplayName(product)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                              {product.category || "Uncategorized"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 inline-block">
-                              {product.size ? `${product.size}oz` : "N/A"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {formatCurrency(product.price || 0)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="text-lg font-bold text-blue-600">
-                                {product.unitsSold || 0}
-                              </div>
-                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                      {data.products.map((product, index) => {
+                        const { size, price } = getProductSizeAndPrice(product);
+
+                        return (
+                          <tr
+                            key={product._id || index}
+                            className="hover:bg-gray-50 transition-colors duration-150 group"
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-center">
                                 <div
-                                  className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500"
-                                  style={{
-                                    width: `${Math.min(
-                                      ((product.unitsSold || 0) /
-                                        Math.max(
-                                          ...data.products.map(
-                                            (p) => p.unitsSold || 0
-                                          )
-                                        )) *
-                                        100,
-                                      100
-                                    )}%`,
-                                  }}
-                                ></div>
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                    index === 0
+                                      ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                                      : index === 1
+                                      ? "bg-gray-100 text-gray-800 border border-gray-200"
+                                      : index === 2
+                                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                                  }`}
+                                >
+                                  <span className="text-sm font-bold">
+                                    {index + 1}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-lg font-bold text-green-600">
-                              {formatCurrency(product.totalAmount || 0)}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                                {product.productName}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                {product.category}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 inline-block">
+                                {size ? `${size}oz` : "N/A"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {formatCurrency(price)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="text-lg font-bold text-blue-600">
+                                  {product.unitsSold || 0}
+                                </div>
+                                <div className="w-20 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500"
+                                    style={{
+                                      width: `${Math.min(
+                                        ((product.unitsSold || 0) /
+                                          Math.max(
+                                            ...data.products.map(
+                                              (p) => p.unitsSold || 0
+                                            )
+                                          )) *
+                                          100,
+                                        100
+                                      )}%`,
+                                    }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-lg font-bold text-green-600">
+                                {formatCurrency(product.totalAmount || 0)}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

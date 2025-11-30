@@ -5,7 +5,26 @@ import Ingredient from "../models/Ingredient.js";
 import Sales from "../models/Sales.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 
-// NEW: Stock validation before transaction
+const updateSalesBatchCalculation = async (salesBatch) => {
+  try {
+    const transactions = await Transaction.find({
+      _id: { $in: salesBatch.transactions },
+    });
+
+    const recalculatedTotal = transactions.reduce((sum, t) => {
+      return sum + (t.totalAmount || 0);
+    }, 0);
+
+    salesBatch.totalSales = recalculatedTotal;
+    salesBatch.calculatedTotal = recalculatedTotal;
+    salesBatch.lastRecalculated = new Date();
+    await salesBatch.save();
+  } catch (error) {
+    console.error("Error updating sales batch calculation:", error);
+  }
+};
+
+// Stock validation before transaction
 export const checkStockAvailability = async (req, res) => {
   try {
     const { itemsSold } = req.body;
@@ -21,10 +40,7 @@ export const checkStockAvailability = async (req, res) => {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
 
-        // Calculate required quantity
         const requiredQuantity = recipe.quantity * item.quantity;
-
-        // Check if enough stock
         if (ingredient.quantity < requiredQuantity) {
           outOfStock.push({
             productName: product.productName,
@@ -35,37 +51,21 @@ export const checkStockAvailability = async (req, res) => {
         }
       }
 
-      // Check add-ons ingredients if any
       if (item.addons && item.addons.length > 0) {
         for (const addon of item.addons) {
-          // FIX: Use addonId instead of value
           const addonProduct = await Product.findById(addon.addonId).populate(
             "ingredients.ingredient"
           );
-          if (!addonProduct) {
-            console.log(`❌ Add-on product not found: ${addon.addonId}`);
-            continue;
-          }
+          if (!addonProduct) continue;
 
           for (const addonRecipe of addonProduct.ingredients) {
-            if (!addonRecipe.ingredient) {
-              console.log(
-                `⚠️ Missing ingredient in addon recipe: ${addonProduct.productName}`
-              );
-              continue;
-            }
+            if (!addonRecipe.ingredient) continue;
 
             const addonIngredient = await Ingredient.findById(
               addonRecipe.ingredient._id
             );
-            if (!addonIngredient) {
-              console.log(
-                `⚠️ Add-on ingredient not found: ${addonRecipe.ingredient._id}`
-              );
-              continue;
-            }
+            if (!addonIngredient) continue;
 
-            // Calculate required quantity for add-on (quantity per item * add-on quantity * main product quantity)
             const addonRequiredQuantity =
               addonRecipe.quantity * addon.quantity * item.quantity;
             if (addonIngredient.quantity < addonRequiredQuantity) {
@@ -91,13 +91,10 @@ export const checkStockAvailability = async (req, res) => {
   }
 };
 
-// transaction.controller.js - Update the createTransaction function
+// Optimized transaction creation
 export const createTransaction = async (req, res) => {
   try {
-    console.log("🔄 Starting transaction creation...");
     const { cashier, itemsSold, modeOfPayment, referenceNumber } = req.body;
-
-    console.log("📦 Items to process:", itemsSold);
 
     // Validate required fields
     if (!cashier) {
@@ -108,32 +105,95 @@ export const createTransaction = async (req, res) => {
       return res.status(400).json({ message: "Items sold are required" });
     }
 
-    // Check stock availability first for BOTH products and add-ons
-    const outOfStock = [];
+    // Create items with snapshots in parallel
+    const itemsWithSnapshots = await Promise.all(
+      itemsSold.map(async (item) => {
+        const product = await Product.findById(item.product);
+        if (!product) {
+          throw new Error(`Product not found: ${item.product}`);
+        }
 
-    for (const item of itemsSold) {
+        // Create snapshot for main product
+        const productSnapshot = {
+          productName: product.productName,
+          category: product.category,
+          size: item.size,
+          price: item.price,
+          basePrice:
+            product.sizes?.find((s) => s.size === item.size)?.price ||
+            product.price ||
+            0,
+          image: product.image,
+          addons: [],
+        };
+
+        // Process addons if any
+        if (item.addons && item.addons.length > 0) {
+          for (const addon of item.addons) {
+            const addonProduct = await Product.findById(addon.addonId);
+            if (addonProduct) {
+              productSnapshot.addons.push({
+                addonId: addon.addonId,
+                addonName: addonProduct.productName,
+                price: addon.price,
+                quantity: addon.quantity,
+              });
+            } else {
+              productSnapshot.addons.push({
+                addonId: addon.addonId,
+                addonName: "Unknown Add-on",
+                price: addon.price || 0,
+                quantity: addon.quantity || 1,
+              });
+            }
+          }
+        }
+
+        // Build transaction item
+        const transactionItem = {
+          product: item.product,
+          category: item.category,
+          size: item.size,
+          subcategory: item.subcategory,
+          price: item.price,
+          quantity: item.quantity,
+          totalCost: item.totalCost || item.price * item.quantity,
+          snapshot: productSnapshot,
+        };
+
+        // Add addons to transaction item
+        if (item.addons && item.addons.length > 0) {
+          transactionItem.addons = await Promise.all(
+            item.addons.map(async (addon) => {
+              const addonProduct = await Product.findById(addon.addonId);
+              return {
+                addonId: addon.addonId,
+                addonName: addonProduct?.productName || "Unknown Add-on",
+                quantity: addon.quantity || 1,
+                price: addon.price || addonProduct?.sizes?.[0]?.price || 0,
+              };
+            })
+          );
+        }
+
+        return transactionItem;
+      })
+    );
+
+    // Check stock availability
+    const outOfStock = [];
+    for (const item of itemsWithSnapshots) {
       const product = await Product.findById(item.product).populate(
         "ingredients.ingredient"
       );
-      if (!product) {
-        console.log(`❌ Product not found: ${item.product}`);
-        continue;
-      }
+      if (!product) continue;
 
       // Check main product ingredients
       for (const recipe of product.ingredients) {
-        if (!recipe.ingredient) {
-          console.log(
-            `⚠️ Missing ingredient in recipe for product: ${product.productName}`
-          );
-          continue;
-        }
+        if (!recipe.ingredient) continue;
 
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
-        if (!ingredient) {
-          console.log(`⚠️ Ingredient not found: ${recipe.ingredient._id}`);
-          continue;
-        }
+        if (!ingredient) continue;
 
         const requiredQuantity = recipe.quantity * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
@@ -146,37 +206,22 @@ export const createTransaction = async (req, res) => {
         }
       }
 
-      // Check add-ons ingredients if any
+      // Check add-ons ingredients
       if (item.addons && item.addons.length > 0) {
         for (const addon of item.addons) {
-          // FIX: Use addonId instead of value
           const addonProduct = await Product.findById(addon.addonId).populate(
             "ingredients.ingredient"
           );
-          if (!addonProduct) {
-            console.log(`❌ Add-on product not found: ${addon.addonId}`);
-            continue;
-          }
+          if (!addonProduct) continue;
 
           for (const addonRecipe of addonProduct.ingredients) {
-            if (!addonRecipe.ingredient) {
-              console.log(
-                `⚠️ Missing ingredient in addon recipe: ${addonProduct.productName}`
-              );
-              continue;
-            }
+            if (!addonRecipe.ingredient) continue;
 
             const addonIngredient = await Ingredient.findById(
               addonRecipe.ingredient._id
             );
-            if (!addonIngredient) {
-              console.log(
-                `⚠️ Add-on ingredient not found: ${addonRecipe.ingredient._id}`
-              );
-              continue;
-            }
+            if (!addonIngredient) continue;
 
-            // Calculate required quantity for add-on (quantity per item * add-on quantity * main product quantity)
             const addonRequiredQuantity =
               addonRecipe.quantity * addon.quantity * item.quantity;
             if (addonIngredient.quantity < addonRequiredQuantity) {
@@ -192,153 +237,153 @@ export const createTransaction = async (req, res) => {
       }
     }
 
-    // If any ingredient is out of stock, reject transaction
+    // Reject if out of stock
     if (outOfStock.length > 0) {
       let errorMessage = "Not enough ingredients in stock:\n";
       outOfStock.forEach((item) => {
         errorMessage += `• ${item.productName}: ${item.ingredientName} - Need ${item.requiredQuantity}, but only ${item.availableQuantity} available\n`;
       });
-      console.log("❌ Stock check failed:", errorMessage);
       return res.status(400).json({ message: errorMessage });
     }
 
-    // compute per-item totalCost if not provided
-    const items = itemsSold.map((i) => {
-      const totalCost = i.totalCost ?? i.price * i.quantity;
-      return { ...i, totalCost };
-    });
+    // Compute grand total
+    const totalAmount = itemsWithSnapshots.reduce(
+      (s, it) => s + (it.totalCost || 0),
+      0
+    );
 
-    // compute grand total
-    const totalAmount = items.reduce((s, it) => s + (it.totalCost || 0), 0);
-
-    console.log("💾 Creating transaction record...");
+    // Create transaction
     const transaction = await Transaction.create({
       transactionDate: req.body.transactionDate || Date.now(),
       cashier,
-      itemsSold: items,
+      itemsSold: itemsWithSnapshots,
       modeOfPayment,
       referenceNumber,
       totalAmount,
     });
 
-    console.log("✅ Transaction record created:", transaction._id);
-
-    // Deduct ingredients from inventory for BOTH products and add-ons
-    for (const item of items) {
-      const product = await Product.findById(item.product).populate(
-        "ingredients.ingredient"
-      );
-      if (!product) continue;
-
-      // Deduct main product ingredients
-      for (const recipe of product.ingredients) {
-        if (!recipe.ingredient) continue;
-
-        const ingredient = await Ingredient.findById(recipe.ingredient._id);
-        if (!ingredient) continue;
-
-        // how much to deduct = recipe.quantity * items sold
-        const deductQty = recipe.quantity * item.quantity;
-        ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
-        await ingredient.save();
-
-        console.log(
-          `📉 Deducted ${deductQty} ${ingredient.unit || "units"} of ${
-            ingredient.name
-          } for ${product.productName}. Remaining: ${ingredient.quantity}`
+    // Deduct ingredients in parallel
+    await Promise.all(
+      itemsWithSnapshots.map(async (item) => {
+        const product = await Product.findById(item.product).populate(
+          "ingredients.ingredient"
         );
-      }
+        if (!product) return;
 
-      // Deduct add-ons ingredients if any
-      if (item.addons && item.addons.length > 0) {
-        for (const addon of item.addons) {
-          // FIX: Use addonId instead of value
-          const addonProduct = await Product.findById(addon.addonId).populate(
-            "ingredients.ingredient"
-          );
-          if (!addonProduct) continue;
+        // Deduct main product ingredients
+        for (const recipe of product.ingredients) {
+          if (!recipe.ingredient) continue;
 
-          for (const addonRecipe of addonProduct.ingredients) {
-            if (!addonRecipe.ingredient) continue;
+          const ingredient = await Ingredient.findById(recipe.ingredient._id);
+          if (!ingredient) continue;
 
-            const addonIngredient = await Ingredient.findById(
-              addonRecipe.ingredient._id
+          const deductQty = recipe.quantity * item.quantity;
+          ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
+          await ingredient.save();
+        }
+
+        // Deduct add-ons ingredients
+        if (item.addons && item.addons.length > 0) {
+          for (const addon of item.addons) {
+            const addonProduct = await Product.findById(addon.addonId).populate(
+              "ingredients.ingredient"
             );
-            if (!addonIngredient) continue;
+            if (!addonProduct) continue;
 
-            // Calculate deduction for add-on (quantity per item * add-on quantity * main product quantity)
-            const addonDeductQty =
-              addonRecipe.quantity * addon.quantity * item.quantity;
-            addonIngredient.quantity = Math.max(
-              0,
-              addonIngredient.quantity - addonDeductQty
-            );
-            await addonIngredient.save();
+            for (const addonRecipe of addonProduct.ingredients) {
+              if (!addonRecipe.ingredient) continue;
 
-            console.log(
-              `📉 Deducted ${addonDeductQty} ${
-                addonIngredient.unit || "units"
-              } of ${addonIngredient.name} for ${
-                addonProduct.productName
-              } add-on. Remaining: ${addonIngredient.quantity}`
-            );
+              const addonIngredient = await Ingredient.findById(
+                addonRecipe.ingredient._id
+              );
+              if (!addonIngredient) continue;
+
+              const addonDeductQty =
+                addonRecipe.quantity * addon.quantity * item.quantity;
+              addonIngredient.quantity = Math.max(
+                0,
+                addonIngredient.quantity - addonDeductQty
+              );
+              await addonIngredient.save();
+            }
           }
         }
-      }
-    }
+      })
+    );
 
-    // Create or update Sales batch for today
+    // In the createTransaction function, replace the sales batch section:
+
+    // Create or update Sales batch - FIXED: Use proper calculation
     const transDate = transaction.transactionDate;
     const year = transDate.getFullYear();
     const month = String(transDate.getMonth() + 1).padStart(2, "0");
     const day = String(transDate.getDate()).padStart(2, "0");
     const batchNumber = `BATCH-${year}-${month}-${day}`;
 
-    // Set to start of day in local timezone
-    const startOfDay = new Date(
-      year,
-      transDate.getMonth(),
-      transDate.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
-
     let salesBatch = await Sales.findOne({ batchNumber });
 
     if (salesBatch) {
-      // Update existing batch
-      salesBatch.transactions.push(transaction._id);
-      salesBatch.totalSales += totalAmount;
+      // Add transaction if not already included
+      if (!salesBatch.transactions.includes(transaction._id)) {
+        salesBatch.transactions.push(transaction._id);
+      }
+
+      // Recalculate total from ALL transactions in the batch
+      const allTransactions = await Transaction.find({
+        _id: { $in: salesBatch.transactions },
+      });
+
+      const recalculatedTotal = allTransactions.reduce((sum, t) => {
+        return sum + (t.totalAmount || 0);
+      }, 0);
+
+      salesBatch.totalSales = recalculatedTotal;
+      salesBatch.calculatedTotal = recalculatedTotal;
+      salesBatch.lastRecalculated = new Date();
       await salesBatch.save();
+
       console.log(
-        `💰 Updated sales batch ${batchNumber}: +₱${totalAmount}, new total: ₱${salesBatch.totalSales}`
+        `✅ Updated sales batch ${batchNumber}: ₱${recalculatedTotal}`
       );
     } else {
-      // Create new daily batch
       salesBatch = await Sales.create({
         batchNumber,
         transactions: [transaction._id],
         totalSales: totalAmount,
-        transactionDate: startOfDay,
+        calculatedTotal: totalAmount,
+        transactionDate: transDate,
+        lastRecalculated: new Date(),
       });
-      console.log(`💰 Created new sales batch ${batchNumber}: ₱${totalAmount}`);
+
+      console.log(`✅ Created sales batch ${batchNumber}: ₱${totalAmount}`);
     }
 
-    // log activity
+    // Log activity
     await logActivity(
       req,
       "CREATE_TRANSACTION",
       `Transaction recorded by cashier: ${cashier}. Total: ₱${totalAmount}. Added to ${batchNumber}.`
     );
 
-    console.log("🎉 Transaction completed successfully!");
-    res.status(201).json(transaction);
+    // Return populated transaction for receipt
+    const populatedTransaction = await Transaction.findById(transaction._id)
+      .populate("cashier", "firstName lastName")
+      .lean();
+
+    res.status(201).json(populatedTransaction);
   } catch (err) {
-    console.error("❌ Transaction creation error:", err);
-    console.error("Error details:", err.message);
-    console.error("Error stack:", err.stack);
+    console.error("Transaction creation error:", err);
+
+    if (err.name === "ValidationError") {
+      const validationErrors = Object.values(err.errors).map(
+        (error) => error.message
+      );
+      return res.status(400).json({
+        message: "Transaction validation failed",
+        errors: validationErrors,
+      });
+    }
+
     res.status(500).json({ message: err.message });
   }
 };
@@ -349,10 +394,33 @@ export const getTransactions = async (req, res) => {
     const list = await Transaction.find()
       .populate("cashier", "-password")
       .populate("itemsSold.product")
-      .populate("itemsSold.addons.addonId") // FIX: Use addonId instead of value
+      .populate("itemsSold.addons.addonId")
       .sort({ transactionDate: -1 });
 
-    res.json(list);
+    const transactionsWithSnapshots = list.map((transaction) => {
+      const itemsWithSnapshotData = transaction.itemsSold.map((item) => {
+        if (item.snapshot && item.snapshot.productName) {
+          return {
+            ...item.toObject(),
+            product: {
+              _id: item.product?._id || null,
+              productName: item.snapshot.productName,
+              category: item.snapshot.category,
+              image: item.snapshot.image,
+            },
+            snapshot: item.snapshot,
+          };
+        }
+        return item;
+      });
+
+      return {
+        ...transaction.toObject(),
+        itemsSold: itemsWithSnapshotData,
+      };
+    });
+
+    res.json(transactionsWithSnapshots);
   } catch (err) {
     console.error("Error fetching transactions:", err);
     res.status(500).json({ message: err.message });
@@ -365,53 +433,63 @@ export const getTransaction = async (req, res) => {
     const doc = await Transaction.findById(req.params.id)
       .populate("cashier", "-password")
       .populate("itemsSold.product")
-      .populate("itemsSold.addons.addonId") // FIX: Use addonId instead of value
-      .sort({ transactionDate: -1 });
+      .populate("itemsSold.addons.addonId");
 
     if (!doc) return res.status(404).json({ message: "Transaction not found" });
 
-    res.json(doc);
+    const itemsWithSnapshotData = doc.itemsSold.map((item) => {
+      if (item.snapshot && item.snapshot.productName) {
+        return {
+          ...item.toObject(),
+          product: {
+            _id: item.product?._id || null,
+            productName: item.snapshot.productName,
+            category: item.snapshot.category,
+            image: item.snapshot.image,
+          },
+          snapshot: item.snapshot,
+        };
+      }
+      return item;
+    });
+
+    const transactionWithSnapshots = {
+      ...doc.toObject(),
+      itemsSold: itemsWithSnapshotData,
+    };
+
+    res.json(transactionWithSnapshots);
   } catch (err) {
     console.error("Error fetching transaction:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// transaction.controller.js - Update deleteTransaction function
+// DELETE Transaction
 export const deleteTransaction = async (req, res) => {
   try {
     const deleted = await Transaction.findByIdAndDelete(req.params.id);
     if (!deleted)
       return res.status(404).json({ message: "Transaction not found" });
 
-    // Restore ingredients to inventory for BOTH products and add-ons
+    // Restore ingredients
     for (const item of deleted.itemsSold) {
       const product = await Product.findById(item.product).populate(
         "ingredients.ingredient"
       );
       if (!product) continue;
 
-      // Restore main product ingredients
       for (const recipe of product.ingredients) {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
 
-        // Restore the deducted quantity
         const restoreQty = recipe.quantity * item.quantity;
         ingredient.quantity += restoreQty;
         await ingredient.save();
-
-        console.log(
-          `🔄 Restored ${restoreQty} ${ingredient.unit || "units"} of ${
-            ingredient.name
-          } for ${product.productName}. New quantity: ${ingredient.quantity}`
-        );
       }
 
-      // Restore add-ons ingredients if any
       if (item.addons && item.addons.length > 0) {
         for (const addon of item.addons) {
-          // FIX: Use addonId instead of value
           const addonProduct = await Product.findById(addon.addonId).populate(
             "ingredients.ingredient"
           );
@@ -423,25 +501,16 @@ export const deleteTransaction = async (req, res) => {
             );
             if (!addonIngredient) continue;
 
-            // Calculate restoration for add-on (quantity per item * add-on quantity * main product quantity)
             const addonRestoreQty =
               addonRecipe.quantity * addon.quantity * item.quantity;
             addonIngredient.quantity += addonRestoreQty;
             await addonIngredient.save();
-
-            console.log(
-              `🔄 Restored ${addonRestoreQty} ${
-                addonIngredient.unit || "units"
-              } of ${addonIngredient.name} for ${
-                addonProduct.productName
-              } add-on. New quantity: ${addonIngredient.quantity}`
-            );
           }
         }
       }
     }
 
-    // Remove from sales batch and update total (keep existing code)
+    // Update sales batch - FIXED: Use proper recalculation
     const transDate = deleted.transactionDate;
     const year = transDate.getFullYear();
     const month = String(transDate.getMonth() + 1).padStart(2, "0");
@@ -450,24 +519,31 @@ export const deleteTransaction = async (req, res) => {
 
     const salesBatch = await Sales.findOne({ batchNumber });
     if (salesBatch) {
+      // Remove the transaction
       salesBatch.transactions = salesBatch.transactions.filter(
         (t) => t.toString() !== req.params.id
       );
-      salesBatch.totalSales -= deleted.totalAmount;
+
+      // Recalculate total from remaining transactions
+      const remainingTransactions = await Transaction.find({
+        _id: { $in: salesBatch.transactions },
+      });
+
+      const recalculatedTotal = remainingTransactions.reduce((sum, t) => {
+        return sum + (t.totalAmount || 0);
+      }, 0);
+
+      salesBatch.totalSales = recalculatedTotal;
+      salesBatch.calculatedTotal = recalculatedTotal;
+      salesBatch.lastRecalculated = new Date();
 
       if (salesBatch.transactions.length === 0) {
-        // Delete batch if no transactions left
         await Sales.findByIdAndDelete(salesBatch._id);
-        console.log(`🗑️ Deleted empty sales batch ${batchNumber}`);
       } else {
         await salesBatch.save();
-        console.log(
-          `💰 Updated sales batch ${batchNumber}: -₱${deleted.totalAmount}, new total: ₱${salesBatch.totalSales}`
-        );
       }
     }
 
-    // log activity
     await logActivity(
       req,
       "DELETE_TRANSACTION",

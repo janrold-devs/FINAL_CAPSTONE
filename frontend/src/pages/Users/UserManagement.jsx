@@ -42,8 +42,18 @@ const UserManagement = () => {
       const res = await axios.get("/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(res.data);
-      setFilteredUsers(res.data);
+
+      // Sort users: active users first, then deactivated users
+      const sortedUsers = res.data.sort((a, b) => {
+        const aActive = a.isActive !== false;
+        const bActive = b.isActive !== false;
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        return 0;
+      });
+
+      setUsers(sortedUsers);
+      setFilteredUsers(sortedUsers);
     } catch (err) {
       if (err.response?.status === 403) {
         // If user is deactivated, log them out
@@ -224,6 +234,7 @@ const UserManagement = () => {
     { key: "firstName", label: "First Name" },
     { key: "lastName", label: "Last Name" },
     { key: "username", label: "Username" },
+    { key: "email", label: "Email" },
     { key: "role", label: "Role" },
     { key: "isActive", label: "Status" },
     { key: "createdAt", label: "Date Created" },
@@ -300,13 +311,13 @@ const UserManagement = () => {
               <RefreshCw className="w-5 h-5" />
               Refresh
             </button>
-            <button
+            {/*<button
               onClick={handleAddClick}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium"
             >
               <Plus className="w-5 h-5" />
               Add User
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -375,10 +386,10 @@ const UserManagement = () => {
         <SearchFilter
           data={users}
           onFilteredDataChange={setFilteredUsers}
-          searchFields={["firstName", "lastName", "username"]}
+          searchFields={["firstName", "lastName", "username", "email"]}
           filterConfig={userFilterConfig}
           sortConfig={userSortConfig}
-          placeholder="Search by name or username..."
+          placeholder="Search by name, username, or email..."
         />
 
         {/* Table Section */}
@@ -411,11 +422,12 @@ const UserManagement = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       User
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Full Name
-                    </th>
+
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Username
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Email
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Role
@@ -425,9 +437,6 @@ const UserManagement = () => {
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Date Created
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Approval Status
                     </th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
                       Actions
@@ -477,7 +486,7 @@ const UserManagement = () => {
                               !isActive ? "text-gray-500" : "text-gray-700"
                             }`}
                           >
-                            {getFullName(user)}
+                            {user.username}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -486,7 +495,7 @@ const UserManagement = () => {
                               !isActive ? "text-gray-500" : "text-gray-700"
                             }`}
                           >
-                            {user.username}
+                            {user.email || "N/A"}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -524,19 +533,6 @@ const UserManagement = () => {
                                 )
                               : "N/A"}
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
-                              user.status === "approved"
-                                ? "bg-green-100 text-green-800 border-green-200"
-                                : user.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                                : "bg-red-100 text-red-800 border-red-200"
-                            }`}
-                          >
-                            {user.status}
-                          </span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
