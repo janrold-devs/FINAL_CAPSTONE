@@ -222,7 +222,7 @@ const StockIn = () => {
                                 className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full border border-gray-200"
                               >
                                 {i.ingredient?.name || "Unknown"} ({i.quantity}
-                                {i.unit || ""})
+                                {(i.unit || "").toLowerCase().replace('ml', 'ml')})
                               </span>
                             ))}
                           </div>

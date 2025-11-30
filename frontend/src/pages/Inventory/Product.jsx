@@ -295,7 +295,7 @@ const Product = () => {
                                 >
                                   {i.ingredient?.name || "Unknown"} (
                                   {i.quantity}
-                                  {i.ingredient?.unit || i.unit || ""})
+                                  {(i.ingredient?.unit || i.unit || "").toLowerCase().replace('ml', 'ml')})
                                 </span>
                               ))}
                             </div>
