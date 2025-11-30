@@ -98,6 +98,12 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`🚀 Backend server running in development mode on port ${PORT}`);
     console.log(`📊 API: http://localhost:${PORT}/api`);
   });
+} else {
+  // Production - use Render's port
+  const PORT = process.env.PORT || 10000;
+  server.listen(PORT, () => {
+    console.log(`🚀 Backend server running in production on port ${PORT}`);
+  });
 }
 
 export { io };
