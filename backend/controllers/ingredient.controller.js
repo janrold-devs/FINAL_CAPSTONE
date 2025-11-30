@@ -1,14 +1,14 @@
-// backend/controllers/ingredient.controller.js
 import Ingredient from "../models/Ingredient.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 import { emitNotificationsToUser } from "../utils/socketUtils.js";
 import { checkIngredientNotifications } from "../utils/notificationUtils.js";
+import User from "../models/User.js";
 
 export const createIngredient = async (req, res) => {
   try {
     console.log("🔍 Creating ingredient - User:", req.user?._id);
     
-    const body = { ...req.body, user: req.user._id }; // Use req.user._id
+    const body = { ...req.body, user: req.user._id };
     const created = await Ingredient.create(body);
 
     console.log("✅ Ingredient created:", created.name, "User:", created.user);
@@ -16,12 +16,20 @@ export const createIngredient = async (req, res) => {
     // Log activity
     await logActivity(req, "ADD_INGREDIENT", `Added new ingredient: ${created.name}`);
 
-    // Check and create notifications for this ingredient
-    await checkIngredientNotifications(created, req.user._id);
+    // Check and create notifications for ALL users (admin and staff)
+    await checkIngredientNotifications(created);
 
-    // Emit real-time notifications
+    // Emit real-time notifications to ALL users
     const io = req.app.get("io");
-    await emitNotificationsToUser(io, req.user._id);
+    const users = await User.find({
+      status: 'active',
+      $or: [{ role: 'admin' }, { role: 'staff' }]
+    });
+    
+    console.log(`📢 Emitting notifications to ${users.length} users`);
+    for (const user of users) {
+      await emitNotificationsToUser(io, user._id);
+    }
 
     res.status(201).json(created);
   } catch (err) {
@@ -42,27 +50,25 @@ export const updateIngredient = async (req, res) => {
     
     if (!updated) return res.status(404).json({ message: "Ingredient not found." });
 
-    console.log("✅ Ingredient updated:", updated.name, "Existing User:", updated.user);
+    console.log("✅ Ingredient updated:", updated.name);
 
     // Log activity
     await logActivity(req, "UPDATE_INGREDIENT", `Updated ingredient: ${updated.name}`);
 
-    // Use the ingredient's existing user, or fall back to current user
-    const ingredientUserId = updated.user || req.user._id;
-    
-    if (!ingredientUserId) {
-      console.error("❌ No user ID available for ingredient notifications");
-      return res.json(updated);
-    }
+    // Check and create notifications for ALL users (admin and staff)
+    await checkIngredientNotifications(updated);
 
-    console.log("🔔 Checking notifications with user ID:", ingredientUserId);
-    
-    // Check and create notifications for this ingredient
-    await checkIngredientNotifications(updated, ingredientUserId);
-
-    // Emit real-time notifications
+    // Emit real-time notifications to ALL users
     const io = req.app.get("io");
-    await emitNotificationsToUser(io, ingredientUserId);
+    const users = await User.find({
+      status: 'active',
+      $or: [{ role: 'admin' }, { role: 'staff' }]
+    });
+    
+    console.log(`📢 Emitting notifications to ${users.length} users`);
+    for (const user of users) {
+      await emitNotificationsToUser(io, user._id);
+    }
 
     res.json(updated);
   } catch (err) {
@@ -71,7 +77,6 @@ export const updateIngredient = async (req, res) => {
   }
 };
 
-// Keep other functions the same but add user checks...
 export const getIngredients = async (req, res) => {
   try {
     const list = await Ingredient.find().sort({ name: 1 });
@@ -98,13 +103,16 @@ export const deleteIngredient = async (req, res) => {
       // Log activity
       await logActivity(req, "DELETE_INGREDIENT", `Deleted ingredient: ${deleted.name}`);
       
-      // Use the ingredient's existing user
-      const ingredientUserId = deleted.user;
-      
-      // Emit real-time notifications
+      // Emit real-time notifications to ALL users
       const io = req.app.get("io");
-      if (ingredientUserId) {
-        await emitNotificationsToUser(io, ingredientUserId);
+      const users = await User.find({
+        status: 'active',
+        $or: [{ role: 'admin' }, { role: 'staff' }]
+      });
+      
+      console.log(`📢 Emitting notifications to ${users.length} users after deletion`);
+      for (const user of users) {
+        await emitNotificationsToUser(io, user._id);
       }
     }
     res.json({ message: "Ingredient deleted." });

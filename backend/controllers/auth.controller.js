@@ -9,14 +9,13 @@ export const register = async (req, res) => {
   try {
     console.log("Register request body:", req.body);
 
-    const { firstName, lastName, username, password, email } = req.body;
+    const { firstName, lastName, username, email } = req.body;
 
-    if (!firstName || !lastName || !username || !password || !email) {
+    if (!firstName || !lastName || !username || !email) {
       console.log("Missing fields:", {
         firstName,
         lastName,
         username,
-        password: !!password,
         email,
       });
       return res.status(400).json({ message: "All fields are required." });
@@ -31,8 +30,10 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Username or email already exists." });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Generate a temporary password that will be set by admin later
+    // For now, we'll set a placeholder that won't work for login
+    const temporaryPassword = "pending_approval_" + Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
     // Create user with pending status
     const user = await User.create({

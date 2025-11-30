@@ -1,4 +1,4 @@
-// src/context/AuthContext.jsx (Updated login function)
+// src/context/AuthContext.jsx
 import React, { createContext, useState, useEffect } from "react";
 import api from "../api/axios";
 import { toast } from "react-toastify";
@@ -58,26 +58,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (firstName, lastName, username, email, password) => {
+  const register = async (firstName, lastName, username, email) => {
     setLoading(true);
     try {
       const res = await api.post("/auth/register", {
         firstName,
         lastName,
         username,
-        email,
-        password
+        email
+        // Password removed - will be set by admin during approval
       });
-
-      const token = res.data?.token;
-      const userData = res.data?.user;
-
-      if (token && userData) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        setToken(token);
-      }
 
       setLoading(false);
       return { success: true, data: res.data };

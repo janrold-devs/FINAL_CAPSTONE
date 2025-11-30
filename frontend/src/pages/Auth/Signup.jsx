@@ -2,7 +2,6 @@
 import React, { useState, useContext } from "react";
 import AuthLayout from "../../layouts/AuthLayout";
 import { useNavigate, Link } from "react-router-dom";
-import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthContext } from "../../context/AuthContext";
@@ -15,9 +14,7 @@ const Signup = () => {
     lastName: "",
     username: "",
     email: "",
-    password: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) =>
@@ -30,8 +27,7 @@ const Signup = () => {
       !form.firstName.trim() ||
       !form.lastName.trim() ||
       !form.username.trim() ||
-      !form.email.trim() ||
-      !form.password.trim()
+      !form.email.trim()
     ) {
       toast.error("Please fill in all fields");
       return;
@@ -44,11 +40,6 @@ const Signup = () => {
       return;
     }
 
-    if (form.password.length < 6) {
-      toast.error("Password must be at least 6 characters long");
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -56,8 +47,8 @@ const Signup = () => {
         form.firstName,
         form.lastName,
         form.username,
-        form.email,
-        form.password
+        form.email
+        // Password removed - will be set by admin during approval
       );
 
       if (result.success) {
@@ -68,7 +59,6 @@ const Signup = () => {
           lastName: "",
           username: "",
           email: "",
-          password: "",
         });
         // Redirect to login after successful registration
         setTimeout(() => navigate("/login"), 3000);
@@ -110,7 +100,7 @@ const Signup = () => {
         <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-sm text-blue-800">
             <strong>Note:</strong> Your account requires admin approval before you can login.
-            You will receive an email with your credentials once approved.
+            You will receive an email with your temporary credentials once approved.
           </p>
         </div>
       </div>
@@ -179,37 +169,6 @@ const Signup = () => {
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
             disabled={loading}
           />
-        </div>
-
-        <div>
-          <label className="block text-gray-700 mb-2 font-medium">
-            Password
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              name="password"
-              placeholder="Create a password (min. 6 characters)"
-              required
-              value={form.password}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
-              disabled={loading}
-              minLength="6"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-              disabled={loading}
-            >
-              {showPassword ? (
-                <AiOutlineEyeInvisible size={22} />
-              ) : (
-                <AiOutlineEye size={22} />
-              )}
-            </button>
-          </div>
         </div>
 
         <button

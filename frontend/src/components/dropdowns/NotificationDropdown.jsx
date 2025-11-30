@@ -19,24 +19,24 @@ const NotificationDropdown = () => {
   const [connected, setConnected] = useState(false);
   const dropdownRef = useRef(null);
 
+  // ✅ CORRECT: Use relative path for API calls
   const getBackendBaseUrl = () => {
-    return import.meta.env.MODE === "development"
-      ? "http://localhost:8000"
-      : "https://final-capstone-kb79.onrender.com";
+    return import.meta.env.PROD 
+      ? "" // Empty string for same domain
+      : "http://localhost:8000";
   };
 
   const BACKEND_BASE_URL = getBackendBaseUrl();
 
-  // Fetch notifications on component mount
+  // ✅ FIXED: Socket connection - use current domain in production
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    const socketUrl = import.meta.env.PROD 
+      ? window.location.origin // Use current domain in production
+      : "http://localhost:8000";
 
-  // Initialize socket connection
-  useEffect(() => {
-    console.log("🔗 Connecting to:", BACKEND_BASE_URL);
+    console.log("🔗 Connecting to:", socketUrl);
 
-    const newSocket = io(BACKEND_BASE_URL, {
+    const newSocket = io(socketUrl, {
       withCredentials: true,
       transports: ["websocket", "polling"],
       timeout: 10000,
@@ -50,7 +50,6 @@ const NotificationDropdown = () => {
     newSocket.on("connect", () => {
       console.log("✅ Connected to notification server");
       setConnected(true);
-      // Fetch notifications again when socket connects to ensure we have the latest
       fetchNotifications();
     });
 
@@ -64,20 +63,18 @@ const NotificationDropdown = () => {
       setConnected(false);
     });
 
-    // Listen for real-time notifications
     newSocket.on("notifications_update", (newNotifications) => {
       console.log(`🔔 Received ${newNotifications.length} notifications via socket`);
       setNotifications(newNotifications);
     });
 
-    // Cleanup on unmount
     return () => {
       if (newSocket) {
         newSocket.close();
       }
     };
-  }, [BACKEND_BASE_URL]);
-
+  }, []);
+  
   // Show browser notification for new critical alerts
   useEffect(() => {
     if (notifications.length > 0 && !open) {

@@ -1,5 +1,6 @@
 import Notification from "../models/Notification.js";
 import Ingredient from "../models/Ingredient.js";
+import User from "../models/User.js";
 
 // Get notifications for current user
 export const getNotifications = async (req, res) => {
@@ -61,92 +62,102 @@ export const clearAllNotifications = async (req, res) => {
   }
 };
 
-// Generate and save notifications based on ingredient conditions
-export const generateAndSaveNotifications = async (userId) => {
+// Generate and save notifications based on ingredient conditions FOR ALL USERS
+export const generateAndSaveNotifications = async () => {
   try {
     const today = new Date();
     const expiringSoonThreshold = 3; // days
 
+    // Get all ingredients (not filtered by user)
     const ingredients = await Ingredient.find({ 
-      status: { $ne: "inactive" },
-      user: userId 
+      status: { $ne: "inactive" }
     });
+    
+    // Get all admin and staff users
+    const users = await User.find({
+      status: 'active',
+      $or: [{ role: 'admin' }, { role: 'staff' }]
+    });
+    
+    console.log(`🔍 Generating notifications for ${ingredients.length} ingredients and ${users.length} users`);
     
     const notifications = [];
 
-    for (const ing of ingredients) {
-      const threshold = Number(ing.alertLevel) || Number(ing.alert) || 10;
+    for (const user of users) {
+      for (const ing of ingredients) {
+        const threshold = Number(ing.alertLevel) || Number(ing.alert) || 10;
 
-      // Check if notification already exists for this condition
-      const existingNotification = await Notification.findOne({
-        user: userId,
-        ingredientId: ing._id,
-        type: { $in: ['low_stock', 'out_of_stock', 'expiring', 'expired'] },
-        isCleared: false
-      });
+        // Check if notification already exists for this condition
+        const existingNotification = await Notification.findOne({
+          user: user._id,
+          ingredientId: ing._id,
+          type: { $in: ['low_stock', 'out_of_stock', 'expiring', 'expired'] },
+          isCleared: false
+        });
 
-      // Low stock check
-      if (Number(ing.quantity) <= threshold && Number(ing.quantity) > 0) {
-        if (!existingNotification || existingNotification.type !== 'low_stock') {
-          const notification = await Notification.create({
-            user: userId,
-            type: "low_stock",
-            priority: Number(ing.quantity) <= 5 ? "high" : "medium",
-            title: "Low Stock Alert",
-            message: `${ing.name} is running low (${ing.quantity} ${ing.unit || 'units'} left). Alert level: ${threshold}`,
-            ingredientId: ing._id
-          });
-          notifications.push(notification);
-        }
-      }
-
-      // Out of stock check 
-      if (Number(ing.quantity) <= 0) {
-        if (!existingNotification || existingNotification.type !== 'out_of_stock') {
-          const notification = await Notification.create({
-            user: userId,
-            type: "out_of_stock", 
-            priority: "critical",
-            title: "Out of Stock!",
-            message: `${ing.name} is completely out of stock!`,
-            ingredientId: ing._id
-          });
-          notifications.push(notification);
-        }
-      }
-
-      // Expiration check
-      if (ing.expiration) {
-        const expirationDate = new Date(ing.expiration);
-        const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
-        
-        if (daysLeft <= expiringSoonThreshold && daysLeft >= 0) {
-          const priority = daysLeft <= 1 ? "critical" : daysLeft <= 3 ? "high" : "medium";
-          if (!existingNotification || existingNotification.type !== 'expiring') {
+        // Low stock check
+        if (Number(ing.quantity) <= threshold && Number(ing.quantity) > 0) {
+          if (!existingNotification || existingNotification.type !== 'low_stock') {
             const notification = await Notification.create({
-              user: userId,
-              type: "expiring",
-              priority: priority,
-              title: "Expiring Soon",
-              message: `${ing.name} expires in ${daysLeft} day(s) on ${expirationDate.toLocaleDateString()}`,
+              user: user._id,
+              type: "low_stock",
+              priority: Number(ing.quantity) <= 5 ? "high" : "medium",
+              title: "Low Stock Alert",
+              message: `${ing.name} is running low (${ing.quantity} ${ing.unit || 'units'} left). Alert level: ${threshold}`,
               ingredientId: ing._id
             });
             notifications.push(notification);
           }
         }
-        
-        // Already expired
-        if (daysLeft < 0) {
-          if (!existingNotification || existingNotification.type !== 'expired') {
+
+        // Out of stock check 
+        if (Number(ing.quantity) <= 0) {
+          if (!existingNotification || existingNotification.type !== 'out_of_stock') {
             const notification = await Notification.create({
-              user: userId,
-              type: "expired",
+              user: user._id,
+              type: "out_of_stock", 
               priority: "critical",
-              title: "Expired Ingredient!",
-              message: `${ing.name} expired ${Math.abs(daysLeft)} day(s) ago!`,
+              title: "Out of Stock!",
+              message: `${ing.name} is completely out of stock!`,
               ingredientId: ing._id
             });
             notifications.push(notification);
+          }
+        }
+
+        // Expiration check
+        if (ing.expiration) {
+          const expirationDate = new Date(ing.expiration);
+          const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
+          
+          if (daysLeft <= expiringSoonThreshold && daysLeft >= 0) {
+            const priority = daysLeft <= 1 ? "critical" : daysLeft <= 3 ? "high" : "medium";
+            if (!existingNotification || existingNotification.type !== 'expiring') {
+              const notification = await Notification.create({
+                user: user._id,
+                type: "expiring",
+                priority: priority,
+                title: "Expiring Soon",
+                message: `${ing.name} expires in ${daysLeft} day(s) on ${expirationDate.toLocaleDateString()}`,
+                ingredientId: ing._id
+              });
+              notifications.push(notification);
+            }
+          }
+          
+          // Already expired
+          if (daysLeft < 0) {
+            if (!existingNotification || existingNotification.type !== 'expired') {
+              const notification = await Notification.create({
+                user: user._id,
+                type: "expired",
+                priority: "critical",
+                title: "Expired Ingredient!",
+                message: `${ing.name} expired ${Math.abs(daysLeft)} day(s) ago!`,
+                ingredientId: ing._id
+              });
+              notifications.push(notification);
+            }
           }
         }
       }
@@ -162,20 +173,26 @@ export const generateAndSaveNotifications = async (userId) => {
 // Manually trigger notification generation
 export const triggerNotificationGeneration = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const newNotifications = await generateAndSaveNotifications(userId);
+    const newNotifications = await generateAndSaveNotifications();
     
-    // Emit real-time update
+    // Emit real-time update to ALL users
     const io = req.app.get("io");
     if (io) {
-      const userNotifications = await Notification.find({
-        user: userId,
-        isCleared: false
-      })
-      .populate("ingredientId", "name unit quantity expiration alertLevel")
-      .sort({ createdAt: -1 });
+      const users = await User.find({
+        status: 'active',
+        $or: [{ role: 'admin' }, { role: 'staff' }]
+      });
       
-      io.to(userId.toString()).emit("notifications_update", userNotifications);
+      for (const user of users) {
+        const userNotifications = await Notification.find({
+          user: user._id,
+          isCleared: false
+        })
+        .populate("ingredientId", "name unit quantity expiration alertLevel")
+        .sort({ createdAt: -1 });
+        
+        io.to(user._id.toString()).emit("notifications_update", userNotifications);
+      }
     }
 
     res.json({ 

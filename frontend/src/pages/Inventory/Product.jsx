@@ -9,10 +9,8 @@ import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
 
 const Product = () => {
-  const BACKEND_URL =
-    import.meta.env.MODE === "development"
-      ? "http://localhost:8000"
-      : "https://final-capstone-kb79.onrender.com";
+
+  const BACKEND_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
 
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);

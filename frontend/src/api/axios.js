@@ -1,9 +1,11 @@
-//api/axios.js
-
 import axios from "axios";
 
+const BASE_URL = import.meta.env.PROD 
+  ? "/api"  // Relative path when served from same domain
+  : "http://localhost:8000/api";
+
 const api = axios.create({
-  baseURL: import.meta.env.MODE === "development" ? "http://localhost:8000/api" : "https://final-capstone-kb79.onrender.com/api",
+  baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },
 });
 

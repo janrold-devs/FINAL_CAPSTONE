@@ -255,10 +255,8 @@ const CartItem = React.memo(
 );
 
 const POS = () => {
-  const BACKEND_URL =
-    import.meta.env.MODE === "development"
-      ? "http://localhost:8000"
-      : "https://final-capstone-kb79.onrender.com";
+
+  const BACKEND_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
 
   // State declarations
   const [products, setProducts] = useState([]);
