@@ -255,7 +255,6 @@ const CartItem = React.memo(
 );
 
 const POS = () => {
-
   const BACKEND_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
 
   // State declarations
@@ -727,9 +726,9 @@ const POS = () => {
   const printReceipt = useCallback(
     (transactionData) => {
       try {
-        console.log("🖨️ Starting receipt print...", transactionData);
+        console.log("Starting receipt print...", transactionData);
 
-        const printWindow = window.open("", "_blank", "width=300,height=600");
+        const printWindow = window.open("", "_blank", "width=800,height=600");
         if (!printWindow) {
           toast.info("Popup blocked. Please allow popups for receipts.");
           return;
@@ -883,10 +882,6 @@ const POS = () => {
           `
               : ""
           }
-          <div class="payment-line">
-            <span>Cashier:</span>
-            <span>${cashierName}</span>
-          </div>
         </div>
         
         <div class="thank-you">
