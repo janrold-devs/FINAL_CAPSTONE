@@ -2,6 +2,7 @@ import Ingredient from "../models/Ingredient.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 import { emitNotificationsToUser } from "../utils/socketUtils.js";
 import { checkIngredientNotifications } from "../utils/notificationUtils.js";
+import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 
 export const createIngredient = async (req, res) => {
@@ -40,40 +41,45 @@ export const createIngredient = async (req, res) => {
 
 export const updateIngredient = async (req, res) => {
   try {
-    console.log("🔍 Updating ingredient - User:", req.user?._id);
-    
-    const updated = await Ingredient.findByIdAndUpdate(
+    const updatedIngredient = await Ingredient.findByIdAndUpdate(
       req.params.id, 
-      req.body,
+      req.body, 
       { new: true }
     );
-    
-    if (!updated) return res.status(404).json({ message: "Ingredient not found." });
 
-    console.log("✅ Ingredient updated:", updated.name);
+    // ✅ IMMEDIATELY check and create notifications
+    const newNotifications = await checkIngredientNotifications(updatedIngredient);
 
-    // Log activity
-    await logActivity(req, "UPDATE_INGREDIENT", `Updated ingredient: ${updated.name}`);
+    // ✅ IMMEDIATELY emit to all connected users
+    const io = req.app.get('io');
+    if (io) {
+      // **FIXED: Use correct status field and include isActive**
+      const users = await User.find({
+        status: 'approved', // Changed from 'active' to 'approved'
+        isActive: true,     // Added isActive check
+        $or: [{ role: 'admin' }, { role: 'staff' }]
+      });
 
-    // Check and create notifications for ALL users (admin and staff)
-    await checkIngredientNotifications(updated);
-
-    // Emit real-time notifications to ALL users
-    const io = req.app.get("io");
-    const users = await User.find({
-      status: 'active',
-      $or: [{ role: 'admin' }, { role: 'staff' }]
-    });
-    
-    console.log(`📢 Emitting notifications to ${users.length} users`);
-    for (const user of users) {
-      await emitNotificationsToUser(io, user._id);
+      console.log(`📢 Emitting notifications to ${users.length} users`);
+      
+      for (const user of users) {
+        const userNotifications = await Notification.find({
+          user: user._id,
+          isCleared: false
+        })
+        .populate("ingredientId", "name unit quantity expiration alertLevel")
+        .sort({ createdAt: -1 });
+        
+        const userIdString = user._id.toString();
+        io.to(userIdString).emit("notifications_update", userNotifications);
+        console.log(`📡 Emitted ${userNotifications.length} notifications to user ${userIdString}`);
+      }
     }
 
-    res.json(updated);
-  } catch (err) {
-    console.error("Error in updateIngredient:", err);
-    res.status(500).json({ message: err.message });
+    res.json(updatedIngredient);
+  } catch (error) {
+    console.error("Error updating ingredient:", error);
+    res.status(400).json({ message: error.message });
   }
 };
 
