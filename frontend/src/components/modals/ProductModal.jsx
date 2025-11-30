@@ -484,7 +484,6 @@ const ProductModal = ({
 
                 {dropdownOpen && (
                   <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 z-10">
-<<<<<<< HEAD
                    {/* Sa ingredient selection part, dapat i-normalize din ang display ng units */}
                 {ingredientsList
                   .filter(
@@ -492,13 +491,6 @@ const ProductModal = ({
                       i.category === form.ingredientCategory &&
                       !form.ingredients.some(
                         (x) => x.ingredient === i._id
-=======
-                    {ingredientsList
-                      .filter(
-                        (i) =>
-                          i.category === form.ingredientCategory &&
-                          !form.ingredients.some((x) => x.ingredient === i._id)
->>>>>>> 30454ee36501f2c5b3496709e330b58deefe8129
                       )
                   )
                   .map((ingredient) => (
