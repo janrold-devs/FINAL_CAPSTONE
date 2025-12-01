@@ -10,7 +10,7 @@ import SearchFilter from "../../components/SearchFilter";
 
 const Product = () => {
 
-  const BACKEND_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
+  const BACKEND_URL = import.meta.env.PROD ? "https://kkopitea-backend.onrender.com" : "http://localhost:8000";
 
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
