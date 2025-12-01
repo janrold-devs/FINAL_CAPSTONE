@@ -50,156 +50,163 @@ const formatMonthLabel = (date) => {
 
 export const getDashboardStats = async (req, res) => {
   try {
+    // Get current time - ALWAYS WORK IN UTC FOR SERVER-SIDE
     const now = new Date();
-    const currentDay = now.getDate();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    
+    // Get Philippine time (UTC+8) for display purposes
+    const PH_OFFSET = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+    const nowPH = new Date(now.getTime() + PH_OFFSET);
+    
+    const currentDay = nowPH.getUTCDate();
+    const currentMonth = nowPH.getUTCMonth();
+    const currentYear = nowPH.getUTCFullYear();
 
-    console.log(
-      `=== CURRENT DATE: ${currentYear}-${currentMonth + 1}-${currentDay} ===`
-    );
+    console.log(`=== DASHBOARD TIME DEBUG ===`);
+    console.log(`Server UTC Time: ${now.toISOString()}`);
+    console.log(`Philippine Time: ${nowPH.toISOString()}`);
+    console.log(`PH Date: ${currentYear}-${currentMonth + 1}-${currentDay}`);
+    console.log(`Timezone Offset: ${new Date().getTimezoneOffset()} minutes`);
 
-    // DAILY - Use local time (since transactions are likely stored in local time)
-    const startOfToday = new Date(
+    // CRITICAL FIX: Create ALL dates in UTC, then adjust for Philippine time
+    // Daily ranges in Philippine time (converted to UTC for querying)
+    const startOfTodayPH = new Date(Date.UTC(currentYear, currentMonth, currentDay, 0, 0, 0, 0));
+    const endOfTodayPH = new Date(Date.UTC(currentYear, currentMonth, currentDay, 23, 59, 59, 999));
+    
+    // Convert PH times to UTC for database querying
+    const startOfTodayUTC = new Date(startOfTodayPH.getTime() - PH_OFFSET);
+    const endOfTodayUTC = new Date(endOfTodayPH.getTime() - PH_OFFSET);
+
+    // Weekly ranges in Philippine time
+    const dayPH = nowPH.getUTCDay(); // 0=Sunday, 1=Monday, etc.
+    const mondayOffsetPH = dayPH === 0 ? -6 : 1 - dayPH;
+    
+    const startOfWeekPH = new Date(Date.UTC(
       currentYear,
       currentMonth,
-      currentDay,
-      0,
-      0,
-      0,
-      0
-    );
-    const endOfToday = new Date(
-      currentYear,
-      currentMonth,
-      currentDay,
-      23,
-      59,
-      59,
-      999
-    );
+      currentDay + mondayOffsetPH,
+      0, 0, 0, 0
+    ));
+    const endOfWeekPH = new Date(startOfWeekPH.getTime());
+    endOfWeekPH.setUTCDate(startOfWeekPH.getUTCDate() + 6);
+    endOfWeekPH.setUTCHours(23, 59, 59, 999);
+    
+    // Convert to UTC for querying
+    const startOfWeekUTC = new Date(startOfWeekPH.getTime() - PH_OFFSET);
+    const endOfWeekUTC = new Date(endOfWeekPH.getTime() - PH_OFFSET);
 
-    // WEEKLY & MONTHLY - Use local time for consistency
-    // WEEK (Monday → Sunday)
-    const day = now.getDay(); // 0=Sunday, 1=Monday, etc.
-    const mondayOffset = day === 0 ? -6 : 1 - day;
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() + mondayOffset);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    // MONTH
-    const startOfMonth = new Date(currentYear, currentMonth, 1);
-    const endOfMonth = new Date(
+    // Monthly ranges in Philippine time
+    const startOfMonthPH = new Date(Date.UTC(currentYear, currentMonth, 1, 0, 0, 0, 0));
+    const endOfMonthPH = new Date(Date.UTC(
       currentYear,
       currentMonth + 1,
       0,
-      23,
-      59,
-      59,
-      999
-    );
+      23, 59, 59, 999
+    ));
+    
+    // Convert to UTC for querying
+    const startOfMonthUTC = new Date(startOfMonthPH.getTime() - PH_OFFSET);
+    const endOfMonthUTC = new Date(endOfMonthPH.getTime() - PH_OFFSET);
 
-    console.log("=== REAL-TIME DATE RANGES ===");
-    console.log(
-      "Today:",
-      startOfToday.toLocaleString(),
-      "to",
-      endOfToday.toLocaleString()
-    );
-    console.log(
-      "Week:",
-      startOfWeek.toLocaleString(),
-      "to",
-      endOfWeek.toLocaleString()
-    );
-    console.log(
-      "Month:",
-      startOfMonth.toLocaleString(),
-      "to",
-      endOfMonth.toLocaleString()
-    );
+    console.log("=== PHILIPPINE TIME RANGES ===");
+    console.log("Today (PH):", startOfTodayPH.toISOString(), "to", endOfTodayPH.toISOString());
+    console.log("Week (PH):", startOfWeekPH.toISOString(), "to", endOfWeekPH.toISOString());
+    console.log("Month (PH):", startOfMonthPH.toISOString(), "to", endOfMonthPH.toISOString());
+    
+    console.log("=== UTC QUERY RANGES ===");
+    console.log("Today (UTC query):", startOfTodayUTC.toISOString(), "to", endOfTodayUTC.toISOString());
+    console.log("Week (UTC query):", startOfWeekUTC.toISOString(), "to", endOfWeekUTC.toISOString());
+    console.log("Month (UTC query):", startOfMonthUTC.toISOString(), "to", endOfMonthUTC.toISOString());
 
-    // COUNT HELPERS - Use consistent methods for ALL periods
-    const countTransactions = async (start, end) => {
+    // COUNT HELPERS - Use UTC dates for querying
+    const countTransactions = async (startUTC, endUTC) => {
+      console.log(`Querying transactions from ${startUTC.toISOString()} to ${endUTC.toISOString()}`);
       const transactions = await Transaction.find({
-        transactionDate: { $gte: start, $lte: end },
+        transactionDate: { $gte: startUTC, $lte: endUTC },
       });
+      console.log(`Found ${transactions.length} transactions in this range`);
+      if (transactions.length > 0) {
+        console.log(`Sample transaction date: ${transactions[0].transactionDate.toISOString()}`);
+      }
       return transactions.length;
     };
 
-    const sumSales = async (start, end) => {
+    const sumSales = async (startUTC, endUTC) => {
+      console.log(`Summing sales from ${startUTC.toISOString()} to ${endUTC.toISOString()}`);
       const transactions = await Transaction.find({
-        transactionDate: { $gte: start, $lte: end },
+        transactionDate: { $gte: startUTC, $lte: endUTC },
       });
-      return transactions.reduce((sum, transaction) => {
+      const total = transactions.reduce((sum, transaction) => {
         return sum + (transaction.totalAmount || 0);
       }, 0);
+      console.log(`Total sales: ${total}`);
+      return total;
     };
 
-    const countStockIns = async (start, end) => {
-      const stockIns = await StockIn.find({ date: { $gte: start, $lte: end } });
+    const countStockIns = async (startUTC, endUTC) => {
+      const stockIns = await StockIn.find({ 
+        date: { $gte: startUTC, $lte: endUTC } 
+      });
       return stockIns.length;
     };
 
-    const countSpoilage = async (start, end) => {
+    const countSpoilage = async (startUTC, endUTC) => {
       const spoilages = await Spoilage.find({
-        createdAt: { $gte: start, $lte: end },
+        createdAt: { $gte: startUTC, $lte: endUTC },
       });
       return spoilages.length;
     };
 
-    // Get ALL data using consistent methods
+    // Get ALL data using consistent UTC methods
     const [
-      // DAILY
+      // DAILY - Using UTC dates
       dailyTransactions,
       dailySalesAmount,
       dailyStockIns,
       dailySpoilage,
 
-      // WEEKLY
+      // WEEKLY - Using UTC dates
       weeklyTransactions,
       weeklySalesAmount,
       weeklyStockIns,
       weeklySpoilage,
 
-      // MONTHLY
+      // MONTHLY - Using UTC dates
       monthlyTransactions,
       monthlySalesAmount,
       monthlyStockIns,
       monthlySpoilage,
 
-      // All transactions for this month (for chart)
+      // All transactions for this month (for chart) - Using UTC dates
       monthlyTransactionsForChart,
     ] = await Promise.all([
       // DAILY
-      countTransactions(startOfToday, endOfToday),
-      sumSales(startOfToday, endOfToday),
-      countStockIns(startOfToday, endOfToday),
-      countSpoilage(startOfToday, endOfToday),
+      countTransactions(startOfTodayUTC, endOfTodayUTC),
+      sumSales(startOfTodayUTC, endOfTodayUTC),
+      countStockIns(startOfTodayUTC, endOfTodayUTC),
+      countSpoilage(startOfTodayUTC, endOfTodayUTC),
 
       // WEEKLY
-      countTransactions(startOfWeek, endOfWeek),
-      sumSales(startOfWeek, endOfWeek),
-      countStockIns(startOfWeek, endOfWeek),
-      countSpoilage(startOfWeek, endOfWeek),
+      countTransactions(startOfWeekUTC, endOfWeekUTC),
+      sumSales(startOfWeekUTC, endOfWeekUTC),
+      countStockIns(startOfWeekUTC, endOfWeekUTC),
+      countSpoilage(startOfWeekUTC, endOfWeekUTC),
 
       // MONTHLY
-      countTransactions(startOfMonth, endOfMonth),
-      sumSales(startOfMonth, endOfMonth),
-      countStockIns(startOfMonth, endOfMonth),
-      countSpoilage(startOfMonth, endOfMonth),
+      countTransactions(startOfMonthUTC, endOfMonthUTC),
+      sumSales(startOfMonthUTC, endOfMonthUTC),
+      countStockIns(startOfMonthUTC, endOfMonthUTC),
+      countSpoilage(startOfMonthUTC, endOfMonthUTC),
 
       // Get all transactions for this month for accurate chart data
       Transaction.find({
-        transactionDate: { $gte: startOfMonth, $lte: endOfToday }, // Only up to today
+        transactionDate: { 
+          $gte: startOfMonthUTC, 
+          $lte: endOfTodayUTC // Only up to today
+        },
       }),
     ]);
 
-    console.log("=== CONSISTENT RESULTS ===");
+    console.log("=== QUERY RESULTS ===");
     console.log("Daily Transactions:", dailyTransactions);
     console.log("Daily Sales:", dailySalesAmount);
     console.log("Weekly Transactions:", weeklyTransactions);
@@ -208,8 +215,6 @@ export const getDashboardStats = async (req, res) => {
     console.log("Monthly Sales:", monthlySalesAmount);
 
     // --- SALES GRAPH DATA - Only show passed days and current day ---
-
-    // Calculate daily sales manually from transactions for perfect accuracy
     const dailySalesMap = new Map();
 
     // Only initialize days that have passed (1 to currentDay)
@@ -222,7 +227,9 @@ export const getDashboardStats = async (req, res) => {
     // Populate with actual transaction data
     monthlyTransactionsForChart.forEach((transaction) => {
       const transactionDate = new Date(transaction.transactionDate);
-      const transactionDay = transactionDate.getDate();
+      // Convert transaction UTC date to Philippine time for day extraction
+      const transactionDatePH = new Date(transactionDate.getTime() + PH_OFFSET);
+      const transactionDay = transactionDatePH.getUTCDate();
 
       // Only count transactions for days that have passed (including today)
       if (transactionDay <= currentDay) {
@@ -242,56 +249,55 @@ export const getDashboardStats = async (req, res) => {
       }))
       .sort((a, b) => a.day - b.day);
 
-    console.log("=== DAILY SALES CHART DATA (Only passed days) ===");
+    console.log("=== DAILY SALES CHART DATA ===");
     console.log(formattedDailySales);
 
-    // Weekly Sales - Use consistent calculation
+    // Weekly Sales - Calculate for last 4 weeks in Philippine time
     const getWeekRanges = () => {
       const ranges = [];
-      const today = new Date();
+      const todayPH = new Date(now.getTime() + PH_OFFSET);
 
       // Get current week and previous 3 weeks
       for (let i = 3; i >= 0; i--) {
-        const weekStart = new Date(today);
-        // Calculate Monday of the week (weeks ago)
-        const daysSinceMonday = (today.getDay() + 6) % 7;
-        weekStart.setDate(today.getDate() - daysSinceMonday - i * 7);
-        weekStart.setHours(0, 0, 0, 0);
+        const weekStartPH = new Date(todayPH);
+        
+        // Calculate Monday of the week (weeks ago) in PH time
+        const daysSinceMonday = (todayPH.getUTCDay() + 6) % 7;
+        weekStartPH.setUTCDate(todayPH.getUTCDate() - daysSinceMonday - i * 7);
+        weekStartPH.setUTCHours(0, 0, 0, 0);
 
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
+        const weekEndPH = new Date(weekStartPH);
+        weekEndPH.setUTCDate(weekStartPH.getUTCDate() + 6);
+        weekEndPH.setUTCHours(23, 59, 59, 999);
 
-        // Only include weeks that have some overlap with current time period
-        // (weeks that are either current or in the past)
-        if (weekEnd <= today || weekStart <= today) {
-          ranges.push({
-            start: new Date(weekStart),
-            end: new Date(weekEnd),
-            label: formatWeekLabel(weekStart, weekEnd),
-          });
-        }
+        // Convert to UTC for querying
+        const weekStartUTC = new Date(weekStartPH.getTime() - PH_OFFSET);
+        const weekEndUTC = new Date(weekEndPH.getTime() - PH_OFFSET);
+
+        ranges.push({
+          startPH: weekStartPH,
+          endPH: weekEndPH,
+          startUTC: weekStartUTC,
+          endUTC: weekEndUTC,
+          label: formatWeekLabel(weekStartPH, weekEndPH),
+        });
       }
 
       return ranges;
     };
 
     const weekRanges = getWeekRanges();
-    console.log("=== WEEK RANGES (Only relevant weeks) ===");
+    console.log("=== WEEK RANGES ===");
     weekRanges.forEach((range, index) => {
-      console.log(
-        `Week ${index + 1}:`,
-        range.label,
-        range.start.toISOString(),
-        "to",
-        range.end.toISOString()
-      );
+      console.log(`Week ${index + 1}: ${range.label}`);
+      console.log(`  PH: ${range.startPH.toISOString()} to ${range.endPH.toISOString()}`);
+      console.log(`  UTC: ${range.startUTC.toISOString()} to ${range.endUTC.toISOString()}`);
     });
 
-    // Get sales data for each week using the same consistent method
+    // Get sales data for each week using UTC dates
     const weeklySalesPromises = weekRanges.map(async (range) => {
       try {
-        const amount = await sumSales(range.start, range.end);
+        const amount = await sumSales(range.startUTC, range.endUTC);
         return {
           week: range.label,
           amount: amount,
@@ -311,35 +317,37 @@ export const getDashboardStats = async (req, res) => {
     console.log("=== WEEKLY SALES RESULTS ===");
     console.log(finalWeeklySales);
 
-    // Monthly Sales - only show months up to current month
+    // Monthly Sales - Calculate for last 6 months in Philippine time
     const monthlyRanges = [];
 
-    // Generate monthly ranges for the last 6 months, but only up to current month
     for (let i = 6; i >= 0; i--) {
-      const monthStart = new Date(currentYear, currentMonth - i, 1);
-      const monthEnd = new Date(
+      const monthStartPH = new Date(Date.UTC(currentYear, currentMonth - i, 1, 0, 0, 0, 0));
+      const monthEndPH = new Date(Date.UTC(
         currentYear,
         currentMonth - i + 1,
         0,
-        23,
-        59,
-        59,
-        999
-      );
+        23, 59, 59, 999
+      ));
+
+      // Convert to UTC for querying
+      const monthStartUTC = new Date(monthStartPH.getTime() - PH_OFFSET);
+      const monthEndUTC = new Date(monthEndPH.getTime() - PH_OFFSET);
 
       // Only include months that are in the past or current
-      if (monthStart <= now) {
+      if (monthStartPH <= nowPH) {
         monthlyRanges.push({
-          start: monthStart,
-          end: monthEnd,
-          label: formatMonthLabel(monthStart),
+          startPH: monthStartPH,
+          endPH: monthEndPH,
+          startUTC: monthStartUTC,
+          endUTC: monthEndUTC,
+          label: formatMonthLabel(monthStartPH),
         });
       }
     }
 
     const monthlySalesPromises = monthlyRanges.map(async (range) => {
       try {
-        const amount = await sumSales(range.start, range.end);
+        const amount = await sumSales(range.startUTC, range.endUTC);
         return {
           month: range.label,
           amount: amount,
@@ -362,10 +370,14 @@ export const getDashboardStats = async (req, res) => {
     console.log(formattedMonthlySales);
 
     // --- BEST SELLING PRODUCTS ---
+    // Use UTC dates for aggregation
     const bestSellingByCategory = await Transaction.aggregate([
       {
         $match: {
-          transactionDate: { $gte: startOfMonth, $lte: endOfToday }, // Only up to today
+          transactionDate: { 
+            $gte: startOfMonthUTC, 
+            $lte: endOfTodayUTC 
+          },
         },
       },
       { $unwind: "$itemsSold" },
@@ -394,13 +406,12 @@ export const getDashboardStats = async (req, res) => {
       },
     ]);
 
-    // Dynamic category grouping based on actual product categories
+    // Dynamic category grouping
     const categories = {};
 
     bestSellingByCategory.forEach((item) => {
       const category = item.category || "uncategorized";
 
-      // Create category if it doesn't exist
       if (!categories[category]) {
         categories[category] = [];
       }
@@ -408,7 +419,6 @@ export const getDashboardStats = async (req, res) => {
       categories[category].push(item);
     });
 
-    // Sort each category by units
     Object.keys(categories).forEach((category) => {
       categories[category].sort((a, b) => b.units - a.units);
     });
@@ -416,7 +426,7 @@ export const getDashboardStats = async (req, res) => {
     console.log("=== DYNAMIC CATEGORIES ===");
     console.log("Categories found:", Object.keys(categories));
 
-    // --- FINAL RESPONSE WITH CONSISTENT NUMBERS ---
+    // --- FINAL RESPONSE ---
     const stats = {
       transactions: {
         daily: dailyTransactions,
@@ -440,9 +450,8 @@ export const getDashboardStats = async (req, res) => {
       },
     };
 
-    console.log("=== FINAL CONSISTENT STATS ===");
-    console.log("Current Day:", currentDay);
-    console.log("Days in Chart:", formattedDailySales.length);
+    console.log("=== FINAL STATS ===");
+    console.log("Current Day (PH):", currentDay);
     console.log("Daily Transactions:", stats.transactions.daily);
     console.log("Daily Sales:", stats.sales.daily);
     console.log("Weekly Sales:", stats.sales.weekly);
@@ -450,16 +459,24 @@ export const getDashboardStats = async (req, res) => {
 
     res.json({
       stats,
-      // Chart data - all using consistent calculation methods
+      // Chart data
       dailySales: formattedDailySales,
       weeklySales: finalWeeklySales,
       monthlySales: formattedMonthlySales,
       bestSelling: categories,
       lastUpdated: new Date().toISOString(),
-      currentDay: currentDay, // For debugging in frontend
+      currentDay: currentDay,
+      timezoneInfo: {
+        serverUTC: now.toISOString(),
+        phTime: nowPH.toISOString(),
+        offset: PH_OFFSET,
+      },
     });
   } catch (error) {
     console.error("Dashboard Error:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
