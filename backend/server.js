@@ -34,11 +34,12 @@ const isProduction = ENV.NODE_ENV === 'production';
 // CORS configuration - UPDATE FOR RENDER
 const corsOptions = {
   origin: isProduction 
-    ? ["https://kkopitea-dasma.com", "https://www.kkopitea-dasma.com", "https://kkopitea-backend.onrender.com"] 
+    ? ["https://kkopitea-dasma.com", "https://www.kkopitea-dasma.com", "https://kkopitea-backend.onrender.com", "http://localhost:3000"] 
     : ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Content-Length', 'Content-Type']
 };
 
 // Socket.IO configuration
@@ -67,7 +68,13 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve uploads statically
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  setHeaders: (res, path) => {
+    // Allow CORS para sa mga images
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // API Routes
 app.use("/api/auth", authRoutes);

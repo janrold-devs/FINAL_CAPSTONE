@@ -255,7 +255,7 @@ const CartItem = React.memo(
 );
 
 const POS = () => {
-  const BACKEND_URL = import.meta.env.PROD ? "" : "http://localhost:8000";
+  const BACKEND_URL = import.meta.env.PROD ? "https://kkopitea-backend.onrender.com" : "http://localhost:8000";
 
   // State declarations
   const [products, setProducts] = useState([]);
