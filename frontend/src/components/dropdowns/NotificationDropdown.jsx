@@ -22,21 +22,17 @@ const NotificationDropdown = () => {
   // ✅ CORRECT: Use relative path for API calls
   const getBackendBaseUrl = () => {
     return import.meta.env.PROD 
-      ? "" // Empty string for same domain
+      ? "https://kkopitea-backend.onrender.com" // Your Render backend
       : "http://localhost:8000";
   };
 
-  const BACKEND_BASE_URL = getBackendBaseUrl();
+  const BACKEND_BASE_URL = getBackendBaseUrl(); 
 
   // ✅ FIXED: Socket connection - use current domain in production
-  useEffect(() => {
-    const socketUrl = import.meta.env.PROD 
-      ? window.location.origin // Use current domain in production
-      : "http://localhost:8000";
+ useEffect(() => {
+    console.log("🔗 Connecting to backend:", BACKEND_BASE_URL);
 
-    console.log("🔗 Connecting to:", socketUrl);
-
-    const newSocket = io(socketUrl, {
+    const newSocket = io(BACKEND_BASE_URL, {
       withCredentials: true,
       transports: ["websocket", "polling"],
       timeout: 10000,
@@ -59,7 +55,7 @@ const NotificationDropdown = () => {
     });
 
     newSocket.on("connect_error", (error) => {
-      console.error("Connection error:", error);
+      console.error("Connection error:", error.message);
       setConnected(false);
     });
 

@@ -34,7 +34,7 @@ const isProduction = ENV.NODE_ENV === 'production';
 // CORS configuration - UPDATE FOR RENDER
 const corsOptions = {
   origin: isProduction 
-    ? ["https://kkopitea-dasma.com", "https://www.kkopitea-dasma.com"] 
+    ? ["https://kkopitea-dasma.com", "https://www.kkopitea-dasma.com", "https://kkopitea-backend.onrender.com"] 
     : ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
