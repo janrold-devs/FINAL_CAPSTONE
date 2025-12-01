@@ -219,10 +219,17 @@ const ProductModal = ({
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="border-b border-gray-200 p-6">
+        <div className="border-b border-gray-200 p-6 relative">
           <h2 className="text-xl font-semibold text-gray-800">
             {editingProduct ? "Edit Product" : "Add Product"}
           </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-6 top-6 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-lg font-bold"
+          >
+            ×
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -277,23 +284,7 @@ const ProductModal = ({
             />
           </div>
 
-          {/* PRODUCT NAME */}
-          <div>
-            <label className="block font-medium text-gray-700 text-sm mb-2">
-              Product Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={form.productName}
-              onChange={(e) =>
-                setForm({ ...form, productName: e.target.value })
-              }
-              placeholder="Enter product name"
-              required
-            />
-          </div>
-
-          {/* CATEGORY */}
+          {/* PRODUCT CATEGORY */}
           <div>
             <label className="block font-medium text-gray-700 text-sm mb-2">
               Product Category
@@ -314,22 +305,42 @@ const ProductModal = ({
             </select>
           </div>
 
-          {/* SIZES SECTION */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex justify-between items-center mb-4">
-              <label className="font-medium text-gray-700 text-sm">
-                Sizes & Prices <span className="text-red-500">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={addSize}
-                className="bg-blue-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
-              >
-                <span>+</span>
-                <span>Add Size</span>
-              </button>
-            </div>
+          {/* PRODUCT NAME */}
+          <div>
+            <label className="block font-medium text-gray-700 text-sm mb-2">
+              Product Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={form.productName}
+              onChange={(e) =>
+                setForm({ ...form, productName: e.target.value })
+              }
+              placeholder="Enter product name"
+              required
+            />
+          </div>
 
+          {/* SIZES SECTION - Removed redundant title */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex justify-between items-center mb-4">
+                <label className="font-medium text-gray-700 text-sm">
+                </label>
+                {/* Add Size Button - Minimalist orange, placed below */}
+                <div className="flex justify-center mt-4">
+                  <button
+                    type="button"
+                    onClick={addSize}
+                    className="flex items-center gap-2 text-orange-500 hover:text-orange-600 transition-colors"
+                  >
+                    <span className="text-sm font-medium">Add Size</span>
+
+                    <div className="w-6 h-6 border border-orange-500 rounded flex items-center justify-center hover:bg-orange-50 transition-colors">
+                      <span className="text-lg font-light">+</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             <div className="space-y-3">
               {form.sizes.map((s, i) => (
                 <div
@@ -342,12 +353,12 @@ const ProductModal = ({
                     </h4>
                     {form.sizes.length > 1 && (
                       <button
-                        type="button"
-                        className="text-red-500 text-sm hover:text-red-700 transition-colors"
-                        onClick={() => removeSize(i)}
-                      >
-                        Remove
-                      </button>
+                      type="button"
+                      onClick={() => removeSize(i)}
+                      className="text-red-500 hover:text-red-700 transition-colors text-xl leading-none"
+                    >
+                      ×
+                    </button>
                     )}
                   </div>
 
@@ -363,9 +374,13 @@ const ProductModal = ({
                           updateSize(i, "size", Number(e.target.value))
                         }
                       >
+                        <option value="">Select</option>
                         <option value={12}>12 oz</option>
                         <option value={16}>16 oz</option>
-                        <option value={20}>22 oz</option>
+                        <option value={20}>20 oz</option>
+                        <option value={22}>22 oz</option>
+                        <option value={24}>24 oz</option>
+                        <option value={24}>32 oz</option>
                       </select>
                     </div>
 

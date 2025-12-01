@@ -33,18 +33,54 @@ function createEmailTemplate(content) {
   `;
 }
 
-// Logo component for emails
 function createLogo() {
   return `
     <div style="text-align: center; margin: 30px 0 35px 0;">
-      <div style="width: 65px; height: 65px; background: #ff8c00; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 2px 8px rgba(255, 140, 0, 0.3); margin: 0 auto 20px auto;">
-        <div style="font-size: 8px; font-weight: 700; letter-spacing: 0.5px;">KKOPI.TEA</div>
-        <div style="font-size: 9px; font-weight: 600; margin-top: 2px;">一杯の</div>
+
+      <!-- Orange Circle Logo -->
+      <div style="
+        width: 80px;
+        height: 80px;
+        background: #ff8c00;
+        border-radius: 50%;
+        margin: 0 auto 20px auto;
+        color: white;
+        font-weight: bold;
+        box-shadow: 0 2px 8px rgba(255, 140, 0, 0.3);
+        display: block;
+        text-align: center;
+      ">
+        <div style="padding-top: 20px; line-height: 1.2;">
+          <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.6px; margin: 0;">
+            KKŌPI.TEA
+          </div>
+          <div style="font-size: 11px; font-weight: 700; margin-top: 2px;">
+            一杯の
+          </div>
+        </div>
       </div>
-      <div>
-        <h1 style="font-size: 24px; font-weight: 700; color: #ff8c00; margin: 0 0 8px 0; line-height: 1.2;">KKopi.Tea</h1>
-        <p style="font-size: 12px; color: #666; margin: 0; font-weight: 400;">- Congressional ave Dasmariñas Cavite</p>
-      </div>
+
+      <!-- Store Name -->
+      <h1 style="
+        font-size: 24px;
+        font-weight: 700;
+        color: #ff8c00;
+        margin: 0 0 8px 0;
+        line-height: 1.2;
+      ">
+        KKōpi.Tea
+      </h1>
+
+      <!-- Address -->
+      <p style="
+        font-size: 12px;
+        color: #666;
+        margin: 0;
+        font-weight: 400;
+      ">
+        - Congressional ave Dasmariñas Cavite
+      </p>
+
     </div>
   `;
 }
