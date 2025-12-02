@@ -59,32 +59,32 @@ const StockInModal = ({
 
   // Toggle ingredient inside dropdown
   const toggleIngredient = (ingredient) => {
-    const exists = form.ingredients.some(
-      (i) => i.ingredient === ingredient._id
-    );
+  const exists = form.ingredients.some(
+    (i) => i.ingredient === ingredient._id
+  );
 
-    if (exists) {
-      setForm({
-        ...form,
-        ingredients: form.ingredients.filter(
-          (i) => i.ingredient !== ingredient._id
-        ),
-      });
-    } else {
-      setForm({
-        ...form,
-        ingredients: [
-          ...form.ingredients,
-          {
-            ingredient: ingredient._id,
-            name: ingredient.name,
-            quantity: 1,
-            unit: ingredient.unit,
-          },
-        ],
-      });
-    }
-  };
+  if (exists) {
+    setForm({
+      ...form,
+      ingredients: form.ingredients.filter(
+        (i) => i.ingredient !== ingredient._id
+      ),
+    });
+  } else {
+    setForm({
+      ...form,
+      ingredients: [
+        ...form.ingredients,
+        {
+          ingredient: ingredient._id,
+          name: ingredient.name,
+          quantity: 1,
+          unit: ingredient.unit.toLowerCase(), // Gamitin ang unit mula sa ingredient mismo
+        },
+      ],
+    });
+  }
+};
 
   // Quantity change
   const handleQuantityChange = (id, value) => {
@@ -92,16 +92,6 @@ const StockInModal = ({
       ...form,
       ingredients: form.ingredients.map((i) =>
         i.ingredient === id ? { ...i, quantity: value } : i
-      ),
-    });
-  };
-
-  // Unit change
-  const handleUnitChange = (id, value) => {
-    setForm({
-      ...form,
-      ingredients: form.ingredients.map((i) =>
-        i.ingredient === id ? { ...i, unit: value } : i
       ),
     });
   };
@@ -231,91 +221,75 @@ const StockInModal = ({
           </select>
 
           {/* Ingredient Selector (Filtered) */}
-          {selectedCategory && (
-            <div className="relative mt-2" ref={dropdownRef}>
-              <div
-                className="border rounded px-3 py-2 bg-white cursor-pointer"
-                onClick={() => setDropdownOpen(!dropdownOpen)}
+{selectedCategory && (
+  <div className="relative mt-2" ref={dropdownRef}>
+    <div
+      className="border rounded px-3 py-2 bg-white cursor-pointer"
+      onClick={() => setDropdownOpen(!dropdownOpen)}
+    >
+      {form.ingredients.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {form.ingredients.map((ing) => (
+            <div
+              key={ing.ingredient}
+              className="flex items-center bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full gap-1"
+            >
+              <span>{ing.name}</span>
+              <input
+                type="number"
+                min="1"
+                value={ing.quantity}
+                onChange={(e) =>
+                  handleQuantityChange(ing.ingredient, e.target.value)
+                }
+                className="w-12 text-xs border rounded px-1 py-0.5"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-xs font-medium px-1 py-0.5 bg-gray-100 rounded">
+                {ing.unit}
+              </span>
+              <button
+                type="button"
+                className="text-red-500 ml-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleIngredient({ _id: ing.ingredient });
+                }}
               >
-                {form.ingredients.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {form.ingredients.map((ing) => (
-                      <div
-                        key={ing.ingredient}
-                        className="flex items-center bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full gap-1"
-                      >
-                        <span>{ing.name}</span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={ing.quantity}
-                          onChange={(e) =>
-                            handleQuantityChange(
-                              ing.ingredient,
-                              e.target.value
-                            )
-                          }
-                          className="w-12 text-xs border rounded px-1 py-0.5"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <select
-                          value={ing.unit}
-                          onChange={(e) =>
-                            handleUnitChange(
-                              ing.ingredient,
-                              e.target.value
-                            )
-                          }
-                          className="text-xs border rounded px-1 py-0.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <option value="ml">ml</option>
-                          <option value="L">L</option>
-                          <option value="g">g</option>
-                          <option value="kg">kg</option>
-                          <option value="pcs">pcs</option>
-                        </select>
-                        <button
-                          type="button"
-                          className="text-red-500 ml-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleIngredient({ _id: ing.ingredient });
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-gray-400 text-sm">
-                    Select ingredients
-                  </span>
-                )}
-              </div>
-
-              {dropdownOpen && (
-                <div className="absolute mt-1 w-full border rounded-lg bg-white shadow-md max-h-40 overflow-y-auto z-10">
-                  {filteredIngredients.length > 0 ? (
-                    filteredIngredients.map((ingredient) => (
-                      <div
-                        key={ingredient._id}
-                        onClick={() => toggleIngredient(ingredient)}
-                        className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
-                      >
-                        {ingredient.name}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="p-2 text-gray-500 text-sm">
-                      No ingredients found
-                    </p>
-                  )}
-                </div>
-              )}
+                ×
+              </button>
             </div>
-          )}
+          ))}
+        </div>
+      ) : (
+        <span className="text-gray-400 text-sm">
+          Select ingredients
+        </span>
+      )}
+    </div>
+
+    {dropdownOpen && (
+      <div className="absolute mt-1 w-full border rounded-lg bg-white shadow-md max-h-40 overflow-y-auto z-10">
+        {filteredIngredients.length > 0 ? (
+          filteredIngredients.map((ingredient) => (
+            <div
+              key={ingredient._id}
+              onClick={() => toggleIngredient(ingredient)}
+               className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 flex items-center justify-between"
+            >
+              <span>{ingredient.name}</span>
+              <span className="text-xs text-gray-400">{ingredient.unit ? ingredient.unit.toLowerCase() : ""}</span>
+            </div>
+          ))
+        ) : (
+          <p className="p-2 text-gray-500 text-sm">
+            No ingredients found
+          </p>
+        )}
+      </div>
+    )}
+  </div>
+)}
 
           <div className="flex justify-end space-x-2 pt-2">
             <button

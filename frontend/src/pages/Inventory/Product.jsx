@@ -105,9 +105,9 @@ const Product = () => {
         { value: "amerikano", label: "Amerikano" },
         { value: "non caffeine", label: "Non Caffeine" },
         { value: "frappe", label: "Frappe" },
-        { value: "choco", label: "Choco" },
+        { value: "choco Series", label: "Choco Series" },
         { value: "hot drink", label: "Hot Drink" },
-        { value: "shiro", label: "Shiro" },
+        { value: "shiro Series", label: "Shiro Series" },
       ],
     },
 
@@ -125,8 +125,6 @@ const Product = () => {
   const productSortConfig = [
     { key: "productName", label: "Alphabetical" },
     { key: "category", label: "Category" },
-    { key: "size", label: "Size" },
-    { key: "price", label: "Price" },
   ];
 
   return (

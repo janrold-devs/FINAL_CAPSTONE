@@ -10,7 +10,7 @@ const ProductModal = ({
   const [form, setForm] = useState({
     image: "",
     productName: "",
-    category: "Iced Latte",
+    category: "",
     status: "available",
     sizes: [
       {
@@ -86,7 +86,7 @@ const ProductModal = ({
       setForm({
         image: "",
         productName: "",
-        category: "Iced Latte",
+        category: "Select Product Category",
         status: "available",
         sizes: [{ size: 16, price: "" }],
         ingredientCategory: "",
@@ -302,25 +302,26 @@ const ProductModal = ({
           {/* PRODUCT CATEGORY */}
           <div>
             <label className="block font-medium text-gray-700 text-sm mb-2">
-              Product Category
+              Product Category <span className="text-red-500">*</span>
             </label>
             <select
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
+              required
             >
-              <option>Amerikano</option>
-              <option>Bubble Tea</option>
-              <option>Choco Series</option>
-              <option>Frappe</option>
-              <option>Fruit Tea</option>
-              <option>Hot Drinks</option>
-              <option>Iced Latte</option>
-              <option>Non Caffeine</option> 
-              <option>Shiro Series</option>
+              <option value="">Select Product Category</option>
+              <option value="Amerikano">Amerikano</option>
+              <option value="Bubble Tea">Bubble Tea</option>
+              <option value="Choco Series">Choco Series</option>
+              <option value="Frappe">Frappe</option>
+              <option value="Fruit Tea">Fruit Tea</option>
+              <option value="Hot Drinks">Hot Drinks</option>
+              <option value="Iced Latte">Iced Latte</option>
+              <option value="Non Caffeine">Non Caffeine</option>
+              <option value="Shiro Series">Shiro Series</option>
             </select>
           </div>
-
           {/* PRODUCT NAME */}
           <div>
             <label className="block font-medium text-gray-700 text-sm mb-2">
@@ -539,7 +540,7 @@ const ProductModal = ({
                             <span>{ingredient.name}</span>
                             {ingredient.unit && (
                               <span className="text-xs text-gray-600">
-                                ({ingredient.unit.toLowerCase()})
+                                {ingredient.unit.toLowerCase()}
                               </span>
                             )}
                           </div>
