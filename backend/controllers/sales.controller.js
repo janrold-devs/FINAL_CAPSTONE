@@ -42,11 +42,17 @@ export const getSalesSummary = async (req, res) => {
     ]);
 
     console.log(
-      "✅ Sales calculated from transactions:",
-      salesBatches.length,
-      "batches"
+      `✅ Sales calculated from transactions: ${salesBatches.length} batches (${process.env.NODE_ENV})`
     );
-    res.json(salesBatches);
+    
+    // Convert dates to Philippine time for display
+    const PH_OFFSET = 8 * 60 * 60 * 1000;
+    const adjustedBatches = salesBatches.map(batch => ({
+      ...batch,
+      transactionDatePH: new Date(batch.transactionDate.getTime() + PH_OFFSET).toISOString()
+    }));
+
+    res.json(adjustedBatches);
   } catch (err) {
     console.error("Sales summary error:", err);
     res.status(500).json({ message: err.message });
@@ -133,53 +139,118 @@ export const getSalesByDate = async (req, res) => {
 export const getBestSellingProducts = async (req, res) => {
   try {
     const { period } = req.query;
+    console.log(`📊 [${process.env.NODE_ENV}] Fetching best selling products for period: ${period}`);
 
-    // Calculate date range based on period
-    let startDate, endDate;
+    // IMPORTANT: Use the SAME timezone logic as dashboard.controller.js
     const now = new Date();
+    
+    // Apply Philippine timezone offset (UTC+8)
+    const PH_OFFSET = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+    const nowPH = new Date(now.getTime() + PH_OFFSET);
+    
+    console.log(`🌐 Server UTC Time: ${now.toISOString()}`);
+    console.log(`🌐 Philippine Time: ${nowPH.toISOString()}`);
+
+    // Calculate date range based on period IN PHILIPPINE TIME
+    let startDatePH, endDatePH;
+    let startDateUTC, endDateUTC;
+
+    const currentDayPH = nowPH.getUTCDate();
+    const currentMonthPH = nowPH.getUTCMonth();
+    const currentYearPH = nowPH.getUTCFullYear();
 
     switch (period) {
       case "daily":
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        endDate = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() + 1
-        );
+        // Today in Philippine time
+        startDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH,
+          currentDayPH,
+          0, 0, 0, 0
+        ));
+        endDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH,
+          currentDayPH + 1,
+          0, 0, 0, 0
+        ));
+        
+        // Convert to UTC for database query
+        startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
+        endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
         break;
+        
       case "weekly":
-        const currentDay = now.getDay();
-        const currentMonday = new Date(now);
-        currentMonday.setDate(
-          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
-        );
-        startDate = new Date(
-          currentMonday.getFullYear(),
-          currentMonday.getMonth(),
-          currentMonday.getDate()
-        );
-        endDate = new Date(
-          currentMonday.getFullYear(),
-          currentMonday.getMonth(),
-          currentMonday.getDate() + 7
-        );
+        // This week in Philippine time (Monday to Sunday)
+        const currentDayOfWeek = nowPH.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+        const mondayOffsetPH = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+        
+        startDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH,
+          currentDayPH + mondayOffsetPH,
+          0, 0, 0, 0
+        ));
+        endDatePH = new Date(startDatePH.getTime());
+        endDatePH.setUTCDate(startDatePH.getUTCDate() + 7);
+        endDatePH.setUTCHours(0, 0, 0, 0);
+        
+        // Convert to UTC for database query
+        startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
+        endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
         break;
+        
       case "monthly":
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        // This month in Philippine time
+        startDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH,
+          1,
+          0, 0, 0, 0
+        ));
+        endDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH + 1,
+          1,
+          0, 0, 0, 0
+        ));
+        
+        // Convert to UTC for database query
+        startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
+        endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
         break;
+        
       default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        // Default to this month
+        startDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH,
+          1,
+          0, 0, 0, 0
+        ));
+        endDatePH = new Date(Date.UTC(
+          currentYearPH,
+          currentMonthPH + 1,
+          1,
+          0, 0, 0, 0
+        ));
+        
+        // Convert to UTC for database query
+        startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
+        endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
     }
 
-    // Get best selling products from Transaction aggregation
+    console.log(`📅 Philippine Date Range: ${startDatePH.toISOString()} to ${endDatePH.toISOString()}`);
+    console.log(`📅 UTC Query Range: ${startDateUTC.toISOString()} to ${endDateUTC.toISOString()}`);
+    console.log(`🌐 Timezone offset applied: ${PH_OFFSET/1000/60/60} hours (UTC+8)`);
+
+    // Get best selling products from Transaction aggregation using UTC dates
     const bestSelling = await Transaction.aggregate([
       {
         $match: {
           transactionDate: {
-            $gte: startDate,
-            $lt: endDate,
+            $gte: startDateUTC,
+            $lt: endDateUTC,
           },
         },
       },
@@ -257,25 +328,45 @@ export const getBestSellingProducts = async (req, res) => {
       `🏆 Final best selling products: ${activeProducts.length} active products`
     );
 
-    // Get total sales for the period
+    // Get total sales for the period using UTC dates
     const transactions = await Transaction.find({
       transactionDate: {
-        $gte: startDate,
-        $lt: endDate,
+        $gte: startDateUTC,
+        $lt: endDateUTC,
       },
     });
+    
     const totalSales = transactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
       0
+    );
+
+    // Log debug info
+    console.log(`💰 Total sales for period: ₱${totalSales}`);
+    console.log(`📊 Transactions found: ${transactions.length}`);
+    console.log(`📦 Sample transaction dates:`, 
+      transactions.slice(0, 3).map(t => t.transactionDate.toISOString())
     );
 
     res.json({
       products: activeProducts,
       totalSales: totalSales,
       transactionCount: transactions.length,
-      startDate,
-      endDate,
+      startDate: startDatePH, // Return Philippine time for display
+      endDate: endDatePH,
       period,
+      timezoneInfo: {
+        queryRangeUTC: {
+          start: startDateUTC.toISOString(),
+          end: endDateUTC.toISOString(),
+        },
+        displayRangePH: {
+          start: startDatePH.toISOString(),
+          end: endDatePH.toISOString(),
+        },
+        serverTime: now.toISOString(),
+        phTime: nowPH.toISOString(),
+      },
       summary: {
         totalProductsFound: bestSelling.length,
         activeProducts: activeProducts.length,
@@ -283,10 +374,13 @@ export const getBestSellingProducts = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching best-selling products:", error);
-    res.status(500).json({ message: error.message });
+    console.error("❌ Error fetching best-selling products:", error);
+    res.status(500).json({ 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
-};
+};  
 
 // Simple refresh - just recalculates
 export const refreshAndReconcileSales = async (req, res) => {
