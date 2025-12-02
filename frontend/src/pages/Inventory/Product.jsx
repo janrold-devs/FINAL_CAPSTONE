@@ -188,7 +188,7 @@ const Product = () => {
               <table className="min-w-full table-auto text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-28">
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900 w-28">
                       Image
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
@@ -200,10 +200,10 @@ const Product = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Ingredients & Materials
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900 w-29">
                       Sizes
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900 w-29">
                       Prices
                     </th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900 w-36">
@@ -306,45 +306,53 @@ const Product = () => {
                           )}
                         </td>
 
-                        {/* Sizes Column */}
-                        <td className="px-6 py-5 align-top">
-                          <div className="space-y-1">
+                        {/* Sizes Column - PERFECT ALIGNMENT */}
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col">
                             {/* For old single-size products */}
                             {!p.sizes && p.size && (
-                              <div className="text-sm font-medium text-gray-900 text-center">
-                                {p.size} oz
+                              <div className="h-7 flex items-center justify-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {p.size} oz
+                                </span>
                               </div>
                             )}
                             {/* For new multi-size products */}
                             {p.sizes &&
                               p.sizes.map((sizeObj, index) => (
-                                <div
-                                  key={index}
-                                  className="text-sm font-medium text-gray-900 text-center"
+                                <div 
+                                  key={index} 
+                                  className="h-7 flex items-center justify-center"
                                 >
-                                  {sizeObj.size} oz
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {sizeObj.size} oz
+                                  </span>
                                 </div>
                               ))}
                           </div>
                         </td>
 
-                        {/* Prices Column */}
-                        <td className="px-6 py-5 align-top">
-                          <div className="space-y-1">
+                        {/* Prices Column - PERFECT ALIGNMENT */}
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col">
                             {/* For old single-price products */}
                             {!p.sizes && p.price && (
-                              <div className="text-sm font-semibold text-gray-900 text-center">
-                                ₱{(p.price || 0).toFixed(2)}
+                              <div className="h-7 flex items-center justify-center">
+                                <span className="text-sm font-semibold text-gray-900">
+                                  ₱{(p.price || 0).toFixed(2)}
+                                </span>
                               </div>
                             )}
                             {/* For new multi-price products */}
                             {p.sizes &&
                               p.sizes.map((sizeObj, index) => (
-                                <div
-                                  key={index}
-                                  className="text-sm font-semibold text-gray-900 text-center"
+                                <div 
+                                  key={index} 
+                                  className="h-7 flex items-center justify-center"
                                 >
-                                  ₱{(sizeObj.price || 0).toFixed(2)}
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    ₱{(sizeObj.price || 0).toFixed(2)}
+                                  </span>
                                 </div>
                               ))}
                           </div>

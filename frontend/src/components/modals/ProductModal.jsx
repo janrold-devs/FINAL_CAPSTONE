@@ -28,10 +28,22 @@ const ProductModal = ({
   const dropdownRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Get unique ingredient categories
+  // Get unique ingredient categories (include both ingredients and materials)
   const uniqueCategories = [
     ...new Set(ingredientsList.map((i) => i.category || "Uncategorized")),
   ];
+
+  // Check if selected category is for materials
+  const isMaterialCategory = () => {
+    const selectedCat = form.ingredientCategory;
+    if (!selectedCat) return false;
+    
+    // Check if any item in this category has unit "pcs" (typical for materials)
+    const itemsInCategory = ingredientsList.filter(i => 
+      (i.category || "Uncategorized") === selectedCat
+    );
+    return itemsInCategory.some(item => item.unit === "pcs");
+  };
 
   // Prefill when editing
   useEffect(() => {
@@ -59,6 +71,7 @@ const ProductModal = ({
             name: i.ingredient?.name || i.name,
             quantity: i.quantity || 1,
             category: i.ingredient?.category || "",
+            unit: i.ingredient?.unit || i.unit || "", // Include unit here
           })) || [],
         ingredientCategory: "",
       });
@@ -141,7 +154,7 @@ const ProductModal = ({
     setForm({ ...form, sizes: newSizes });
   };
 
-  // INGREDIENT SELECTION (GLOBAL)
+  // INGREDIENT/MATERIAL SELECTION
   const toggleIngredient = (ingredient) => {
     const exists = form.ingredients.find(
       (i) => i.ingredient === ingredient._id
@@ -164,6 +177,7 @@ const ProductModal = ({
             name: ingredient.name,
             quantity: 1,
             category: ingredient.category,
+            unit: ingredient.unit || "", // Include unit from inventory
           },
         ],
       });
@@ -206,6 +220,7 @@ const ProductModal = ({
         form.ingredients.map((i) => ({
           ingredient: i.ingredient,
           quantity: Number(i.quantity),
+          unit: i.unit, // Include unit in submission
         }))
       )
     );
@@ -321,26 +336,25 @@ const ProductModal = ({
             />
           </div>
 
-          {/* SIZES SECTION - Removed redundant title */}
-            <div className="bg-gray-50 rounded-xl p-4">
-              <div className="flex justify-between items-center mb-4">
-                <label className="font-medium text-gray-700 text-sm">
-                </label>
-                {/* Add Size Button - Minimalist orange, placed below */}
-                <div className="flex justify-center mt-4">
-                  <button
-                    type="button"
-                    onClick={addSize}
-                    className="flex items-center gap-2 text-orange-500 hover:text-orange-600 transition-colors"
-                  >
-                    <span className="text-sm font-medium">Add Size</span>
-
-                    <div className="w-6 h-6 border border-orange-500 rounded flex items-center justify-center hover:bg-orange-50 transition-colors">
-                      <span className="text-lg font-light">+</span>
-                    </div>
-                  </button>
-                </div>
+          {/* SIZES SECTION */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex justify-between items-center mb-4">
+              <label className="font-medium text-gray-700 text-sm">
+              </label>
+              {/* Add Size Button */}
+              <div className="flex justify-center mt-4">
+                <button
+                  type="button"
+                  onClick={addSize}
+                  className="flex items-center gap-2 text-orange-500 hover:text-orange-600 transition-colors"
+                >
+                  <span className="text-sm font-medium">Add Size</span>
+                  <div className="w-6 h-6 border border-orange-500 rounded flex items-center justify-center hover:bg-orange-50 transition-colors">
+                    <span className="text-lg font-light">+</span>
+                  </div>
+                </button>
               </div>
+            </div>
             <div className="space-y-3">
               {form.sizes.map((s, i) => (
                 <div
@@ -353,12 +367,12 @@ const ProductModal = ({
                     </h4>
                     {form.sizes.length > 1 && (
                       <button
-                      type="button"
-                      onClick={() => removeSize(i)}
-                      className="text-red-500 hover:text-red-700 transition-colors text-xl leading-none"
-                    >
-                      ×
-                    </button>
+                        type="button"
+                        onClick={() => removeSize(i)}
+                        className="text-red-500 hover:text-red-700 transition-colors text-xl leading-none"
+                      >
+                        ×
+                      </button>
                     )}
                   </div>
 
@@ -412,7 +426,7 @@ const ProductModal = ({
             </div>
           </div>
 
-          {/* INGREDIENTS SECTION */}
+          {/* INGREDIENTS/MATERIALS SECTION */}
           <div className="bg-gray-50 rounded-xl p-4">
             <label className="block font-medium text-gray-700 text-sm mb-2">
               Ingredients & Materials <span className="text-red-500">*</span>
@@ -426,12 +440,13 @@ const ProductModal = ({
               <select
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={form.ingredientCategory}
-                onChange={(e) =>
+                onChange={(e) => {
                   setForm({
                     ...form,
                     ingredientCategory: e.target.value,
-                  })
-                }
+                  });
+                  setDropdownOpen(false); // Reset dropdown when category changes
+                }}
               >
                 <option value="">-- Select Category --</option>
                 {uniqueCategories.map((cat, idx) => (
@@ -442,11 +457,11 @@ const ProductModal = ({
               </select>
             </div>
 
-            {/* Ingredient Selection */}
+            {/* Ingredient/Material Selection */}
             {form.ingredientCategory ? (
               <div className="relative" ref={dropdownRef}>
                 <label className="block text-xs text-gray-600 mb-2">
-                  Select Ingredients
+                  {isMaterialCategory() ? "Select Materials" : "Select Ingredients"}
                 </label>
                 <div
                   className="border border-gray-300 rounded-lg px-4 py-3 bg-white cursor-pointer min-h-[44px] hover:border-gray-400 transition-colors"
@@ -460,24 +475,28 @@ const ProductModal = ({
                           className="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs gap-2 border border-blue-200"
                         >
                           <span className="font-medium">{ing.name}</span>
-                          <span className="text-xs">
-                            ({ing.quantity} {ing.unit ? ing.unit.toLowerCase().replace('ml', 'ml') : ''})
-                          </span>
-                          <input
-                            type="number"
-                            min="1"
-                            className="w-12 border border-blue-300 rounded px-2 py-1 text-xs bg-white"
-                            value={ing.quantity}
-                            onChange={(e) =>
-                              handleQuantityChange(
-                                ing.ingredient,
-                                e.target.value
-                              )
-                            }
-                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="1"
+                              className="w-12 border border-blue-300 rounded px-2 py-1 text-xs bg-white"
+                              value={ing.quantity}
+                              onChange={(e) =>
+                                handleQuantityChange(
+                                  ing.ingredient,
+                                  e.target.value
+                                )
+                              }
+                            />
+                            {ing.unit && (
+                              <span className="text-xs text-gray-600">
+                                {ing.unit.toLowerCase()}
+                              </span>
+                            )}
+                          </div>
                           <button
                             type="button"
-                            className="text-red-500 hover:text-red-700 transition-colors"
+                            className="text-red-500 hover:text-red-700 transition-colors text-sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleIngredient({
@@ -492,38 +511,47 @@ const ProductModal = ({
                     </div>
                   ) : (
                     <span className="text-gray-400 text-sm">
-                      Click to select ingredients...
+                      {isMaterialCategory() 
+                        ? "Click to select materials..." 
+                        : "Click to select ingredients..."}
                     </span>
                   )}
                 </div>
 
                 {dropdownOpen && (
                   <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 z-10">
-                   {/* Sa ingredient selection part, dapat i-normalize din ang display ng units */}
-                {ingredientsList
-                  .filter(
-                    (i) =>
-                      i.category === form.ingredientCategory &&
-                      !form.ingredients.some(
-                        (x) => x.ingredient === i._id
+                    {/* Filter items based on selected category */}
+                    {ingredientsList
+                      .filter(
+                        (i) =>
+                          (i.category || "Uncategorized") === form.ingredientCategory &&
+                          !form.ingredients.some(
+                            (x) => x.ingredient === i._id
+                          )
                       )
-                  )
-                  .map((ingredient) => (
-                    <div
-                      key={ingredient._id}
-                      className="px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
-                      onClick={() => toggleIngredient(ingredient)}
-                    >
-                      {ingredient.name} ({ingredient.quantity} {ingredient.unit ? ingredient.unit.toLowerCase().replace('ml', 'ml') : ''})
-                    </div>
-                  ))}
+                      .map((ingredient) => (
+                        <div
+                          key={ingredient._id}
+                          className="px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                          onClick={() => toggleIngredient(ingredient)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span>{ingredient.name}</span>
+                            {ingredient.unit && (
+                              <span className="text-xs text-gray-600">
+                                ({ingredient.unit.toLowerCase()})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-center py-4">
                 <p className="text-gray-500 text-sm">
-                  Please select a category to view ingredients
+                  Please select a category first to add items
                 </p>
               </div>
             )}

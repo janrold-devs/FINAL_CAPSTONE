@@ -414,15 +414,14 @@ const UserManagement = () => {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="block w-full overflow-x-auto">
+            <div className="min-w-[1024px]">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       User
                     </th>
-
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Username
                     </th>
@@ -523,14 +522,11 @@ const UserManagement = () => {
                             }`}
                           >
                             {user.createdAt
-                              ? new Date(user.createdAt).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  }
-                                )
+                              ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
                               : "N/A"}
                           </div>
                         </td>
@@ -554,11 +550,7 @@ const UserManagement = () => {
                                   ? "text-green-600 hover:text-green-800 hover:bg-green-50"
                                   : "text-amber-600 hover:text-amber-800 hover:bg-amber-50"
                               }`}
-                              title={
-                                !isActive
-                                  ? "Reactivate User"
-                                  : "Deactivate User"
-                              }
+                              title={!isActive ? "Reactivate User" : "Deactivate User"}
                             >
                               <UserX className="w-4 h-4" />
                               <span className="text-sm font-medium">
