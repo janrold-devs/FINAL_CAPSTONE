@@ -265,6 +265,7 @@ const POS = () => {
   const [cashier, setCashier] = useState("");
   const [cashierName, setCashierName] = useState("");
   const [modeOfPayment, setModeOfPayment] = useState("Cash");
+  const [cashReceived, setCashReceived] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -395,6 +396,428 @@ const POS = () => {
       return sizes;
     },
     [calculateAvailableQuantity]
+  );
+
+  // Helper function to generate receipt HTML
+  const generateReceiptHTML = useCallback(
+    ({
+      items,
+      totalAmount,
+      modeOfPayment,
+      referenceNumber,
+      cashReceived,
+      change,
+      transactionDate,
+    }) => {
+      const formattedDate = transactionDate.toLocaleString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
+      return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - KKPOPI.TEA</title>
+        <style>
+          @media print {
+            body {
+              font-family: 'Courier New', monospace !important;
+              font-size: 12px !important;
+              margin: 0 !important;
+              padding: 10px !important;
+              background: white !important;
+              color: black !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page {
+              margin: 0;
+              size: auto;
+            }
+          }
+          
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 0;
+            padding: 10px;
+            background: white;
+            color: black;
+            width: 300px;
+            max-width: 100%;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 2px dashed #000;
+          }
+          .header h1 {
+            font-size: 16px;
+            margin: 5px 0;
+            font-weight: bold;
+            text-transform: uppercase;
+          }
+          .header h2 {
+            font-size: 14px;
+            margin: 5px 0;
+            font-weight: bold;
+          }
+          .header p {
+            margin: 3px 0;
+            font-size: 11px;
+          }
+          .transaction-info {
+            text-align: center;
+            margin: 8px 0;
+            padding: 5px;
+          }
+          .transaction-date {
+            font-size: 11px;
+            color: #666;
+          }
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+          }
+          .item {
+            margin: 8px 0;
+          }
+          .item-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+          }
+          .item-name {
+            flex: 1;
+          }
+          .item-price {
+            text-align: right;
+            min-width: 70px;
+          }
+          .addon {
+            display: flex;
+            justify-content: space-between;
+            margin: 1px 0 1px 15px;
+            color: #666;
+            font-size: 10px;
+          }
+          .total {
+            font-weight: bold;
+            border-top: 2px solid #000;
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            font-size: 14px;
+          }
+          .thank-you {
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #000;
+            font-style: italic;
+            font-size: 11px;
+          }
+          .payment-info {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+          }
+          .payment-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+          }
+          .cash-info {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+          }
+          .cash-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+          }
+          .gcash-info {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 10px;
+            color: #666;
+          }
+          .print-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+          }
+          .print-btn:hover {
+            background: #0056b3;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>KKPOPI.TEA</h1>
+          <h2>DASMARINAS CITY BRANCH</h2>
+          <p>--------------------------------</p>
+          <div class="transaction-info">
+            <div class="transaction-date">${formattedDate}</div>
+          </div>
+          <p>--------------------------------</p>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="items">
+          ${
+            items.length > 0
+              ? items
+                  .map((item) => {
+                    const productName =
+                      item.productName ||
+                      item.snapshot?.productName ||
+                      "Product";
+                    const size = item.size ? `${item.size}oz` : "";
+                    const quantity = item.quantity || 1;
+                    const price = item.price || item.totalCost / quantity || 0;
+                    const itemTotal = (price * quantity).toFixed(2);
+
+                    return `
+                    <div class="item">
+                      <div class="item-line">
+                        <span class="item-name">${productName} ${size} x${quantity}</span>
+                        <span class="item-price">₱${itemTotal}</span>
+                      </div>
+                      ${
+                        item.addons && item.addons.length > 0
+                          ? item.addons
+                              .map(
+                                (addon) => `
+                          <div class="addon">
+                            <span>+ ${addon.addonName || "Add-on"} x${
+                                  addon.quantity || 1
+                                }</span>
+                            <span>₱${(
+                              (addon.price || 0) * (addon.quantity || 1)
+                            ).toFixed(2)}</span>
+                          </div>
+                        `
+                              )
+                              .join("")
+                          : ""
+                      }
+                    </div>
+                  `;
+                  })
+                  .join("")
+              : "<div class='item-line'><span>No items</span></div>"
+          }
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="total">
+          <span>TOTAL AMOUNT:</span>
+          <span>₱${totalAmount.toFixed(2)}</span>
+        </div>
+        
+        <div class="payment-info">
+          <div class="payment-line">
+            <span>Payment Method:</span>
+            <span><strong>${modeOfPayment}</strong></span>
+          </div>
+          ${
+            modeOfPayment === "GCash" && referenceNumber
+              ? `
+            <div class="gcash-info">
+              <div class="payment-line">
+                <span>Reference Number:</span>
+                <span>${referenceNumber}</span>
+              </div>
+            </div>
+          `
+              : ""
+          }
+          ${
+            modeOfPayment === "Cash" && cashReceived > 0
+              ? `
+            <div class="cash-info">
+              <div class="cash-line">
+                <span>Cash Received:</span>
+                <span>₱${cashReceived.toFixed(2)}</span>
+              </div>
+              <div class="cash-line">
+                <span>Change:</span>
+                <span>₱${change.toFixed(2)}</span>
+              </div>
+            </div>
+          `
+              : ""
+          }
+        </div>
+        
+        <div class="thank-you">
+          <p>Thank you for your purchase!</p>
+          <p>Please come again!</p>
+        </div>
+        
+        <div class="footer">
+          <p>--------------------------------</p>
+        </div>
+        
+        
+        
+        <script>
+          // Try auto-print once when page loads
+          window.addEventListener('load', function() {
+            setTimeout(function() {
+              try {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 1000);
+              } catch (e) {
+                console.log('Auto-print failed, manual print button available');
+              }
+            }, 300);
+          });
+          
+          // Fallback if page is already loaded
+          if (document.readyState === 'complete') {
+            setTimeout(function() {
+              try {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 1000);
+              } catch (e) {
+                console.log('Auto-print failed, manual print button available');
+              }
+            }, 300);
+          }
+        </script>
+      </body>
+      </html>
+    `;
+    },
+    []
+  );
+
+  // Print receipt function
+  const printReceipt = useCallback(
+    (receiptData) => {
+      try {
+        console.log("🖨️ Printing receipt...", receiptData);
+
+        // Extract data with fallbacks
+        const items = receiptData.itemsSold || [];
+        const totalAmount = receiptData.totalAmount || receiptData.total || 0;
+        const modeOfPayment = receiptData.modeOfPayment || "Cash";
+        const referenceNumber = receiptData.referenceNumber || "";
+
+        // For cash payments, use receiptData.cashReceived, otherwise use 0
+        const cashReceived =
+          modeOfPayment === "Cash" ? receiptData.cashReceived || 0 : 0;
+
+        // For cash payments, calculate change, otherwise 0
+        const change =
+          modeOfPayment === "Cash"
+            ? receiptData.change ||
+              (cashReceived >= totalAmount ? cashReceived - totalAmount : 0)
+            : 0;
+
+        const transactionDate = receiptData.transactionDate
+          ? new Date(receiptData.transactionDate)
+          : new Date();
+
+        // Generate receipt HTML
+        const receiptHTML = generateReceiptHTML({
+          items,
+          totalAmount,
+          modeOfPayment,
+          referenceNumber,
+          cashReceived,
+          change,
+          transactionDate,
+        });
+
+        // Try to open print window
+        const printWindow = window.open(
+          "",
+          "_blank",
+          "width=900,height=700,scrollbars=no,toolbar=no,menubar=no"
+        );
+
+        if (printWindow) {
+          printWindow.document.write(receiptHTML);
+          printWindow.document.close();
+
+          // Focus on the new window
+          printWindow.focus();
+
+          console.log("✅ Receipt window opened successfully");
+        } else {
+          console.warn("Popup blocked. Using fallback method...");
+
+          // Fallback method - create hidden iframe
+          const iframe = document.createElement("iframe");
+          iframe.style.position = "fixed";
+          iframe.style.right = "0";
+          iframe.style.bottom = "0";
+          iframe.style.width = "0";
+          iframe.style.height = "0";
+          iframe.style.border = "none";
+
+          document.body.appendChild(iframe);
+
+          let iframeDoc = iframe.contentWindow || iframe.contentDocument;
+          if (iframeDoc.document) iframeDoc = iframeDoc.document;
+
+          iframeDoc.open();
+          iframeDoc.write(receiptHTML);
+          iframeDoc.close();
+
+          // Wait for content to load then focus
+          setTimeout(() => {
+            try {
+              iframe.contentWindow.focus();
+            } catch (printError) {
+              console.error("Iframe focus error:", printError);
+            }
+
+            // Clean up
+            setTimeout(() => {
+              document.body.removeChild(iframe);
+            }, 1000);
+          }, 500);
+        }
+      } catch (error) {
+        console.error("❌ Receipt printing error:", error);
+        toast.error("Failed to print receipt, but transaction was successful!");
+      }
+    },
+    [generateReceiptHTML]
   );
 
   // API calls
@@ -722,196 +1145,13 @@ const POS = () => {
     }, 0);
   }, [cart]);
 
-  // POS.jsx - Updated printReceipt function
-  const printReceipt = useCallback(
-    (transactionData) => {
-      try {
-        console.log("Starting receipt print...", transactionData);
+  // Calculate change
+  const change = useMemo(() => {
+    const cash = parseFloat(cashReceived) || 0;
+    return cash >= total ? cash - total : 0;
+  }, [cashReceived, total]);
 
-        const printWindow = window.open("", "_blank", "width=800,height=600");
-        if (!printWindow) {
-          toast.info("Popup blocked. Please allow popups for receipts.");
-          return;
-        }
-
-        // Use the transaction data from the response
-        const items = transactionData.itemsSold || [];
-        const totalAmount = transactionData.totalAmount || 0;
-        const modeOfPayment = transactionData.modeOfPayment || "Cash";
-        const referenceNumber = transactionData.referenceNumber || "";
-        const transactionDate = transactionData.transactionDate
-          ? new Date(transactionData.transactionDate)
-          : new Date();
-
-        const receiptContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Receipt</title>
-        <style>
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            margin: 0;
-            padding: 10px;
-            background: white;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 10px;
-          }
-          .divider {
-            border-top: 1px dashed #000;
-            margin: 10px 0;
-          }
-          .item {
-            margin: 8px 0;
-          }
-          .item-line {
-            display: flex;
-            justify-content: space-between;
-            margin: 2px 0;
-          }
-          .item-name {
-            flex: 1;
-          }
-          .item-price {
-            text-align: right;
-          }
-          .addon {
-            display: flex;
-            justify-content: space-between;
-            margin: 1px 0 1px 10px;
-            color: #666;
-            font-size: 11px;
-          }
-          .total {
-            font-weight: bold;
-            border-top: 2px solid #000;
-            padding-top: 5px;
-            display: flex;
-            justify-content: space-between;
-          }
-          .thank-you {
-            text-align: center;
-            margin-top: 15px;
-            font-style: italic;
-          }
-          .payment-info {
-            margin-top: 10px;
-          }
-          .payment-line {
-            display: flex;
-            justify-content: space-between;
-            margin: 2px 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>KKPOPI.TEA - DASMARINAS CITY BRANCH</h2>
-          <p>Receipt</p>
-          <p>${transactionDate.toLocaleString()}</p>
-        </div>
-        
-        <div class="divider"></div>
-        
-        <div class="items">
-          ${items
-            .map((item) => {
-              const productName =
-                item.snapshot?.productName || item.productName || "Product";
-              const size = item.size || "";
-              const quantity = item.quantity || 1;
-              const price = item.price || 0;
-
-              // Calculate base price (without addons)
-              const basePrice = item.snapshot?.basePrice || price;
-
-              return `
-              <div class="item">
-                <div class="item-line">
-                  <span class="item-name">${productName} (${size}oz) x ${quantity}</span>
-                  <span class="item-price">₱${(basePrice * quantity).toFixed(
-                    2
-                  )}</span>
-                </div>
-                ${
-                  item.addons && item.addons.length > 0
-                    ? item.addons
-                        .map(
-                          (addon) => `
-                    <div class="addon">
-                      <span>+ ${addon.addonName || "Add-on"} x ${
-                            addon.quantity || 1
-                          }</span>
-                      <span>₱${(
-                        (addon.price || 0) * (addon.quantity || 1)
-                      ).toFixed(2)}</span>
-                    </div>
-                  `
-                        )
-                        .join("")
-                    : ""
-                }
-              </div>
-            `;
-            })
-            .join("")}
-        </div>
-        
-        <div class="divider"></div>
-        
-        <div class="total">
-          <span>GRAND TOTAL:</span>
-          <span>₱${totalAmount.toFixed(2)}</span>
-        </div>
-        
-        <div class="payment-info">
-          <div class="payment-line">
-            <span>Payment Method:</span>
-            <span>${modeOfPayment}</span>
-          </div>
-          ${
-            referenceNumber
-              ? `
-            <div class="payment-line">
-              <span>Reference No:</span>
-              <span>${referenceNumber}</span>
-            </div>
-          `
-              : ""
-          }
-        </div>
-        
-        <div class="thank-you">
-          <p>Thank you for your purchase!</p>
-          <p>Please come again!</p>
-        </div>
-        
-        <script>
-          setTimeout(() => { 
-            window.print(); 
-            setTimeout(() => window.close(), 1000); 
-          }, 500);
-        </script>
-      </body>
-      </html>
-    `;
-
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-
-        console.log("✅ Receipt printed successfully");
-      } catch (error) {
-        console.error("❌ Receipt printing error:", error);
-        toast.error("Failed to print receipt, but transaction was successful!");
-      }
-    },
-    [cashierName]
-  );
-
-  // POS.jsx - Fixed handleCheckout function
+  // Handle checkout function
   const handleCheckout = useCallback(async () => {
     if (!cashier || cart.length === 0) {
       toast.error(
@@ -929,11 +1169,22 @@ const POS = () => {
       return;
     }
 
-    if (
-      (modeOfPayment === "GCash" || modeOfPayment === "Card") &&
-      !referenceNumber.trim()
-    ) {
-      toast.error("Please enter a reference number for non-cash payments.");
+    // Cash payment validation
+    if (modeOfPayment === "Cash") {
+      const cash = parseFloat(cashReceived);
+      if (!cash || cash <= 0) {
+        toast.error("Please enter cash amount received");
+        return;
+      }
+      if (cash < total) {
+        toast.error(`Insufficient cash. Total: ₱${total.toFixed(2)}`);
+        return;
+      }
+    }
+
+    // GCash payment validation
+    if (modeOfPayment === "GCash" && !referenceNumber.trim()) {
+      toast.error("Please enter a reference number for GCash payment.");
       return;
     }
 
@@ -945,7 +1196,7 @@ const POS = () => {
     setTransactionLoading(true);
 
     try {
-      // Prepare data efficiently - FIXED: Use proper structure
+      // Prepare data efficiently
       const itemsSold = cart.map((item) => ({
         product: item.product._id,
         productName: item.product.productName,
@@ -956,7 +1207,10 @@ const POS = () => {
         quantity: item.quantity,
         totalCost: item.price * item.quantity,
         addons: (item.addons || []).map((addonItem) => ({
-          addonId: addonItem.value, // Make sure this matches backend expectation
+          addonId: addonItem.value,
+          addonName:
+            addons.find((a) => a._id === addonItem.value)?.productName ||
+            "Add-on",
           quantity: addonItem.quantity || 1,
           price:
             addons.find((a) => a._id === addonItem.value)?.sizes?.[0]?.price ||
@@ -971,9 +1225,12 @@ const POS = () => {
         itemsSold,
         modeOfPayment,
         referenceNumber: modeOfPayment !== "Cash" ? referenceNumber : "",
+        cashReceived: modeOfPayment === "Cash" ? parseFloat(cashReceived) : 0,
+        change: modeOfPayment === "Cash" ? parseFloat(cashReceived) - total : 0,
+        totalAmount: total,
       };
 
-      // SINGLE API CALL - Remove the separate stock check
+      // Create transaction
       console.log("📤 Creating transaction...");
       const response = await api.post("/transactions", transactionPayload);
 
@@ -983,16 +1240,30 @@ const POS = () => {
         throw new Error("Transaction created but no transaction ID returned");
       }
 
+      // Prepare receipt data
+      const receiptData = {
+        ...response.data,
+        itemsSold: itemsSold,
+        totalAmount: total,
+        modeOfPayment: modeOfPayment,
+        referenceNumber: modeOfPayment !== "Cash" ? referenceNumber : "",
+        cashReceived: modeOfPayment === "Cash" ? parseFloat(cashReceived) : 0,
+        change: modeOfPayment === "Cash" ? parseFloat(cashReceived) - total : 0,
+      };
+
       // Immediate UI updates
       setCart([]);
       setReferenceNumber("");
+      if (modeOfPayment === "Cash") {
+        setCashReceived(""); // Only clear cashReceived if it was Cash payment
+      }
       setModeOfPayment("Cash");
 
       toast.success("Transaction successful!");
 
-      // Print receipt with the complete transaction data
+      // Print receipt
       console.log("🖨️ Printing receipt...");
-      printReceipt(response.data);
+      printReceipt(receiptData);
 
       // Background refresh without blocking user
       setTimeout(async () => {
@@ -1030,6 +1301,8 @@ const POS = () => {
     cart,
     modeOfPayment,
     referenceNumber,
+    cashReceived,
+    total,
     addons,
     printReceipt,
     fetchData,
@@ -1713,16 +1986,20 @@ const POS = () => {
                     </label>
                     <select
                       value={modeOfPayment}
-                      onChange={(e) => setModeOfPayment(e.target.value)}
+                      onChange={(e) => {
+                        setModeOfPayment(e.target.value);
+                        if (e.target.value === "Cash") {
+                          setReferenceNumber("");
+                        }
+                      }}
                       className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#E89271] transition-colors"
                     >
                       <option value="Cash">Cash</option>
                       <option value="GCash">GCash</option>
-                      <option value="Card">Card</option>
                     </select>
                   </div>
 
-                  {modeOfPayment !== "Cash" && (
+                  {modeOfPayment !== "Cash" ? (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Reference Number{" "}
@@ -1758,6 +2035,57 @@ const POS = () => {
                           </p>
                         )}
                     </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Cash Received
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                            ₱
+                          </span>
+                          <input
+                            type="number"
+                            value={cashReceived}
+                            onChange={(e) => {
+                              const value = Math.max(
+                                0,
+                                parseFloat(e.target.value) || 0
+                              );
+                              setCashReceived(
+                                value > 0 ? value.toString() : ""
+                              );
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            className="w-full border-2 border-gray-200 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:border-[#E89271] transition-colors"
+                          />
+                        </div>
+                        {parseFloat(cashReceived) > 0 &&
+                          parseFloat(cashReceived) < total && (
+                            <p className="text-red-500 text-xs mt-1">
+                              Insufficient cash. Total: ₱{total.toFixed(2)}
+                            </p>
+                          )}
+                      </div>
+
+                      {parseFloat(cashReceived) > 0 &&
+                        parseFloat(cashReceived) >= total && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-green-800 font-medium">
+                                Change:
+                              </span>
+                              <span className="text-green-800 font-bold text-lg">
+                                ₱{change.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                    </>
                   )}
                 </div>
 
@@ -1768,7 +2096,10 @@ const POS = () => {
                     loading ||
                     cart.length === 0 ||
                     cart.some((item) => item.price === null) ||
-                    (modeOfPayment === "GCash" && referenceNumber.length !== 13)
+                    (modeOfPayment === "GCash" &&
+                      referenceNumber.length !== 13) ||
+                    (modeOfPayment === "Cash" &&
+                      (cashReceived === "" || parseFloat(cashReceived) < total))
                   }
                   className="w-full bg-gradient-to-r from-[#E89271] to-[#d67a5c] text-white py-3 rounded-xl hover:from-[#d67a5c] hover:to-[#c4633d] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >

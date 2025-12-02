@@ -167,7 +167,7 @@ const Logs = () => {
                 {u.firstName} {u.lastName}
               </option>
             ))}
-          </select> 
+          </select>
           {/* Actions - Simplified */}
           <select
             className="border border-gray-300 text-sm rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500"
@@ -213,7 +213,7 @@ const Logs = () => {
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Action</th>
                 <th className="px-4 py-3">Details</th>
-                <th className="px-4 py-3 text-center">Status</th>
+                {/** <th className="px-4 py-3 text-center">Status</th> */}
               </tr>
             </thead>
             <tbody>
@@ -293,11 +293,11 @@ const Logs = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-700">{details}</td>
-                      <td className="px-4 py-3 text-center">
+                      {/** <td className="px-4 py-3 text-center">
                         <span className="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">
                           Success
                         </span>
-                      </td>
+                      </td>*/}
                     </tr>
                   );
                 })

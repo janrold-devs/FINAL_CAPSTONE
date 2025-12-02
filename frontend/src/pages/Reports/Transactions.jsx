@@ -114,28 +114,44 @@ const Transactions = () => {
 
     switch (period) {
       case "daily":
-        // Today
+        // Today - start at midnight
         currentStart = new Date(
           now.getFullYear(),
           now.getMonth(),
-          now.getDate()
+          now.getDate(),
+          0,
+          0,
+          0,
+          0
         );
         currentEnd = new Date(
           now.getFullYear(),
           now.getMonth(),
-          now.getDate() + 1
+          now.getDate() + 1,
+          0,
+          0,
+          0,
+          0
         );
 
-        // Yesterday
+        // Yesterday - start at midnight
         previousStart = new Date(
           now.getFullYear(),
           now.getMonth(),
-          now.getDate() - 1
+          now.getDate() - 1,
+          0,
+          0,
+          0,
+          0
         );
         previousEnd = new Date(
           now.getFullYear(),
           now.getMonth(),
-          now.getDate()
+          now.getDate(),
+          0,
+          0,
+          0,
+          0
         );
         break;
 
@@ -146,40 +162,60 @@ const Transactions = () => {
         currentMonday.setDate(
           now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
         );
-        currentStart = new Date(
-          currentMonday.getFullYear(),
-          currentMonday.getMonth(),
-          currentMonday.getDate()
-        );
-        currentEnd = new Date(
-          currentMonday.getFullYear(),
-          currentMonday.getMonth(),
-          currentMonday.getDate() + 7
-        );
+        currentMonday.setHours(0, 0, 0, 0);
+        currentStart = new Date(currentMonday);
+        currentEnd = new Date(currentMonday);
+        currentEnd.setDate(currentMonday.getDate() + 7);
 
         // Last week
         const previousMonday = new Date(currentMonday);
         previousMonday.setDate(currentMonday.getDate() - 7);
-        previousStart = new Date(
-          previousMonday.getFullYear(),
-          previousMonday.getMonth(),
-          previousMonday.getDate()
-        );
-        previousEnd = new Date(
-          previousMonday.getFullYear(),
-          previousMonday.getMonth(),
-          previousMonday.getDate() + 7
-        );
+        previousMonday.setHours(0, 0, 0, 0);
+        previousStart = new Date(previousMonday);
+        previousEnd = new Date(previousMonday);
+        previousEnd.setDate(previousMonday.getDate() + 7);
         break;
 
       case "monthly":
-        // This month
-        currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        // This month - start at midnight
+        currentStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          1,
+          0,
+          0,
+          0,
+          0
+        );
+        currentEnd = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          1,
+          0,
+          0,
+          0,
+          0
+        );
 
-        // Last month
-        previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        previousEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+        // Last month - start at midnight
+        previousStart = new Date(
+          now.getFullYear(),
+          now.getMonth() - 1,
+          1,
+          0,
+          0,
+          0,
+          0
+        );
+        previousEnd = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          1,
+          0,
+          0,
+          0,
+          0
+        );
         break;
 
       default:
@@ -232,47 +268,63 @@ const Transactions = () => {
 
     switch (customDateType) {
       case "daily":
-        // Current day
+        // Current day - set to start of day (00:00:00)
         currentStart = new Date(currentSelectedDate);
+        currentStart.setHours(0, 0, 0, 0);
+
+        // Current day - set to end of day (23:59:59.999)
         currentEnd = new Date(currentSelectedDate);
         currentEnd.setHours(23, 59, 59, 999);
 
-        // Previous day
+        // Previous day - set to start of day (00:00:00)
         previousStart = new Date(previousSelectedDate);
+        previousStart.setHours(0, 0, 0, 0);
+
+        // Previous day - set to end of day (23:59:59.999)
         previousEnd = new Date(previousSelectedDate);
         previousEnd.setHours(23, 59, 59, 999);
         break;
 
       case "weekly":
-        // Current week (7 days including and before selected date)
+        // Current week - start at 00:00:00
         currentStart = new Date(currentSelectedDate);
         currentStart.setDate(currentStart.getDate() - 6);
         currentStart.setHours(0, 0, 0, 0);
+
+        // Current week - end at 23:59:59.999
         currentEnd = new Date(currentSelectedDate);
         currentEnd.setHours(23, 59, 59, 999);
 
-        // Previous week (7 days including and before selected date)
+        // Previous week - start at 00:00:00
         previousStart = new Date(previousSelectedDate);
         previousStart.setDate(previousStart.getDate() - 6);
         previousStart.setHours(0, 0, 0, 0);
+
+        // Previous week - end at 23:59:59.999
         previousEnd = new Date(previousSelectedDate);
         previousEnd.setHours(23, 59, 59, 999);
         break;
 
       case "monthly":
-        // Current month
+        // Current month - start at 00:00:00
         const [currentYear, currentMonth] = currentSelectedMonth
           .split("-")
           .map(Number);
         currentStart = new Date(currentYear, currentMonth - 1, 1);
+        currentStart.setHours(0, 0, 0, 0);
+
+        // Current month - end at 23:59:59.999
         currentEnd = new Date(currentYear, currentMonth, 0);
         currentEnd.setHours(23, 59, 59, 999);
 
-        // Previous month
+        // Previous month - start at 00:00:00
         const [previousYear, previousMonth] = previousSelectedMonth
           .split("-")
           .map(Number);
         previousStart = new Date(previousYear, previousMonth - 1, 1);
+        previousStart.setHours(0, 0, 0, 0);
+
+        // Previous month - end at 23:59:59.999
         previousEnd = new Date(previousYear, previousMonth, 0);
         previousEnd.setHours(23, 59, 59, 999);
         break;
@@ -371,6 +423,7 @@ const Transactions = () => {
     const date = new Date(dateString);
     const start = new Date(date);
     start.setDate(date.getDate() - 6);
+    start.setHours(0, 0, 0, 0);
 
     const format = (date) => {
       return date.toLocaleDateString("en-US", {

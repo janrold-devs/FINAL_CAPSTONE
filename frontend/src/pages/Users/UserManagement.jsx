@@ -291,106 +291,116 @@ const UserManagement = () => {
         autoClose={3000}
         hideProgressBar={false}
       />
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-2 sm:p-4 lg:p-6 max-w-full overflow-x-hidden">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               User Management
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm sm:text-base">
               Manage system users and their permissions
             </p>
           </div>
           <div className="flex gap-3 mt-4 lg:mt-0">
             <button
               onClick={fetchUsers}
-              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-xl hover:bg-gray-200 transition-colors duration-200 font-medium"
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 sm:px-4 py-2 sm:py-3 rounded-xl hover:bg-gray-200 transition-colors duration-200 font-medium text-sm sm:text-base"
               title="Refresh users"
             >
-              <RefreshCw className="w-5 h-5" />
-              Refresh
+              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Refresh</span>
+              <span className="sm:hidden">Refresh</span>
             </button>
             {/*<button
               onClick={handleAddClick}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium"
+              className="flex items-center gap-2 bg-blue-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium text-sm sm:text-base"
             >
-              <Plus className="w-5 h-5" />
-              Add User
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Add User</span>
+              <span className="sm:hidden">Add</span>
             </button> */}
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
+                  Total Users
+                </p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {filteredUsers.length}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
                   Active Users
                 </p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {filteredUsers.filter((user) => isUserActive(user)).length}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <UserCheck className="w-6 h-6 text-green-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <UserCheck className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Admins</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
+                  Admins
+                </p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {filteredUsers.filter((user) => user.role === "admin").length}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <Shield className="w-6 h-6 text-red-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Inactive</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
+                  Inactive
+                </p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {filteredUsers.filter((user) => !isUserActive(user)).length}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                <Ban className="w-6 h-6 text-gray-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <Ban className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Search & Filter Section */}
-        <SearchFilter
-          data={users}
-          onFilteredDataChange={setFilteredUsers}
-          searchFields={["firstName", "lastName", "username", "email"]}
-          filterConfig={userFilterConfig}
-          sortConfig={userSortConfig}
-          placeholder="Search by name, username, or email..."
-        />
+        <div className="px-1 sm:px-0">
+          <SearchFilter
+            data={users}
+            onFilteredDataChange={setFilteredUsers}
+            searchFields={["firstName", "lastName", "username", "email"]}
+            filterConfig={userFilterConfig}
+            sortConfig={userSortConfig}
+            placeholder="Search by name, username, or email..."
+          />
+        </div>
 
         {/* Table Section */}
         {loading ? (
@@ -398,46 +408,46 @@ const UserManagement = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-gray-400" />
+          <div className="bg-white rounded-2xl p-8 sm:p-12 text-center shadow-sm border border-gray-100 mx-1 sm:mx-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-7 h-7 sm:w-8 sm:h-8 text-gray-400" />
             </div>
-            <p className="text-lg font-medium text-gray-900 mb-2">
+            <p className="text-base sm:text-lg font-medium text-gray-900 mb-2">
               {users.length === 0
                 ? "No users available"
                 : "No users match your search"}
             </p>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm sm:text-base">
               {users.length === 0
                 ? "Click 'Add User' to create the first user"
                 : "Try adjusting your search or filters"}
             </p>
           </div>
         ) : (
-          <div className="block w-full overflow-x-auto">
-            <div className="min-w-[1024px]">
-              <table className="w-full">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mx-0 sm:mx-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px] sm:min-w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900">
                       User
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 hidden lg:table-cell">
                       Username
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 hidden xl:table-cell">
                       Email
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900">
                       Role
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 hidden md:table-cell">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 hidden xl:table-cell">
                       Date Created
                     </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                    <th className="px-4 py-3 text-center text-xs sm:text-sm font-semibold text-gray-900">
                       Actions
                     </th>
                   </tr>
@@ -452,72 +462,80 @@ const UserManagement = () => {
                           !isActive ? "bg-gray-50 opacity-75" : ""
                         }`}
                       >
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center">
                             <div
-                              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
+                              className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mr-2 sm:mr-3 ${
                                 !isActive ? "bg-gray-200" : "bg-blue-100"
                               }`}
                             >
                               <span
-                                className={`text-sm font-medium ${
+                                className={`text-xs sm:text-sm font-medium ${
                                   !isActive ? "text-gray-500" : "text-blue-600"
                                 }`}
                               >
                                 {getUserInitials(user)}
                               </span>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <div
-                                className={`text-sm font-medium ${
+                                className={`text-xs sm:text-sm font-medium truncate max-w-[100px] sm:max-w-[150px] ${
                                   !isActive ? "text-gray-500" : "text-gray-900"
                                 }`}
+                                title={getFullName(user)}
                               >
                                 {getFullName(user)}
                               </div>
-                              <div className="text-xs text-gray-500">User</div>
+                              <div className="text-xs text-gray-500 lg:hidden truncate max-w-[100px]">
+                                @{user.username}
+                              </div>
+                              <div className="text-xs text-gray-500 xl:hidden truncate max-w-[120px] sm:max-w-[150px]">
+                                {user.email || "N/A"}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-xs sm:text-sm hidden lg:table-cell">
                           <div
-                            className={`text-sm ${
+                            className={`truncate max-w-[100px] ${
                               !isActive ? "text-gray-500" : "text-gray-700"
                             }`}
+                            title={user.username}
                           >
                             {user.username}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-xs sm:text-sm hidden xl:table-cell">
                           <div
-                            className={`text-sm ${
+                            className={`truncate max-w-[150px] ${
                               !isActive ? "text-gray-500" : "text-gray-700"
                             }`}
+                            title={user.email || "N/A"}
                           >
                             {user.email || "N/A"}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(
+                            className={`inline-flex items-center px-2 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs sm:text-sm font-medium border ${getRoleColor(
                               user.role
                             )}`}
                           >
                             {user.role}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 hidden md:table-cell">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                            className={`inline-flex items-center px-2 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs sm:text-sm font-medium border ${getStatusColor(
                               isActive
                             )}`}
                           >
                             {getStatusText(isActive)}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-xs sm:text-sm hidden xl:table-cell">
                           <div
-                            className={`text-sm ${
+                            className={`${
                               !isActive ? "text-gray-500" : "text-gray-700"
                             }`}
                           >
@@ -530,30 +548,30 @@ const UserManagement = () => {
                               : "N/A"}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
                             <button
                               onClick={() => handleEditClick(user)}
-                              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors duration-200 p-2 rounded-lg hover:bg-blue-50"
+                              className="inline-flex items-center gap-1 sm:gap-2 text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 sm:p-2 rounded-lg hover:bg-blue-50 text-xs sm:text-sm"
                               title="Edit User"
                             >
-                              <Pencil className="w-4 h-4" />
-                              <span className="text-sm font-medium">Edit</span>
+                              <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span className="font-medium">Edit</span>
                             </button>
                             <button
                               onClick={() => {
                                 setSelectedUser(user);
                                 setShowDeactivate(true);
                               }}
-                              className={`inline-flex items-center gap-2 p-2 rounded-lg transition-colors duration-200 ${
+                              className={`inline-flex items-center gap-1 sm:gap-2 p-1 sm:p-2 rounded-lg transition-colors duration-200 text-xs sm:text-sm ${
                                 !isActive
                                   ? "text-green-600 hover:text-green-800 hover:bg-green-50"
                                   : "text-amber-600 hover:text-amber-800 hover:bg-amber-50"
                               }`}
                               title={!isActive ? "Reactivate User" : "Deactivate User"}
                             >
-                              <UserX className="w-4 h-4" />
-                              <span className="text-sm font-medium">
+                              <UserX className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span className="font-medium">
                                 {!isActive ? "Reactivate" : "Deactivate"}
                               </span>
                             </button>
