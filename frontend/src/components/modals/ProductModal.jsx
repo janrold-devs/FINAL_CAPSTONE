@@ -309,14 +309,15 @@ const ProductModal = ({
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              <option>Iced Latte</option>
-              <option>Fruit Tea</option>
               <option>Amerikano</option>
-              <option>Frappe</option>
-              <option>Choco Series</option>
               <option>Bubble Tea</option>
+              <option>Choco Series</option>
+              <option>Frappe</option>
+              <option>Fruit Tea</option>
               <option>Hot Drinks</option>
-              <option>Non Caffeine</option>
+              <option>Iced Latte</option>
+              <option>Non Caffeine</option> 
+              <option>Shiro Series</option>
             </select>
           </div>
 
@@ -394,7 +395,6 @@ const ProductModal = ({
                         <option value={20}>20 oz</option>
                         <option value={22}>22 oz</option>
                         <option value={24}>24 oz</option>
-                        <option value={24}>32 oz</option>
                       </select>
                     </div>
 
