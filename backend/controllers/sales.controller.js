@@ -65,10 +65,23 @@ export const getSalesByDate = async (req, res) => {
     const { date } = req.params;
     console.log("📅 Fetching sales for date:", date);
 
-    // Parse the date
+    // Parse the date - USE PHILIPPINE TIMEZONE LOGIC
     const [year, month, day] = date.split("-").map(Number);
-    const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-    const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+    
+    // Use Philippine timezone offset
+    const PH_OFFSET = 8 * 60 * 60 * 1000;
+    
+    // Create dates in Philippine time
+    const startDatePH = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const endDatePH = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+    
+    // Convert to UTC for database query
+    const startDate = new Date(startDatePH.getTime() - PH_OFFSET);
+    const endDate = new Date(endDatePH.getTime() - PH_OFFSET);
+
+    console.log(`📅 Date ranges for ${date}:`);
+    console.log(`   PH Time: ${startDatePH.toISOString()} to ${endDatePH.toISOString()}`);
+    console.log(`   UTC Query: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     // Get transactions for this date directly
     const transactions = await Transaction.find({
@@ -83,7 +96,7 @@ export const getSalesByDate = async (req, res) => {
 
     console.log(`📊 Found ${transactions.length} transactions for ${date}`);
 
-    // Calculate total from transactions
+    // Calculate total from transactions - ALWAYS CALCULATE FRESH
     const totalSales = transactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
       0
@@ -104,7 +117,7 @@ export const getSalesByDate = async (req, res) => {
       salesBatch = await Sales.create({
         batchNumber,
         transactions: transactions.map((t) => t._id),
-        transactionDate: startDate,
+        transactionDate: startDatePH, // Store as Philippine time
       });
 
       // Populate the newly created batch
@@ -115,19 +128,40 @@ export const getSalesByDate = async (req, res) => {
           { path: "itemsSold.product" },
         ],
       });
+    } else {
+      // Update the batch with current transactions
+      salesBatch.transactions = transactions.map((t) => t._id);
+      await salesBatch.save();
+      
+      // Re-populate
+      salesBatch = await Sales.findById(salesBatch._id).populate({
+        path: "transactions",
+        populate: [
+          { path: "cashier", select: "firstName lastName" },
+          { path: "itemsSold.product" },
+        ],
+      });
     }
 
-    // Always return calculated data from transactions
+    // Always return CALCULATED data from transactions, not stored total
     const response = {
       ...salesBatch.toObject(),
-      totalSales: totalSales,
+      totalSales: totalSales, // Use calculated total, not stored total
       transactions: transactions,
       transactionCount: transactions.length,
+      calculatedTotal: totalSales,
+      isAccurate: true,
     };
 
     console.log(
       `✅ Sales batch ${batchNumber}: ₱${totalSales} from ${transactions.length} transactions`
     );
+    
+    // Verify accuracy
+    if (salesBatch.totalSales !== totalSales) {
+      console.log(`⚠️ Discrepancy detected: Stored: ₱${salesBatch.totalSales}, Calculated: ₱${totalSales}`);
+    }
+
     res.json(response);
   } catch (err) {
     console.error("Sales by date error:", err);
