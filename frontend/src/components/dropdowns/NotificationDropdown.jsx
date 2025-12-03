@@ -238,14 +238,6 @@ const NotificationDropdown = () => {
             {totalCount > 99 ? "99+" : totalCount}
           </span>
         )}
-
-        {/* Connection Status Dot */}
-        <span
-          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-            connected ? "bg-green-500" : "bg-red-500"
-          }`}
-          title={connected ? "Real-time connected" : "Disconnected"}
-        />
       </button>
 
       {/* Dropdown Panel */}
