@@ -1,13 +1,37 @@
-// components/modals/SalesModal.jsx
 import React from "react";
 
 const SalesModal = ({ show, onClose, salesData }) => {
   if (!show || !salesData) return null;
 
-  // Calculate statistics
+  // CALCULATE ACCURATE TOTAL FROM TRANSACTIONS
+  const calculateAccurateTotal = () => {
+    if (!salesData.transactions || !Array.isArray(salesData.transactions)) {
+      return salesData.totalSales || 0;
+    }
+    
+    try {
+      const accurateTotal = salesData.transactions.reduce((total, transaction) => {
+        return total + (transaction.totalAmount || 0);
+      }, 0);
+      
+      console.log("💰 Modal Total Calculation:", {
+        transactionsCount: salesData.transactions.length,
+        salesDataTotal: salesData.totalSales,
+        calculatedTotal: accurateTotal,
+        difference: accurateTotal - (salesData.totalSales || 0)
+      });
+      
+      return accurateTotal;
+    } catch (error) {
+      console.error("Error calculating total:", error);
+      return salesData.totalSales || 0;
+    }
+  };
+
+  // Calculate statistics WITH ACCURATE TOTALS
   const getStats = () => {
     if (!salesData.transactions || !Array.isArray(salesData.transactions)) {
-      return { totalItems: 0, uniqueProducts: 0 };
+      return { totalItems: 0, uniqueProducts: 0, totalSales: 0 };
     }
 
     try {
@@ -26,10 +50,13 @@ const SalesModal = ({ show, onClose, salesData }) => {
         )
       ).size;
 
-      return { totalItems, uniqueProducts };
+      // Calculate accurate total sales
+      const totalSales = calculateAccurateTotal();
+
+      return { totalItems, uniqueProducts, totalSales };
     } catch (error) {
       console.error("Error calculating stats:", error);
-      return { totalItems: 0, uniqueProducts: 0 };
+      return { totalItems: 0, uniqueProducts: 0, totalSales: 0 };
     }
   };
 
@@ -46,6 +73,37 @@ const SalesModal = ({ show, onClose, salesData }) => {
 
     return (snapshot?.basePrice || item.price) - addonsTotal;
   };
+
+  // Calculate total from items table for verification
+  const calculateTableTotal = () => {
+    if (!salesData.transactions || !Array.isArray(salesData.transactions)) {
+      return 0;
+    }
+    
+    try {
+      let tableTotal = 0;
+      salesData.transactions.forEach(t => {
+        (t.itemsSold || []).forEach(item => {
+          tableTotal += item.totalCost || 0;
+        });
+      });
+      return tableTotal;
+    } catch (error) {
+      console.error("Error calculating table total:", error);
+      return 0;
+    }
+  };
+
+  const tableTotal = calculateTableTotal();
+  const accurateTotal = calculateAccurateTotal();
+
+  console.log("📊 Modal Debug:", {
+    salesDataTotal: salesData.totalSales,
+    accurateTotal,
+    tableTotal,
+    transactionsCount: salesData.transactions?.length,
+    discrepancy: accurateTotal - (salesData.totalSales || 0)
+  });
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 backdrop-blur-[1px]">
@@ -79,6 +137,20 @@ const SalesModal = ({ show, onClose, salesData }) => {
               {new Date(salesData.transactionDate).toLocaleString()}
             </p>
           </div>
+
+          {/* Debug info - only show if there's a discrepancy */}
+          {(accurateTotal !== (salesData.totalSales || 0) || accurateTotal !== tableTotal) && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center text-sm text-yellow-800">
+                <span className="font-medium">Data Verification:</span>
+                <div className="ml-3 space-y-1">
+                  <div>Table calculated: ₱{tableTotal.toFixed(2)}</div>
+                  <div>Transactions total: ₱{accurateTotal.toFixed(2)}</div>
+                  <div>Batch total: ₱{(salesData.totalSales || 0).toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Items Sold with Add-ons */}
           <div>
@@ -121,6 +193,11 @@ const SalesModal = ({ show, onClose, salesData }) => {
                                     </span>
                                   )}
                                 </div>
+                                {tIndex === 0 && i === 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Transaction #{tIndex + 1}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-2 text-gray-600">
                                 {snapshot?.category || "—"}
@@ -189,6 +266,17 @@ const SalesModal = ({ show, onClose, salesData }) => {
                       })
                     )}
                   </tbody>
+                  {/* Table Footer with total */}
+                  <tfoot>
+                    <tr className="border-t border-gray-300">
+                      <td colSpan="6" className="py-2 text-right font-medium text-gray-700">
+                        Table Total:
+                      </td>
+                      <td className="py-2 text-right font-bold text-green-700">
+                        ₱{tableTotal.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             ) : (
@@ -201,7 +289,7 @@ const SalesModal = ({ show, onClose, salesData }) => {
             <label className="block text-sm font-semibold text-gray-600 mb-2">
               Summary
             </label>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 rounded-lg p-3">
                 <p className="text-xs text-blue-600 font-medium mb-1">
                   TOTAL ITEMS
@@ -225,11 +313,46 @@ const SalesModal = ({ show, onClose, salesData }) => {
                   TOTAL SALES
                 </p>
                 <p className="text-2xl font-bold text-green-700">
-                  ₱{salesData.totalSales?.toLocaleString() || "0"}
+                  ₱{accurateTotal.toLocaleString()}
                 </p>
+                <p className="text-xs text-green-600 mt-1">
+                  ({salesData.transactions?.length || 0} transactions)
+                </p>
+                {salesData.totalSales && accurateTotal !== salesData.totalSales && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Original: ₱{salesData.totalSales.toLocaleString()}
+                  </p>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Transaction List */}
+          {salesData.transactions && salesData.transactions.length > 0 && (
+            <div className="border-t pt-4">
+              <label className="block text-sm font-semibold text-gray-600 mb-2">
+                Transactions in this Batch ({salesData.transactions.length})
+              </label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {salesData.transactions.map((t, index) => (
+                  <div 
+                    key={t._id || index}
+                    className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-200"
+                  >
+                    <div className="text-sm">
+                      <span className="font-medium">Transaction #{index + 1}</span>
+                      <span className="text-gray-600 ml-3">
+                        {t.cashier?.firstName ? `${t.cashier.firstName} ${t.cashier.lastName}` : 'Unknown Cashier'}
+                      </span>
+                    </div>
+                    <div className="text-sm font-medium text-green-700">
+                      ₱{(t.totalAmount || 0).toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Close Button */}

@@ -540,14 +540,11 @@ const UserManagement = () => {
                             }`}
                           >
                             {user.createdAt
-                              ? new Date(user.createdAt).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  }
-                                )
+                              ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
                               : "N/A"}
                           </div>
                         </td>
@@ -571,11 +568,7 @@ const UserManagement = () => {
                                   ? "text-green-600 hover:text-green-800 hover:bg-green-50"
                                   : "text-amber-600 hover:text-amber-800 hover:bg-amber-50"
                               }`}
-                              title={
-                                !isActive
-                                  ? "Reactivate User"
-                                  : "Deactivate User"
-                              }
+                              title={!isActive ? "Reactivate User" : "Deactivate User"}
                             >
                               <UserX className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="font-medium">

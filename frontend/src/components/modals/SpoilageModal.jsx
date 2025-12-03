@@ -94,27 +94,27 @@ const SpoilageModal = ({
 
   // toggle ingredient selection (add/remove)
   const toggleIngredient = (ingredient) => {
-    const exists = form.ingredients.find((i) => i.ingredient === ingredient._id);
-    if (exists) {
-      setForm({
-        ...form,
-        ingredients: form.ingredients.filter((i) => i.ingredient !== ingredient._id),
-      });
-    } else {
-      setForm({
-        ...form,
-        ingredients: [
-          ...form.ingredients,
-          {
-            ingredient: ingredient._id,
-            name: ingredient.name,
-            quantity: 1,
-            unit: ingredient.unit || "",
-          },
-        ],
-      });
-    }
-  };
+  const exists = form.ingredients.find((i) => i.ingredient === ingredient._id);
+  if (exists) {
+    setForm({
+      ...form,
+      ingredients: form.ingredients.filter((i) => i.ingredient !== ingredient._id),
+    });
+  } else {
+    setForm({
+      ...form,
+      ingredients: [
+        ...form.ingredients,
+        {
+          ingredient: ingredient._id,
+          name: ingredient.name,
+          quantity: 1,
+          unit: ingredient.unit.toLowerCase(), 
+        },
+      ],
+    });
+  }
+};
 
   // handle quantity change for a selected ingredient
   const handleQuantityChange = (id, value) => {
@@ -122,16 +122,6 @@ const SpoilageModal = ({
       ...form,
       ingredients: form.ingredients.map((i) =>
         i.ingredient === id ? { ...i, quantity: value } : i
-      ),
-    });
-  };
-
-  // handle unit change for a selected ingredient
-  const handleUnitChange = (id, value) => {
-    setForm({
-      ...form,
-      ingredients: form.ingredients.map((i) =>
-        i.ingredient === id ? { ...i, unit: value } : i
       ),
     });
   };
@@ -235,7 +225,7 @@ const SpoilageModal = ({
                         <tr key={index} className="border-b last:border-b-0">
                           <td className="py-2">{item.ingredient?.name || "Unknown"}</td>
                           <td className="text-right py-2 font-medium">{item.quantity}</td>
-                          <td className="text-right py-2 text-gray-600">{item.unit}</td>
+                          <td className="text-right py-2 text-gray-600">{item.unit.toLowerCase()}</td>                       
                         </tr>
                       ))}
                     </tbody>
@@ -337,19 +327,9 @@ const SpoilageModal = ({
                         className="w-12 text-xs border rounded px-1 py-0.5"
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <select
-                        value={ing.unit}
-                        onChange={(e) => handleUnitChange(ing.ingredient, e.target.value)}
-                        className="text-xs border rounded px-1 py-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <option value="">unit</option>
-                        <option value="ml">ml</option>
-                        <option value="L">L</option>
-                        <option value="g">g</option>
-                        <option value="kg">kg</option>
-                        <option value="pcs">pcs</option>
-                      </select>
+                      <span className="text-xs font-medium px-1 py-0.5 bg-gray-100 rounded">
+                        {ing.unit.toLowerCase()}
+                      </span>
                       <button
                         type="button"
                         className="text-red-500 ml-1"
@@ -387,7 +367,7 @@ const SpoilageModal = ({
                       className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 flex items-center justify-between"
                     >
                       <span>{ingredient.name}</span>
-                      <span className="text-xs text-gray-400">{ingredient.unit || ""}</span>
+                      <span className="text-xs text-gray-400">{ingredient.unit ? ingredient.unit.toLowerCase() : ""}</span>
                     </div>
                   ))}
               </div>
