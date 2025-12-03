@@ -27,30 +27,74 @@ const Sales = () => {
     monthly: { total: 0, transactions: 0 },
   });
 
-  // Fetch all sales AND calculate stats from transactions
   const fetchSales = async () => {
     try {
       setLoading(true);
 
-      // Fetch sales data
-      const salesRes = await api.get("/sales/summary");
+      // Fetch both sales summary AND today's transactions
+      const [salesRes, transactionsRes] = await Promise.all([
+        api.get("/sales/summary"),
+        api.get("/transactions"),
+      ]);
+
       const salesData = salesRes.data;
-
-      console.log("📊 Sales data loaded:", salesData.length, "batches");
-      setSales(salesData);
-      setFilteredSales(salesData);
-
-      // Fetch transactions to calculate accurate totals
-      const transactionsRes = await api.get("/transactions");
       const transactions = transactionsRes.data;
 
+      console.log("📊 Sales data loaded:", salesData.length, "batches");
       console.log(
         "💰 Transactions loaded:",
         transactions.length,
         "transactions"
       );
 
-      // Calculate period totals DIRECTLY from transactions
+      // Create a map of dates to sales batches for easier lookup
+      const salesByDate = {};
+      salesData.forEach((sale) => {
+        const dateStr = new Date(sale.transactionDate).toDateString();
+        salesByDate[dateStr] = sale;
+      });
+
+      // Group transactions by date to create today's batch if it doesn't exist
+      const transactionsByDate = {};
+      transactions.forEach((t) => {
+        const dateStr = new Date(t.transactionDate).toDateString();
+        if (!transactionsByDate[dateStr]) {
+          transactionsByDate[dateStr] = {
+            transactions: [],
+            totalSales: 0,
+          };
+        }
+        transactionsByDate[dateStr].transactions.push(t);
+        transactionsByDate[dateStr].totalSales += t.totalAmount || 0;
+      });
+
+      // Check if we need to create a "today" batch
+      const todayStr = new Date().toDateString();
+
+      if (transactionsByDate[todayStr] && !salesByDate[todayStr]) {
+        // Create a synthetic batch for today
+        const todayBatch = {
+          _id: `today-${Date.now()}`,
+          batchNumber: `BATCH-${new Date()
+            .toISOString()
+            .slice(0, 10)
+            .replace(/-/g, "")}`,
+          transactionDate: new Date().toISOString(),
+          transactions: transactionsByDate[todayStr].transactions,
+          totalSales: transactionsByDate[todayStr].totalSales,
+          transactionsCount: transactionsByDate[todayStr].transactions.length,
+          isTodayBatch: true, // Flag to identify synthetic batches
+        };
+
+        // Add today's batch to sales data
+        salesData.unshift(todayBatch);
+        console.log("📅 Created today's batch:", todayBatch);
+      }
+
+      setSales(salesData);
+      setFilteredSales(salesData);
+
+      // Calculate period totals from transactions
       calculatePeriodTotalsFromTransactions(transactions);
     } catch (err) {
       console.error("Fetch sales error:", err);
@@ -261,10 +305,21 @@ const Sales = () => {
   const handleViewSale = async (sale) => {
     try {
       setLoading(true);
-      const res = await api.get(
-        `/sales/date/${sale.batchNumber.replace("BATCH-", "")}`
-      );
-      setSelectedSale(res.data);
+
+      if (sale.isTodayBatch) {
+        // For today's synthetic batch, use the transactions data directly
+        setSelectedSale({
+          ...sale,
+          transactions: sale.transactions, // Already has the data
+        });
+      } else {
+        // For regular batches, fetch from API
+        const res = await api.get(
+          `/sales/date/${sale.batchNumber.replace("BATCH-", "")}`
+        );
+        setSelectedSale(res.data);
+      }
+
       setShowModal(true);
     } catch (err) {
       console.error("Error fetching sale details:", err);
