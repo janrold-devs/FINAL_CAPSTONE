@@ -1,3 +1,4 @@
+// backend/controllers/user.controller.js
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
@@ -32,6 +33,7 @@ export const createUser = async (req, res) => {
       password: hashed,
       role: role || "staff",
       isActive: true,
+      status: "approved", // Set as approved since admin is creating
     });
 
     // Log activity
@@ -96,5 +98,54 @@ export const updateUser = async (req, res) => {
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Critical: Add this function for session validation
+export const getCurrentUser = async (req, res) => {
+  try {
+    // User is already attached by auth middleware (req.user)
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    // Fetch fresh user data from database (excluding password)
+    const user = await User.findById(req.user._id).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if user is active
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: "Account is deactivated. Please contact administrator.",
+        code: "ACCOUNT_DEACTIVATED"
+      });
+    }
+
+    // Check if user is approved
+    if (user.status !== "approved") {
+      return res.status(403).json({
+        message: "Your account is pending approval. Please wait for administrator approval.",
+        code: "ACCOUNT_PENDING"
+      });
+    }
+
+    res.json({
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    });
+  } catch (error) {
+    console.error("Get current user error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
