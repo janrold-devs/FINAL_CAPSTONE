@@ -60,8 +60,8 @@ export const getCloudinaryPublicId = (imageUrl) => {
     const uploadIndex = urlParts.indexOf('upload');
     if (uploadIndex === -1) return null;
     
-    const pathParts = urlParts.slice(uploadIndex + 2); // Skip 'upload' and version
-    const publicId = pathParts.join('/').split('.')[0]; // Remove file extension
+    const pathParts = urlParts.slice(uploadIndex + 2);
+    const publicId = pathParts.join('/').split('.')[0];
     return publicId;
   } catch (error) {
     console.error('Error extracting public_id:', error);

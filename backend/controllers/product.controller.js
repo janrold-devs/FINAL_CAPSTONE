@@ -130,7 +130,7 @@ export const updateProduct = async (req, res) => {
       ) {
         await deleteCloudinaryImage(existingProduct.image);
       }
-      data.image = `/uploads/products/${req.file.filename}`;
+      data.image = req.file.path;
     } else if (image) {
       // Keep existing image URL
       data.image = image;
