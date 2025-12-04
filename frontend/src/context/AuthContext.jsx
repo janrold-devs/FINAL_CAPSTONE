@@ -18,16 +18,48 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Set initial state immediately from localStorage for faster initial render
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    const savedToken = localStorage.getItem("token");
+    
+    if (savedUser && savedToken) {
+      try {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        setToken(savedToken);
+        console.log("Initial state set from localStorage");
+      } catch (error) {
+        console.error("Failed to parse initial user data:", error);
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
+    } else {
+      console.log("No saved session found in localStorage");
+    }
+  }, []);
 
   // Function to validate and load auth state from localStorage
   const validateAndLoadAuth = useCallback(async () => {
+    if (isValidating) {
+      return;
+    }
+
     const savedUser = localStorage.getItem("user");
     const savedToken = localStorage.getItem("token");
     
     if (!savedUser || !savedToken) {
+      setUser(null);
+      setToken(null);
       setReady(true);
+      setIsValidating(false);
       return;
     }
+
+    setIsValidating(true);
+    console.log("🔄 Validating session with backend...");
 
     try {
       // Parse user data first
@@ -35,7 +67,8 @@ export const AuthProvider = ({ children }) => {
       
       // Validate token with backend
       const response = await api.get("/users/me", {
-        headers: { Authorization: `Bearer ${savedToken}` }
+        headers: { Authorization: `Bearer ${savedToken}` },
+        timeout: 5000 // 5 second timeout
       });
       
       // Token is valid - use fresh data from server
@@ -48,56 +81,80 @@ export const AuthProvider = ({ children }) => {
       
       console.log("✅ Session validated successfully");
     } catch (error) {
-      console.error("❌ Token validation failed:", error.response?.data || error.message);
+      console.error("❌ Token validation failed:", error.response?.data?.message || error.message);
       
-      // Check if it's a server error (5xx) vs auth error (401/403)
-      if (error.response?.status >= 500) {
-        // Server error - keep existing session but mark as ready
-        console.log("Server error, keeping existing session");
+      // Handle different error scenarios
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        console.log("⚠️ Validation timeout, using cached session");
+        // Server timeout - use cached session
         try {
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
+          const cachedUser = JSON.parse(savedUser);
+          setUser(cachedUser);
           setToken(savedToken);
+          console.log("✅ Using cached session due to timeout");
         } catch (parseError) {
-          // Can't parse user data, clear session
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           setUser(null);
           setToken(null);
         }
-      } else {
-        // Auth error (401/403) - clear invalid session
-        console.log("Auth error, clearing session");
+      } else if (error.response?.status >= 500) {
+        // Server error - keep existing session
+        console.log("⚠️ Server error, using cached session");
+        try {
+          const cachedUser = JSON.parse(savedUser);
+          setUser(cachedUser);
+          setToken(savedToken);
+        } catch (parseError) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+          setToken(null);
+        }
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        // Auth error - clear invalid session
+        console.log("🔐 Auth error, clearing invalid session");
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setUser(null);
         setToken(null);
+      } else {
+        // Network or other errors - keep session but mark as ready
+        console.log("⚠️ Network error, using cached session");
+        try {
+          const cachedUser = JSON.parse(savedUser);
+          setUser(cachedUser);
+          setToken(savedToken);
+        } catch (parseError) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+          setToken(null);
+        }
       }
     } finally {
       setReady(true);
+      setIsValidating(false);
+      console.log("✅ Auth state marked as ready");
     }
-  }, []);
+  }, [isValidating]);
 
   // Load initial state on mount
   useEffect(() => {
-    console.log("🔄 Initializing auth state...");
+    console.log("🔄 Initial auth validation started");
     validateAndLoadAuth();
   }, [validateAndLoadAuth]);
 
   // Listen for storage changes (other tabs logging in/out)
   useEffect(() => {
     const handleStorageChange = (event) => {
-      if (event.key === "token") {
-        console.log("🔄 Token changed in another tab");
+      if (event.key === "token" || event.key === "user") {
+        console.log(`🔄 Storage change detected: ${event.key} = ${event.newValue ? 'updated' : 'removed'}`);
         
-        if (!event.newValue) {
-          // Token removed - logout
-          setUser(null);
-          setToken(null);
-        } else {
-          // Token added/changed - reload auth
+        // Small delay to ensure localStorage is consistent
+        setTimeout(() => {
           validateAndLoadAuth();
-        }
+        }, 50);
       }
     };
 
@@ -112,21 +169,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleAuthChange = () => {
       console.log("🔄 Auth state change event received");
-      const savedToken = localStorage.getItem("token");
-      const savedUser = localStorage.getItem("user");
-      
-      if (!savedToken || !savedUser) {
-        setUser(null);
-        setToken(null);
-      } else {
-        try {
-          setUser(JSON.parse(savedUser));
-          setToken(savedToken);
-        } catch {
-          setUser(null);
-          setToken(null);
-        }
-      }
+      validateAndLoadAuth();
     };
 
     window.addEventListener("authStateChange", handleAuthChange);
@@ -134,7 +177,23 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener("authStateChange", handleAuthChange);
     };
-  }, []);
+  }, [validateAndLoadAuth]);
+
+  // Revalidate on tab focus/visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔄 Tab became visible, revalidating session...');
+        validateAndLoadAuth();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [validateAndLoadAuth]);
 
   const login = async (username, password) => {
     setLoading(true);
@@ -150,9 +209,16 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       setToken(token);
       
-      console.log("✅ Login successful");
+      // Mark as ready since we have valid auth
+      setReady(true);
+      
+      console.log("✅ Login successful, auth state ready");
 
       setLoading(false);
+      
+      // Dispatch event for other components/tabs
+      window.dispatchEvent(new Event("authStateChange"));
+      
       return { success: true, user: userData };
     } catch (err) {
       setLoading(false);
@@ -188,6 +254,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
     setUser(null);
     setToken(null);
+    setReady(true); // Important: mark as ready even when logging out
     
     // Dispatch event for other components/tabs
     window.dispatchEvent(new Event("authStateChange"));
@@ -195,9 +262,23 @@ export const AuthProvider = ({ children }) => {
     toast.info("Logged out successfully");
   };
 
+  // Function to check if user is authenticated (for components that need quick check)
+  const isAuthenticated = useCallback(() => {
+    return !!(user && token);
+  }, [user, token]);
+
   return (
     <AuthContext.Provider
-      value={{ user, token, login, register, logout, loading, ready }}
+      value={{ 
+        user, 
+        token, 
+        login, 
+        register, 
+        logout, 
+        loading, 
+        ready,
+        isAuthenticated 
+      }}
     >
       {children}
     </AuthContext.Provider>
