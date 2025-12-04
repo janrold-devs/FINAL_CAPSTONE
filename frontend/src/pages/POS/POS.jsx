@@ -33,7 +33,6 @@ const ProductCard = React.memo(
     calculateAvailableQuantity,
     getAvailableSizes,
     formatPriceDisplay,
-    BACKEND_URL,
   }) => {
     const availableSizes = useMemo(
       () => getAvailableSizes(product),
@@ -51,7 +50,7 @@ const ProductCard = React.memo(
       >
         {product.image ? (
           <img
-            src={`${BACKEND_URL}${product.image}`}
+            src={product.image}
             alt={product.productName}
             className="w-24 h-24 object-cover mb-3 rounded-lg"
             loading="lazy"
@@ -255,7 +254,6 @@ const CartItem = React.memo(
 );
 
 const POS = () => {
-  const BACKEND_URL = import.meta.env.PROD ? "https://kkopitea-backend.onrender.com" : "http://localhost:8000";
 
   // State declarations
   const [products, setProducts] = useState([]);
@@ -1812,7 +1810,6 @@ const POS = () => {
                         calculateAvailableQuantity={calculateAvailableQuantity}
                         getAvailableSizes={getAvailableSizes}
                         formatPriceDisplay={formatPriceDisplay}
-                        BACKEND_URL={BACKEND_URL}
                       />
                     ))}
                   </div>

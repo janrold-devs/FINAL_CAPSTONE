@@ -77,10 +77,8 @@ const ProductModal = ({
       });
 
       const imageUrl = editingProduct.image
-        ? editingProduct.image.startsWith("http")
           ? editingProduct.image
-          : `${window.location.origin}${editingProduct.image}`
-        : "";
+          : "";
       setImagePreview(imageUrl);
     } else {
       setForm({

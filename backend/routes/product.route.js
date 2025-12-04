@@ -8,7 +8,7 @@ import {
   deleteProduct,
   getProductsByCategory,
 } from "../controllers/product.controller.js";
-import { upload } from "../middleware/upload.middleware.js";
+import { upload } from "../middleware/cloudinary.middleware.js";
 import auth from "../middleware/auth.middleware.js";
 
 const router = express.Router();

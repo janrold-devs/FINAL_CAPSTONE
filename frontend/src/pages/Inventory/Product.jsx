@@ -10,8 +10,6 @@ import SearchFilter from "../../components/SearchFilter";
 
 const Product = () => {
 
-  const BACKEND_URL = import.meta.env.PROD ? "https://kkopitea-backend.onrender.com" : "http://localhost:8000";
-
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [ingredientsList, setIngredientsList] = useState([]);
@@ -221,7 +219,7 @@ const Product = () => {
                             <div className="relative w-20 h-20 mx-auto group cursor-pointer">
                               {/* MAIN IMAGE */}
                               <img
-                                src={`${BACKEND_URL}${p.image}`}
+                                src={p.image}
                                 alt={p.productName}
                                 className="w-full h-full object-cover rounded-lg shadow-sm transition-transform duration-200 ease-out group-hover:scale-105 group-hover:brightness-90"
                               />
@@ -256,7 +254,7 @@ const Product = () => {
                                 "
                               >
                                 <img
-                                  src={`${BACKEND_URL}${p.image}`}
+                                  src={p.image}
                                   alt={p.productName}
                                   className="w-full h-full object-cover"
                                 />

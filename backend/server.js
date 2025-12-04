@@ -67,14 +67,14 @@ app.set("io", io);
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Serve uploads statically
-app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+/** Serve uploads statically
+//app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
   setHeaders: (res, path) => {
     // Allow CORS para sa mga images
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   }
-}));
+}));**/
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -90,7 +90,6 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
 
-// ⛔️ REMOVED: Frontend serving code (Handled by Hostinger)
 
 // Connect to database immediately
 connectDB();

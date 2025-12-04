@@ -1,7 +1,10 @@
 // product.controller.js
 import Product from "../models/Product.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
-import { deleteOldImage } from "../middleware/upload.middleware.js";
+import {
+  deleteCloudinaryImage,
+  getCloudinaryPublicId,
+} from "../middleware/cloudinary.middleware.js";
 
 export const createProduct = async (req, res) => {
   try {
@@ -19,7 +22,7 @@ export const createProduct = async (req, res) => {
       category,
       status,
       ingredients: parsedIngredients,
-      image: req.file ? `/uploads/products/${req.file.filename}` : "",
+      image: req.file ? req.file.path : "",
       isAddon: isAddon || false, // Add this line for add-ons
     };
 
@@ -37,7 +40,7 @@ export const createProduct = async (req, res) => {
   } catch (err) {
     // Delete uploaded file if product creation fails
     if (req.file) {
-      deleteOldImage(`/uploads/products/${req.file.filename}`);
+      deleteCloudinaryImage(req.file.path);
     }
     console.error("Error creating product:", err);
     res.status(500).json({ message: err.message });
@@ -99,7 +102,7 @@ export const updateProduct = async (req, res) => {
     const existingProduct = await Product.findById(req.params.id);
     if (!existingProduct) {
       if (req.file) {
-        deleteOldImage(`/uploads/products/${req.file.filename}`);
+        await deleteCloudinaryImage(req.file.path);
       }
       return res.status(404).json({ message: "Product not found" });
     }
@@ -121,8 +124,11 @@ export const updateProduct = async (req, res) => {
     // Handle image update
     if (req.file) {
       // Delete old image if exists
-      if (existingProduct.image) {
-        deleteOldImage(existingProduct.image);
+      if (
+        existingProduct.image &&
+        existingProduct.image.includes("cloudinary.com")
+      ) {
+        await deleteCloudinaryImage(existingProduct.image);
       }
       data.image = `/uploads/products/${req.file.filename}`;
     } else if (image) {
@@ -146,7 +152,7 @@ export const updateProduct = async (req, res) => {
   } catch (err) {
     // Delete uploaded file if update fails
     if (req.file) {
-      deleteOldImage(`/uploads/products/${req.file.filename}`);
+      await deleteCloudinaryImage(req.file.path);
     }
     console.error("Error updating product:", err);
     res.status(500).json({ message: err.message });
@@ -159,8 +165,8 @@ export const deleteProduct = async (req, res) => {
     if (!deleted) return res.status(404).json({ message: "Product not found" });
 
     // Delete associated image
-    if (deleted.image) {
-      deleteOldImage(deleted.image);
+    if (deleted.image && deleted.image.includes("cloudinary.com")) {
+      await deleteCloudinaryImage(deleted.image);
     }
 
     await logActivity(
