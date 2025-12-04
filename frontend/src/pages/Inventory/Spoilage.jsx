@@ -144,7 +144,7 @@ const Spoilage = () => {
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition"
           >
             <Plus className="w-5 h-5" /> Record Spoilage
           </button>

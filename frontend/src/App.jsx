@@ -1,5 +1,7 @@
-import React from "react";
+// src/App.jsx
+import React, { useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthContext } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Auth/Login";
 import Signup from "./pages/Auth/Signup";
@@ -16,11 +18,26 @@ import Logs from "./pages/Users/Logs";
 import UserManagement from "./pages/Users/UserManagement";
 import UserApproval from "./pages/Users/UserApproval";
 
+// Root redirect component
+const RootRedirect = () => {
+  const { user, token, ready } = useContext(AuthContext);
+  
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+  
+  return user && token ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+};
+
 const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route
@@ -112,12 +129,12 @@ const App = () => {
           }
         />
         <Route
-        path="/users/user-approval"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <UserApproval />
-          </ProtectedRoute>
-        }
+          path="/users/user-approval"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <UserApproval />
+            </ProtectedRoute>
+          }
         />
       </Routes>
     </BrowserRouter>
