@@ -40,12 +40,8 @@ const Sales = () => {
       const salesData = salesRes.data;
       const transactions = transactionsRes.data;
 
-      console.log("📊 Sales data loaded:", salesData.length, "batches");
-      console.log(
-        "💰 Transactions loaded:",
-        transactions.length,
-        "transactions"
-      );
+      console.log("Sales data loaded:", salesData.length, "batches");
+      console.log("Transactions loaded:", transactions.length, "transactions");
 
       // Create a map of dates to sales batches for easier lookup
       const salesByDate = {};
@@ -88,7 +84,7 @@ const Sales = () => {
 
         // Add today's batch to sales data
         salesData.unshift(todayBatch);
-        console.log("📅 Created today's batch:", todayBatch);
+        console.log("Created today's batch:", todayBatch);
       }
 
       setSales(salesData);
@@ -188,7 +184,7 @@ const Sales = () => {
       },
     });
 
-    console.log("💰 Accurate period totals from transactions:", {
+    console.log("Accurate period totals from transactions:", {
       daily: dailyTotal,
       weekly: weeklyTotal,
       monthly: monthlyTotal,
@@ -256,14 +252,14 @@ const Sales = () => {
         return;
     }
 
-    console.log(`📅 ${period.toUpperCase()} filter:`, startDate, "to", endDate);
+    console.log(`${period.toUpperCase()} filter:`, startDate, "to", endDate);
 
     const filtered = sales.filter((sale) => {
       const saleDate = new Date(sale.transactionDate);
       return saleDate >= startDate && saleDate < endDate;
     });
 
-    console.log(`📊 Found ${filtered.length} sales batches for ${period}`);
+    console.log(`Found ${filtered.length} sales batches for ${period}`);
     setFilteredSales(filtered);
     setTimePeriod(period);
   };
@@ -521,35 +517,6 @@ const Sales = () => {
               </button>
             </div>
           </div>
-
-          {/* Current Filter Info */}
-          {timePeriod && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-blue-800">
-                    Showing {timePeriod} sales
-                  </h4>
-                  <p className="text-sm text-blue-600">
-                    {filteredSales.length} batches • ₱
-                    {filteredSales
-                      .reduce((sum, s) => sum + (s.totalSales || 0), 0)
-                      .toFixed(2)}{" "}
-                    total
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setTimePeriod(null);
-                    setFilteredSales(sales);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  Show All
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Export Buttons */}
