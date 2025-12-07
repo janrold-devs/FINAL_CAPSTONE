@@ -39,7 +39,7 @@
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="admin">
                 <Home />
               </ProtectedRoute>
             }

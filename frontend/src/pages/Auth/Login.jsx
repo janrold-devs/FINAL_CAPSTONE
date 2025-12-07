@@ -34,7 +34,16 @@ const Login = () => {
       if (result.success) {
         console.log("Login successful:", result.user);
         toast.success(`Welcome back, ${result.user.firstName}! 👋`);
-        setTimeout(() => navigate("/dashboard"), 1000);
+        if (result.user.role === "admin") {
+          // Admin goes to dashboard
+          setTimeout(() => navigate("/dashboard"), 1000);
+        } else if (result.user.role === "staff") {
+          // Staff goes to POS (or another appropriate page)
+          setTimeout(() => navigate("/pos"), 1000);
+        } else {
+          // Default fallback
+          setTimeout(() => navigate("/dashboard"), 1000);
+        }
       } else {
         toast.error(result.message);
       }
@@ -153,8 +162,8 @@ const Login = () => {
             className="text-[#E89271] hover:underline font-medium"
           >
             Create an account
-          </Link> 
-        </p> 
+          </Link>
+        </p>
       </form>
     </AuthLayout>
   );

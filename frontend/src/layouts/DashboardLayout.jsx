@@ -1,4 +1,3 @@
-// layouts/DashboardLayout.jsx
 import React, { useState, useEffect, useContext } from "react";
 import {
   Bell,
@@ -88,41 +87,46 @@ function SideNav({ sidebarCollapsed, setSidebarCollapsed }) {
 
   const toggleSidebar = () => setSidebarCollapsed((v) => !v);
 
-  // Base navigation items that all users can see
-  const baseNavItems = [
-    { href: "/dashboard", label: "Dashboard", icon: <Gauge size={20} /> },
-    { href: "/pos", label: "Kiosk", icon: <Monitor size={20} /> },
-    { divider: true },
-    { href: "/inventory/products", label: "Products", icon: <CupSoda size={20} /> },
-    { href: "/inventory/ingredients", label: "Ingredients & Materials", icon: <Utensils size={20} /> },
-    { href: "/inventory/stock-in", label: "Inventory in", icon: <MonitorCheck size={20} /> },
-    { href: "/inventory/spoilages", label: "Spoiled & damaged", icon: <MilkOff size={20} /> },
-  ];
-
-  // Admin-only navigation items
-  const adminNavItems = [
-    { divider: true },
-    { href: "/reports/transactions", label: "Records", icon: <ArrowLeftRight size={20} /> },
-    { href: "/reports/sales", label: "Sales", icon: <Receipt size={20} /> },
-    { divider: true },
-    { href: "/users/user-management", label: "Users", icon: <UserIcon size={20} /> },
-    { href: "/users/user-approval", label: "User Approvals", icon: <UserCheck size={20} />},
-    { href: "/users/logs", label: "Activity Log", icon: <Activity size={20} /> },
-  ];
-
-  // Common navigation items for all users
-  const commonNavItems = [
-    { divider: true },
-    { href: "/settings", label: "Settings", icon: <Settings size={20} /> },
-    { href: "#logout", label: "Logout", icon: <LogOut size={20} />, onClick: logout },
-  ];
-
-  // Combine navigation items based on user role
+  // Navigation items based on role
   const getNavItems = () => {
-    if (user?.role === 'staff') {
-      return [...baseNavItems, ...commonNavItems];
+    const items = [];
+    
+    // Add Dashboard ONLY for admin
+    if (user?.role === 'admin') {
+      items.push({ href: "/dashboard", label: "Dashboard", icon: <Gauge size={20} /> });
     }
-    return [...baseNavItems, ...adminNavItems, ...commonNavItems];
+    
+    // Common items for all users
+    items.push(
+      { href: "/pos", label: "Kiosk", icon: <Monitor size={20} /> },
+      { divider: true },
+      { href: "/inventory/products", label: "Products", icon: <CupSoda size={20} /> },
+      { href: "/inventory/ingredients", label: "Ingredients & Materials", icon: <Utensils size={20} /> },
+      { href: "/inventory/stock-in", label: "Inventory in", icon: <MonitorCheck size={20} /> },
+      { href: "/inventory/spoilages", label: "Spoiled & damaged", icon: <MilkOff size={20} /> }
+    );
+    
+    // Admin-only reports and user management
+    if (user?.role === 'admin') {
+      items.push(
+        { divider: true },
+        { href: "/reports/transactions", label: "Records", icon: <ArrowLeftRight size={20} /> },
+        { href: "/reports/sales", label: "Sales", icon: <Receipt size={20} /> },
+        { divider: true },
+        { href: "/users/user-management", label: "Users", icon: <UserIcon size={20} /> },
+        { href: "/users/user-approval", label: "User Approvals", icon: <UserCheck size={20} /> },
+        { href: "/users/logs", label: "Activity Log", icon: <Activity size={20} /> }
+      );
+    }
+    
+    // Common items for all users
+    items.push(
+      { divider: true },
+      { href: "/settings", label: "Settings", icon: <Settings size={20} /> },
+      { href: "#logout", label: "Logout", icon: <LogOut size={20} />, onClick: logout }
+    );
+    
+    return items;
   };
 
   const navItems = getNavItems();

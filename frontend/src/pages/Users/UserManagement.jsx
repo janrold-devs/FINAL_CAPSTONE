@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import axios from "../../api/axios";
 import { toast, ToastContainer } from "react-toastify";
@@ -6,6 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 import UserModal from "../../components/modals/UserModal";
 import AlertDialog from "../../components/AlertDialog";
 import SearchFilter from "../../components/SearchFilter";
+import { AuthContext } from "../../context/AuthContext"; // Import AuthContext
 import {
   Pencil,
   UserX,
@@ -34,6 +35,7 @@ const UserManagement = () => {
   });
 
   const token = localStorage.getItem("token");
+  const { user: currentUser } = useContext(AuthContext); // Get current user from context
 
   // Fetch all users with better error handling
   const fetchUsers = async () => {
@@ -43,8 +45,13 @@ const UserManagement = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      // Filter out the current logged-in user from the list
+      const filteredUsersList = currentUser?._id 
+        ? res.data.filter(user => user._id !== currentUser._id)
+        : res.data;
+
       // Sort users: active users first, then deactivated users
-      const sortedUsers = res.data.sort((a, b) => {
+      const sortedUsers = filteredUsersList.sort((a, b) => {
         const aActive = a.isActive !== false;
         const bActive = b.isActive !== false;
         if (aActive && !bActive) return -1;
@@ -88,6 +95,12 @@ const UserManagement = () => {
 
   // Open modal for editing user
   const handleEditClick = (user) => {
+    // Prevent editing current user (additional safety check)
+    if (currentUser?._id && user._id === currentUser._id) {
+      toast.error("Cannot edit your own account from this page");
+      return;
+    }
+
     setFormUser({
       firstName: user.firstName || "",
       lastName: user.lastName || "",
@@ -112,6 +125,13 @@ const UserManagement = () => {
       };
 
       if (isEdit) {
+        // Additional safety: prevent editing current user
+        if (currentUser?._id && selectedUser?._id === currentUser._id) {
+          toast.error("Cannot edit your own account from this page");
+          setShowModal(false);
+          return;
+        }
+
         // Update existing user
         const updateData = { ...formUser };
         if (!updateData.password || updateData.password.trim() === "") {
@@ -158,6 +178,13 @@ const UserManagement = () => {
   // Handle deactivate/reactivate - USING PUT instead of PATCH
   const handleStatusToggle = async () => {
     try {
+      // Additional safety: prevent deactivating current user
+      if (currentUser?._id && selectedUser?._id === currentUser._id) {
+        toast.error("Cannot deactivate your own account");
+        setShowDeactivate(false);
+        return;
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -560,6 +587,12 @@ const UserManagement = () => {
                             </button>
                             <button
                               onClick={() => {
+                                // Prevent deactivating current user
+                                if (currentUser?._id && user._id === currentUser._id) {
+                                  toast.error("Cannot deactivate your own account");
+                                  return;
+                                }
+                                
                                 setSelectedUser(user);
                                 setShowDeactivate(true);
                               }}

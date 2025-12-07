@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "../../api/axios";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css"
 import ProductModal from "../../components/modals/ProductModal";
 import AlertDialog from "../../components/AlertDialog";
 import DashboardLayout from "../../layouts/DashboardLayout";
@@ -127,6 +128,17 @@ const Product = () => {
 
   return (
     <DashboardLayout>
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <div className="space-y-6">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
