@@ -4,6 +4,7 @@ import { Eye, Plus, Receipt, Calendar, ChevronDown } from "lucide-react";
 import TransactionModal from "../../components/modals/TransactionModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import ExportButtons from "../../components/ExportButtons";
+import SearchFilter from "../../components/SearchFilter";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -49,6 +50,7 @@ const Transactions = () => {
         // Handle both paginated response and flat array
         const transactionsData = res.data.transactions || res.data;
         setTransactions(transactionsData);
+        setFilteredTransactions(transactionsData);
       } catch (error) {
         console.error("Error fetching transactions:", error);
         setTransactions([]);
@@ -442,24 +444,6 @@ const Transactions = () => {
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
-  // Filter configuration for transactions
-  const transactionFilterConfig = [
-    {
-      key: "modeOfPayment",
-      label: "Payment Method",
-      options: [
-        { value: "Cash", label: "Cash" },
-        { value: "GCash", label: "GCash" },
-        { value: "Card", label: "Card" },
-      ],
-    },
-    {
-      key: "cashier._id",
-      label: "Cashier",
-      options: [], // This will be populated dynamically from transactions
-    },
-  ];
-
   // Get unique cashiers from transactions
   const getUniqueCashiers = () => {
     const cashiers = transactions
@@ -475,13 +459,22 @@ const Transactions = () => {
     );
   };
 
-  // Update cashier options when transactions load
-  useEffect(() => {
-    if (transactions.length > 0) {
-      const cashierOptions = getUniqueCashiers();
-      transactionFilterConfig[1].options = cashierOptions;
-    }
-  }, [transactions]);
+  // Filter configuration for transactions
+  const transactionFilterConfig = [
+    {
+      key: "modeOfPayment",
+      label: "Payment Method",
+      options: [
+        { value: "Cash", label: "Cash" },
+        { value: "GCash", label: "GCash" },
+      ],
+    },
+    {
+      key: "cashier._id",
+      label: "Cashier",
+      options: getUniqueCashiers(),
+    },
+  ];
 
   // Sort configuration for transactions
   const transactionSortConfig = [
@@ -526,6 +519,19 @@ const Transactions = () => {
     if (amount > 1000) return "text-green-600";
     if (amount > 500) return "text-blue-600";
     return "text-gray-600";
+  };
+
+  // Handle filtered data change from SearchFilter
+  const handleFilteredDataChange = (filteredData) => {
+    setFilteredTransactions(filteredData);
+  };
+
+  // Handle export data - use filtered transactions if available, otherwise all transactions
+  const getExportData = () => {
+    if (filteredTransactions.length > 0) {
+      return filteredTransactions;
+    }
+    return transactions;
   };
 
   return (
@@ -859,14 +865,36 @@ const Transactions = () => {
           )}
         </div>
 
+        {/* Search & Filter Section */}
+        <SearchFilter
+          data={
+            filteredTransactions.length > 0
+              ? filteredTransactions
+              : transactions
+          }
+          onFilteredDataChange={handleFilteredDataChange}
+          searchFields={[
+            "referenceNumber",
+            "cashier.firstName",
+            "cashier.lastName",
+          ]}
+          filterConfig={[
+            {
+              key: "cashier._id",
+              label: "Cashier",
+              options: getUniqueCashiers(),
+            },
+          ]}
+          sortConfig={transactionSortConfig}
+          placeholder="Search by reference or cashier..."
+          dateField="transactionDate"
+          enableDateFilter={true}
+        />
+
         {/* Export Buttons */}
         <div>
           <ExportButtons
-            data={
-              filteredTransactions.length > 0
-                ? filteredTransactions
-                : transactions
-            }
+            data={getExportData()}
             fileName="Transactions"
             columns={[
               { key: "transactionDate", label: "Date" },

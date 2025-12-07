@@ -1,14 +1,25 @@
-import React from "react";
-import {
-  X,
-  TrendingUp,
-  Package,
-  Tag,
-  PhilippinePeso,
-  BarChart3,
-} from "lucide-react";
+// /mnt/data/BestSellingModal.jsx
+import React, { useEffect, useCallback } from "react";
+import { X, TrendingUp, Package, BarChart3 } from "lucide-react";
 
-const BestSellingModal = ({ show, onClose, data, loading, period }) => {
+/**
+ * BestSellingModal
+ *
+ * - Removed Size and Price columns from the table as requested.
+ * - Added safe default for onClose to avoid runtime errors if not provided.
+ * - Added backdrop click and Escape key handling to reliably close the modal.
+ *
+ * Note: Kept other logic exactly as-is where not related to closing/session concerns.
+ */
+
+const BestSellingModal = ({
+  show,
+  onClose = () => {},
+  data,
+  loading,
+  period,
+}) => {
+  // If no show, nothing renders.
   if (!show) return null;
 
   const formatCurrency = (amount) => {
@@ -28,11 +39,10 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
     }
   };
 
-  // Get default size and price from sizes array
+  // Get default size and price from sizes array (kept for backward compatibility)
   const getProductSizeAndPrice = (product) => {
     if (!product) return { size: null, price: 0 };
 
-    // Use the size and price directly from the product (provided by backend)
     if (product.size && product.price) {
       return {
         size: product.size,
@@ -40,7 +50,6 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
       };
     }
 
-    // Fallback to first size in sizes array
     if (
       product.sizes &&
       Array.isArray(product.sizes) &&
@@ -56,8 +65,37 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
     return { size: null, price: 0 };
   };
 
+  // Close on Escape key
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    },
+    [onClose]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Compute max unitsSold once to avoid recomputing in each row
+  const maxUnitsSold =
+    data && data.products && data.products.length > 0
+      ? Math.max(...data.products.map((p) => p.unitsSold || 0))
+      : 0;
+
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center p-4 z-50">
+    <div
+      className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center p-4 z-50"
+      // Close when clicking on backdrop (only when clicking the overlay itself)
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden border border-gray-200 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
@@ -149,14 +187,9 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                           Category
                         </th>
+                        {/* Size and Price columns intentionally removed per request */}
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                          Size
-                        </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                          Price
-                        </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                          Units Sold
+                          Sold
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                           Total Amount
@@ -165,7 +198,17 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {data.products.map((product, index) => {
+                        // size and price retrieval is preserved (not used in UI now)
                         const { size, price } = getProductSizeAndPrice(product);
+
+                        // Compute progress width safely
+                        const progressWidth =
+                          maxUnitsSold > 0
+                            ? Math.min(
+                                ((product.unitsSold || 0) / maxUnitsSold) * 100,
+                                100
+                              )
+                            : 0;
 
                         return (
                           <tr
@@ -201,16 +244,8 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                                 {product.category}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 inline-block">
-                                {size ? `${size}oz` : "N/A"}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatCurrency(price)}
-                              </div>
-                            </td>
+
+                            {/* Units Sold */}
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="text-lg font-bold text-blue-600">
@@ -220,21 +255,14 @@ const BestSellingModal = ({ show, onClose, data, loading, period }) => {
                                   <div
                                     className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500"
                                     style={{
-                                      width: `${Math.min(
-                                        ((product.unitsSold || 0) /
-                                          Math.max(
-                                            ...data.products.map(
-                                              (p) => p.unitsSold || 0
-                                            )
-                                          )) *
-                                          100,
-                                        100
-                                      )}%`,
+                                      width: `${progressWidth}%`,
                                     }}
                                   ></div>
                                 </div>
                               </div>
                             </td>
+
+                            {/* Total Amount */}
                             <td className="px-6 py-4">
                               <div className="text-lg font-bold text-green-600">
                                 {formatCurrency(product.totalAmount || 0)}
