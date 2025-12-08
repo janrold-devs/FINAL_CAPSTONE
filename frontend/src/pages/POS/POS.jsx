@@ -114,7 +114,47 @@ const CartItem = React.memo(
     confirmRemoveAddon,
     formatPriceDisplay,
     addons,
+    handleManualQuantityInput,
   }) => {
+    const [manualQuantity, setManualQuantity] = useState(item.quantity);
+    const [isEditing, setIsEditing] = useState(false);
+
+    // Update local state when item quantity changes
+    useEffect(() => {
+      setManualQuantity(item.quantity);
+    }, [item.quantity]);
+
+    const handleManualSubmit = () => {
+      const newQty = parseInt(manualQuantity, 10);
+      if (!isNaN(newQty) && newQty > 0 && newQty !== item.quantity) {
+        handleManualQuantityInput(item, newQty);
+      }
+      setIsEditing(false);
+    };
+
+    const handleKeyPress = (e) => {
+      if (e.key === "Enter") {
+        handleManualSubmit();
+      } else if (e.key === "Escape") {
+        setManualQuantity(item.quantity);
+        setIsEditing(false);
+      }
+    };
+
+    const handleInputChange = (e) => {
+      const value = e.target.value;
+      // Allow empty input temporarily for clearing
+      if (value === "") {
+        setManualQuantity("");
+        return;
+      }
+      
+      const numValue = parseInt(value, 10);
+      if (!isNaN(numValue) && numValue >= 1 && numValue <= 999) {
+        setManualQuantity(numValue);
+      }
+    };
+
     return (
       <div className="bg-orange-50 rounded-xl p-3 border border-orange-100">
         <div className="flex justify-between items-start mb-2">
@@ -225,22 +265,68 @@ const CartItem = React.memo(
           </button>
         </div>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-white rounded-lg border-2 border-gray-200">
-            <button
-              onClick={() => updateQuantity(item, -1)}
-              className="px-2 py-1 hover:bg-gray-100 rounded-l-lg transition-colors"
-            >
-              <Minus className="w-4 h-4 text-gray-600" />
-            </button>
-            <span className="px-3 font-semibold text-gray-800">
-              {item.quantity}
-            </span>
-            <button
-              onClick={() => updateQuantity(item, 1)}
-              className="px-2 py-1 hover:bg-gray-100 rounded-r-lg transition-colors"
-            >
-              <Plus className="w-4 h-4 text-gray-600" />
-            </button>
+          {/* Quantity controls with manual input */}
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={manualQuantity}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyPress}
+                  onBlur={handleManualSubmit}
+                  autoFocus
+                  className="w-20 border-2 border-[#E89271] rounded-lg px-2 py-1 text-center font-semibold focus:outline-none focus:ring-1 focus:ring-[#E89271]"
+                />
+                <button
+                  onClick={handleManualSubmit}
+                  className="bg-green-600 text-white px-2 py-1 rounded-lg hover:bg-green-700 transition-colors text-xs"
+                >
+                  OK
+                </button>
+                <button
+                  onClick={() => {
+                    setManualQuantity(item.quantity);
+                    setIsEditing(false);
+                  }}
+                  className="bg-gray-600 text-white px-2 py-1 rounded-lg hover:bg-gray-700 transition-colors text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-white rounded-lg border-2 border-gray-200">
+                  <button
+                    onClick={() => updateQuantity(item, -1)}
+                    className="px-2 py-1 hover:bg-gray-100 rounded-l-lg transition-colors"
+                  >
+                    <Minus className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <span
+                    onClick={() => setIsEditing(true)}
+                    className="px-3 font-semibold text-gray-800 cursor-pointer hover:bg-gray-50 hover:rounded min-w-[40px] text-center"
+                    title="Click to edit quantity"
+                  >
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => updateQuantity(item, 1)}
+                    className="px-2 py-1 hover:bg-gray-100 rounded-r-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-[#E89271] hover:text-[#d67a5c] font-medium underline"
+                >
+                  Edit
+                </button>
+              </div>
+            )}
           </div>
           <div className="font-bold text-[#E89271]">
             {item.price === null
@@ -254,7 +340,6 @@ const CartItem = React.memo(
 );
 
 const POS = () => {
-
   // State declarations
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
@@ -468,6 +553,7 @@ const POS = () => {
             font-size: 14px;
             margin: 5px 0;
             font-weight: bold;
+            text-transform: uppercase;
           }
           .header p {
             margin: 3px 0;
@@ -556,21 +642,6 @@ const POS = () => {
             margin-top: 15px;
             font-size: 10px;
             color: #666;
-          }
-          .print-btn {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-          }
-          .print-btn:hover {
-            background: #0056b3;
           }
         </style>
       </head>
@@ -684,10 +755,7 @@ const POS = () => {
           <p>--------------------------------</p>
         </div>
         
-        
-        
         <script>
-          // Try auto-print once when page loads
           window.addEventListener('load', function() {
             setTimeout(function() {
               try {
@@ -696,12 +764,11 @@ const POS = () => {
                   window.close();
                 }, 1000);
               } catch (e) {
-                console.log('Auto-print failed, manual print button available');
+                console.log('Auto-print failed');
               }
             }, 300);
           });
           
-          // Fallback if page is already loaded
           if (document.readyState === 'complete') {
             setTimeout(function() {
               try {
@@ -710,7 +777,7 @@ const POS = () => {
                   window.close();
                 }, 1000);
               } catch (e) {
-                console.log('Auto-print failed, manual print button available');
+                console.log('Auto-print failed');
               }
             }, 300);
           }
@@ -980,6 +1047,33 @@ const POS = () => {
           : cartItem
       )
     );
+  }, []);
+
+  // Manual quantity input handler
+  const handleManualQuantityInput = useCallback((item, newQuantity) => {
+    if (newQuantity < 1) {
+      toast.error("Quantity must be at least 1");
+      return;
+    }
+
+    if (newQuantity > 999) {
+      toast.error("Maximum quantity is 999");
+      return;
+    }
+
+    setCart((prev) =>
+      prev.map((cartItem) =>
+        cartItem.product._id === item.product._id &&
+        cartItem.size === item.size &&
+        cartItem.subcategory === item.subcategory &&
+        JSON.stringify(cartItem.addons || []) ===
+          JSON.stringify(item.addons || [])
+          ? { ...cartItem, quantity: newQuantity }
+          : cartItem
+      )
+    );
+
+    toast.info(`Quantity updated to ${newQuantity}`);
   }, []);
 
   const removeFromCart = useCallback((item) => {
@@ -1947,6 +2041,7 @@ const POS = () => {
                         confirmRemoveAddon={confirmRemoveAddon}
                         formatPriceDisplay={formatPriceDisplay}
                         addons={addons}
+                        handleManualQuantityInput={handleManualQuantityInput}
                       />
                     ))
                   )}
