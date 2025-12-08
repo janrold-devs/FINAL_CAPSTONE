@@ -109,7 +109,7 @@ const SpoilageModal = ({
           ingredient: ingredient._id,
           name: ingredient.name,
           quantity: 1,
-          unit: ingredient.unit.toLowerCase(), 
+          unit: ingredient.unit,
         },
       ],
     });
@@ -225,7 +225,7 @@ const SpoilageModal = ({
                         <tr key={index} className="border-b last:border-b-0">
                           <td className="py-2">{item.ingredient?.name || "Unknown"}</td>
                           <td className="text-right py-2 font-medium">{item.quantity}</td>
-                          <td className="text-right py-2 text-gray-600">{item.unit.toLowerCase()}</td>                       
+                          <td className="text-right py-2 text-gray-600">{item.unit}</td>                       
                         </tr>
                       ))}
                     </tbody>
@@ -288,8 +288,6 @@ const SpoilageModal = ({
               value={selectedCategory}
               onChange={(e) => {
                 setSelectedCategory(e.target.value);
-                // close dropdown and reset selected chips if category changes? keep selected items (better UX: clear)
-                setForm((prev) => ({ ...prev, ingredients: [] }));
               }}
             >
               <option value="">Select Category</option>
@@ -328,7 +326,7 @@ const SpoilageModal = ({
                         onClick={(e) => e.stopPropagation()}
                       />
                       <span className="text-xs font-medium px-1 py-0.5 bg-gray-100 rounded">
-                        {ing.unit.toLowerCase()}
+                        {ing.unit}
                       </span>
                       <button
                         type="button"
