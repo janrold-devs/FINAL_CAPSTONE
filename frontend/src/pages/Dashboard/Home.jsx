@@ -174,8 +174,12 @@ const Home = () => {
   useEffect(() => {
     fetchDashboardData();
 
-    // Refresh every 30 seconds for real-time updates
-    const interval = setInterval(fetchDashboardData, 30000);
+    // Poll every 5 minutes (300000ms) when tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchDashboardData();
+      }
+    }, 300000); // 5 minutes
 
     return () => clearInterval(interval);
   }, []);

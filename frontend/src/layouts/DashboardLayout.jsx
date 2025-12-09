@@ -25,28 +25,6 @@ import api from "../api/axios";
 
 function TopNav({ sidebarCollapsed }) {
   const { user } = useContext(AuthContext);
-  const [notifications, setNotifications] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  // Fetch notifications using axios
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await api.get("/notifications");
-        setNotifications(res.data);
-      } catch (err) {
-        console.error("Error fetching notifications:", err);
-      }
-    };
-
-    fetchNotifications();
-    // refresh every minute
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const toggleDropdown = () => setShowDropdown(!showDropdown);
-  const clearNotifications = () => setNotifications([]);
 
   return (
     <header 

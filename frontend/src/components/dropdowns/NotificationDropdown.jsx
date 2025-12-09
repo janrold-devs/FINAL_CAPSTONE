@@ -8,66 +8,41 @@ import {
   X,
   CheckCheck
 } from "lucide-react";
-import io from "socket.io-client";
 import api from "../../api/axios";
 
 const NotificationDropdown = () => {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [socket, setSocket] = useState(null);
-  const [connected, setConnected] = useState(false);
   const dropdownRef = useRef(null);
+  const lastFetchTimeRef = useRef(Date.now());
 
-  // ✅ CORRECT: Use relative path for API calls
-  const getBackendBaseUrl = () => {
-    return import.meta.env.PROD 
-      ? "https://kkopitea-backend.onrender.com" // Your Render backend
-      : "http://localhost:8000";
-  };
+  // Smart polling with visibility detection
+  useEffect(() => {
+    // Initial fetch
+    fetchNotifications();
 
-  const BACKEND_BASE_URL = getBackendBaseUrl(); 
+    // Poll every 5 minutes (300000ms) when tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && 
+          (Date.now() - lastFetchTimeRef.current) > 30000) {
+        fetchNotifications();
+      }
+    }, 300000); // 5 minutes
 
-  // ✅ FIXED: Socket connection - use current domain in production
- useEffect(() => {
-    console.log("🔗 Connecting to backend:", BACKEND_BASE_URL);
+    // Fetch when tab becomes visible (if >30s since last fetch)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && 
+          (Date.now() - lastFetchTimeRef.current) > 30000) {
+        fetchNotifications();
+      }
+    };
 
-    const newSocket = io(BACKEND_BASE_URL, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-      timeout: 10000,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
-
-    setSocket(newSocket);
-
-    newSocket.on("connect", () => {
-      console.log("✅ Connected to notification server");
-      setConnected(true);
-      fetchNotifications();
-    });
-
-    newSocket.on("disconnect", (reason) => {
-      console.log("❌ Disconnected from server:", reason);
-      setConnected(false);
-    });
-
-    newSocket.on("connect_error", (error) => {
-      console.error("Connection error:", error.message);
-      setConnected(false);
-    });
-
-    newSocket.on("notifications_update", (newNotifications) => {
-      console.log(`🔔 Received ${newNotifications.length} notifications via socket`);
-      setNotifications(newNotifications);
-    });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (newSocket) {
-        newSocket.close();
-      }
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
   
@@ -108,6 +83,7 @@ const NotificationDropdown = () => {
       const response = await api.get("/notifications");
       console.log(`✅ Received ${response.data.length} notifications`);
       setNotifications(response.data);
+      lastFetchTimeRef.current = Date.now();
     } catch (error) {
       console.error("❌ Error fetching notifications:", error);
       // Don't show alert for initial load, only show if user manually refreshes
@@ -257,18 +233,6 @@ const NotificationDropdown = () => {
               </h3>
 
               <div className="flex items-center gap-3">
-                {/* Connection Status */}
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      connected ? "bg-green-500" : "bg-red-500"
-                    } animate-pulse`}
-                  />
-                  <span className="text-xs text-gray-600">
-                    {connected ? "Live" : "Offline"}
-                  </span>
-                </div>
-
                 {/* Refresh Button */}
                 <button
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
@@ -386,14 +350,6 @@ const NotificationDropdown = () => {
                 <p className="text-sm text-gray-500 mt-1">
                   No inventory alerts at this time
                 </p>
-                {!connected && (
-                  <div className="mt-4 p-3 bg-orange-50 rounded-lg">
-                    <p className="text-xs text-orange-700 flex items-center justify-center gap-1">
-                      <AlertTriangle className="w-4 h-4" />
-                      Real-time updates are currently unavailable
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>

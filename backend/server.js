@@ -3,8 +3,6 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer } from "http";
-import { Server } from "socket.io";
 import connectDB from "./config/db.js";
 import { ENV } from "./lib/env.js";
 
@@ -26,7 +24,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const server = createServer(app);
 
 // Determine environment
 const isProduction = ENV.NODE_ENV === 'production';
@@ -41,28 +38,6 @@ const corsOptions = {
   credentials: true,
   exposedHeaders: ['Content-Length', 'Content-Type']
 };
-
-// Socket.IO configuration
-const io = new Server(server, {
-  cors: corsOptions
-});
-
-// Socket.IO connection handling
-io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
-
-  socket.on("join_notifications", (userId) => {
-    socket.join(`user_${userId}`);
-    console.log(`User ${userId} joined notification room`);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-  });
-});
-
-// Make io available to routes
-app.set("io", io);
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -100,16 +75,14 @@ export default app;
 // Only start server directly if not in production (for local development)
 if (process.env.NODE_ENV !== 'production') {
   const PORT = ENV.PORT || 8000;
-  server.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`🚀 Backend server running in development mode on port ${PORT}`);
     console.log(`📊 API: http://localhost:${PORT}/api`);
   });
 } else {
   // Production - use Render's port
   const PORT = process.env.PORT || 10000;
-  server.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`🚀 Backend server running in production on port ${PORT}`);
   });
 }
-
-export { io };

@@ -174,26 +174,6 @@ export const generateAndSaveNotifications = async () => {
 export const triggerNotificationGeneration = async (req, res) => {
   try {
     const newNotifications = await generateAndSaveNotifications();
-    
-    // Emit real-time update to ALL users
-    const io = req.app.get("io");
-    if (io) {
-      const users = await User.find({
-        status: 'active',
-        $or: [{ role: 'admin' }, { role: 'staff' }]
-      });
-      
-      for (const user of users) {
-        const userNotifications = await Notification.find({
-          user: user._id,
-          isCleared: false
-        })
-        .populate("ingredientId", "name unit quantity expiration alertLevel")
-        .sort({ createdAt: -1 });
-        
-        io.to(user._id.toString()).emit("notifications_update", userNotifications);
-      }
-    }
 
     res.json({ 
       message: "Notifications generated successfully", 
