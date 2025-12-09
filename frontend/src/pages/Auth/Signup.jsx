@@ -1,5 +1,5 @@
 // pages/Auth/Signup.jsx
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import AuthLayout from "../../layouts/AuthLayout";
 import { useNavigate, Link } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
@@ -8,7 +8,7 @@ import { AuthContext } from "../../context/AuthContext";
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { register } = useContext(AuthContext);
+  const { register, user, token, ready } = useContext(AuthContext);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -16,6 +16,21 @@ const Signup = () => {
     email: "",
   });
   const [loading, setLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (ready && user && token) {
+      console.log("✅ User already logged in, redirecting from signup...");
+      // Redirect based on role
+      if (user.role === "admin") {
+        navigate("/dashboard", { replace: true });
+      } else if (user.role === "staff") {
+        navigate("/pos", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    }
+  }, [ready, user, token, navigate]);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });

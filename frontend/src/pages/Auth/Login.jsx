@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import AuthLayout from "../../layouts/AuthLayout";
 import { useNavigate, Link } from "react-router-dom";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
@@ -8,10 +8,25 @@ import { AuthContext } from "../../context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
+  const { login, user, token, ready } = useContext(AuthContext);
   const [form, setForm] = useState({ username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (ready && user && token) {
+      console.log("✅ User already logged in, redirecting...");
+      // Redirect based on role
+      if (user.role === "admin") {
+        navigate("/dashboard", { replace: true });
+      } else if (user.role === "staff") {
+        navigate("/pos", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    }
+  }, [ready, user, token, navigate]);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
