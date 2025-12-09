@@ -20,8 +20,20 @@ const Product = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
 
+  // Predefined categories list (must match ProductModal)
+  const predefinedCategories = [
+    "iced latte",
+    "bubble tea",
+    "fruit tea",
+    "amerikano",
+    "non caffeine",
+    "frappe",
+    "choco Series",
+    "hot drink",
+    "shiro Series"
+  ];
+
   // Fetch products
-  // Product.jsx - Update the fetchProducts function
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -107,9 +119,17 @@ const Product = () => {
         { value: "choco Series", label: "Choco Series" },
         { value: "hot drink", label: "Hot Drink" },
         { value: "shiro Series", label: "Shiro Series" },
+        { value: "others", label: "Others" }, // New option
       ],
+      customFilter: (item, filterValue) => {
+        if (filterValue === "others") {
+          // Show items with categories NOT in predefined list
+          return !predefinedCategories.includes(item.category?.toLowerCase());
+        }
+        // Normal filter for predefined categories
+        return item.category?.toLowerCase() === filterValue;
+      }
     },
-
     {
       key: "size",
       label: "Size",
@@ -125,6 +145,26 @@ const Product = () => {
     { key: "productName", label: "Alphabetical" },
     { key: "category", label: "Category" },
   ];
+
+  // Format category for display
+  const formatCategory = (category) => {
+    if (!category) return "";
+    
+    // Check if it's a predefined category
+    const isPredefined = predefinedCategories.some(predefined => 
+      predefined.toLowerCase() === category.toLowerCase()
+    );
+    
+    if (isPredefined) {
+      // Capitalize each word
+      return category.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+    }
+    
+    // For custom categories, just capitalize first letter
+    return category.charAt(0).toUpperCase() + category.slice(1);
+  };
 
   return (
     <DashboardLayout>
@@ -287,7 +327,7 @@ const Product = () => {
                         </td>
 
                         <td className="px-6 py-5 text-sm text-gray-700 capitalize align-top">
-                          {p.category}
+                          {formatCategory(p.category)}
                         </td>
 
                         <td className="px-6 py-5 align-top">

@@ -7,10 +7,39 @@ const ProductModal = ({
   editingProduct,
   ingredientsList,
 }) => {
+  // Predefined categories (must match Product.jsx)
+  const initialPredefinedCategories = [
+    "iced latte",
+    "bubble tea",
+    "fruit tea",
+    "amerikano",
+    "non caffeine",
+    "frappe",
+    "choco Series",
+    "hot drink",
+    "shiro Series"
+  ];
+
+  // Load saved custom categories from localStorage
+  const [savedCustomCategories, setSavedCustomCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('productCustomCategories');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Error loading custom categories:', error);
+      return [];
+    }
+  });
+
+  // Combine predefined and saved custom categories
+  const allCategories = [...initialPredefinedCategories, ...savedCustomCategories];
+
   const [form, setForm] = useState({
     image: "",
     productName: "",
     category: "",
+    selectedCategoryType: "predefined", // 'predefined' or 'custom'
+    customCategory: "",
     status: "available",
     sizes: [
       {
@@ -38,7 +67,6 @@ const ProductModal = ({
     const selectedCat = form.ingredientCategory;
     if (!selectedCat) return false;
     
-    // Check if any item in this category has unit "pcs" (typical for materials)
     const itemsInCategory = ingredientsList.filter(i => 
       (i.category || "Uncategorized") === selectedCat
     );
@@ -48,11 +76,26 @@ const ProductModal = ({
   // Prefill when editing
   useEffect(() => {
     if (editingProduct) {
+      const category = editingProduct.category || "";
+      
+      // Check if category exists in any category list
+      const categoryExistsInPredefined = initialPredefinedCategories.some(predefined => 
+        predefined.toLowerCase() === category.toLowerCase()
+      );
+      
+      const categoryExistsInSaved = savedCustomCategories.some(saved => 
+        saved.toLowerCase() === category.toLowerCase()
+      );
+      
+      const categoryExists = categoryExistsInPredefined || categoryExistsInSaved;
+      
       setForm({
         image: editingProduct.image || "",
         productName: editingProduct.productName,
-        category: editingProduct.category,
-        status: editingProduct.status,
+        category: category,
+        selectedCategoryType: categoryExists ? "predefined" : "custom",
+        customCategory: categoryExists ? "" : category,
+        status: editingProduct.status || "available",
         sizes:
           editingProduct.sizes?.length > 0
             ? editingProduct.sizes.map((s) => ({
@@ -61,8 +104,8 @@ const ProductModal = ({
               }))
             : [
                 {
-                  size: Number(editingProduct.size),
-                  price: Number(editingProduct.price),
+                  size: Number(editingProduct.size || 16),
+                  price: Number(editingProduct.price || ""),
                 },
               ],
         ingredients:
@@ -71,20 +114,20 @@ const ProductModal = ({
             name: i.ingredient?.name || i.name,
             quantity: i.quantity || 1,
             category: i.ingredient?.category || "",
-            unit: i.ingredient?.unit || i.unit || "", // Include unit here
+            unit: i.ingredient?.unit || i.unit || "",
           })) || [],
         ingredientCategory: "",
       });
 
-      const imageUrl = editingProduct.image
-          ? editingProduct.image
-          : "";
+      const imageUrl = editingProduct.image ? editingProduct.image : "";
       setImagePreview(imageUrl);
     } else {
       setForm({
         image: "",
         productName: "",
-        category: "Select Product Category",
+        category: "",
+        selectedCategoryType: "predefined",
+        customCategory: "",
         status: "available",
         sizes: [{ size: 16, price: "" }],
         ingredientCategory: "",
@@ -93,7 +136,7 @@ const ProductModal = ({
       setImagePreview("");
       setImageFile(null);
     }
-  }, [editingProduct]);
+  }, [editingProduct, show]);
 
   // Close ingredient dropdown on outside click
   useEffect(() => {
@@ -105,6 +148,30 @@ const ProductModal = ({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // Save custom category to localStorage
+  const saveCustomCategory = (categoryName) => {
+    if (!categoryName.trim()) return;
+    
+    const formattedCategory = categoryName.trim().toLowerCase();
+    
+    // Check if category already exists
+    const alreadyExists = allCategories.some(cat => 
+      cat.toLowerCase() === formattedCategory
+    );
+    
+    if (!alreadyExists) {
+      const updatedCategories = [...savedCustomCategories, formattedCategory];
+      setSavedCustomCategories(updatedCategories);
+      
+      try {
+        localStorage.setItem('productCustomCategories', JSON.stringify(updatedCategories));
+        console.log('Saved custom category:', formattedCategory);
+      } catch (error) {
+        console.error('Error saving custom category:', error);
+      }
+    }
+  };
 
   // Handle image file selection
   const handleImageChange = (e) => {
@@ -128,6 +195,35 @@ const ProductModal = ({
     setImagePreview("");
     setForm({ ...form, image: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Handle category type change
+  const handleCategoryTypeChange = (type) => {
+    setForm(prev => ({
+      ...prev,
+      selectedCategoryType: type,
+      category: type === "predefined" ? "" : prev.customCategory
+    }));
+  };
+
+  // Handle predefined category selection
+  const handlePredefinedCategoryChange = (e) => {
+    const value = e.target.value;
+    setForm(prev => ({
+      ...prev,
+      category: value,
+      customCategory: ""
+    }));
+  };
+
+  // Handle custom category input
+  const handleCustomCategoryChange = (e) => {
+    const value = e.target.value;
+    setForm(prev => ({
+      ...prev,
+      customCategory: value,
+      category: value
+    }));
   };
 
   // SIZE MANAGEMENT
@@ -175,7 +271,7 @@ const ProductModal = ({
             name: ingredient.name,
             quantity: 1,
             category: ingredient.category,
-            unit: ingredient.unit || "", // Include unit from inventory
+            unit: ingredient.unit || "",
           },
         ],
       });
@@ -196,6 +292,21 @@ const ProductModal = ({
     e.preventDefault();
 
     if (!form.productName.trim()) return alert("Product name is required");
+
+    // Validate category
+    if (form.selectedCategoryType === "custom") {
+      if (!form.customCategory.trim()) {
+        alert("Please enter a custom category name");
+        return;
+      }
+      // Save the custom category
+      saveCustomCategory(form.customCategory);
+    }
+
+    if (form.selectedCategoryType === "predefined" && !form.category) {
+      alert("Please select a category");
+      return;
+    }
 
     // Validate prices
     for (const s of form.sizes) {
@@ -218,7 +329,7 @@ const ProductModal = ({
         form.ingredients.map((i) => ({
           ingredient: i.ingredient,
           quantity: Number(i.quantity),
-          unit: i.unit, // Include unit in submission
+          unit: i.unit,
         }))
       )
     );
@@ -297,29 +408,108 @@ const ProductModal = ({
             />
           </div>
 
-          {/* PRODUCT CATEGORY */}
+          {/* PRODUCT CATEGORY - UPDATED */}
           <div>
             <label className="block font-medium text-gray-700 text-sm mb-2">
               Product Category <span className="text-red-500">*</span>
             </label>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              required
-            >
-              <option value="">Select Product Category</option>
-              <option value="Amerikano">Amerikano</option>
-              <option value="Bubble Tea">Bubble Tea</option>
-              <option value="Choco Series">Choco Series</option>
-              <option value="Frappe">Frappe</option>
-              <option value="Fruit Tea">Fruit Tea</option>
-              <option value="Hot Drinks">Hot Drinks</option>
-              <option value="Iced Latte">Iced Latte</option>
-              <option value="Non Caffeine">Non Caffeine</option>
-              <option value="Shiro Series">Shiro Series</option>
-            </select>
+            
+            {/* Category Type Selection */}
+            <div className="flex gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => handleCategoryTypeChange("predefined")}
+                className={`flex-1 py-2.5 px-4 rounded-lg border transition-colors text-sm font-medium ${
+                  form.selectedCategoryType === "predefined"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-300 text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                Predefined Categories
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCategoryTypeChange("custom")}
+                className={`flex-1 py-2.5 px-4 rounded-lg border transition-colors text-sm font-medium ${
+                  form.selectedCategoryType === "custom"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-300 text-gray-700 hover:border-gray-400"
+                }`}
+              >
+                Custom Category
+              </button>
+            </div>
+
+            {/* Predefined Categories Dropdown (now includes saved custom categories) */}
+            {form.selectedCategoryType === "predefined" && (
+              <div>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={form.category}
+                  onChange={handlePredefinedCategoryChange}
+                  required
+                >
+                  <option value="">Select Product Category</option>
+                  
+                  {/* Original Predefined Categories */}
+                  <optgroup label="Standard Categories">
+                    {initialPredefinedCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category.split(' ').map(word => 
+                          word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ')}
+                      </option>
+                    ))}
+                  </optgroup>
+                  
+                  {/* Saved Custom Categories */}
+                  {savedCustomCategories.length > 0 && (
+                    <optgroup label="Custom Categories">
+                      {savedCustomCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category.split(' ').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)
+                          ).join(' ')}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {savedCustomCategories.length > 0 
+                    ? "Includes both standard and previously saved custom categories"
+                    : "Choose from our standard categories. Custom categories will appear here after saving."}
+                </p>
+              </div>
+            )}
+
+            {/* Custom Category Input */}
+            {form.selectedCategoryType === "custom" && (
+              <div>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={form.customCategory}
+                  onChange={handleCustomCategoryChange}
+                  placeholder="Enter your custom category name"
+                  required
+                />
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-gray-500">
+                    This category will be saved and available in the dropdown for future products
+                  </p>
+                  {form.customCategory.trim() && !allCategories.some(cat => 
+                    cat.toLowerCase() === form.customCategory.trim().toLowerCase()
+                  ) && (
+                    <span className="text-xs text-green-600 font-medium">
+                      New category
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+
           {/* PRODUCT NAME */}
           <div>
             <label className="block font-medium text-gray-700 text-sm mb-2">
@@ -444,7 +634,7 @@ const ProductModal = ({
                     ...form,
                     ingredientCategory: e.target.value,
                   });
-                  setDropdownOpen(false); // Reset dropdown when category changes
+                  setDropdownOpen(false);
                 }}
               >
                 <option value="">-- Select Category --</option>
@@ -519,7 +709,6 @@ const ProductModal = ({
 
                 {dropdownOpen && (
                   <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 z-10">
-                    {/* Filter items based on selected category */}
                     {ingredientsList
                       .filter(
                         (i) =>
