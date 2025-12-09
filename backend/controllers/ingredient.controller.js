@@ -9,7 +9,27 @@ export const createIngredient = async (req, res) => {
   try {
     console.log("🔍 Creating ingredient - User:", req.user?._id);
     
-    const body = { ...req.body, user: req.user._id };
+    // Trim the name to prevent whitespace duplicates
+    const trimmedName = req.body.name.trim();
+    
+    // Check if ingredient with trimmed name already exists
+    const existing = await Ingredient.findOne({ 
+      name: { $regex: `^${trimmedName}$`, $options: 'i' } 
+    });
+    
+    if (existing) {
+      return res.status(400).json({ 
+        message: `Ingredient "${trimmedName}" already exists.` 
+      });
+    }
+    
+    // Create with trimmed name
+    const body = { 
+      ...req.body, 
+      name: trimmedName,
+      user: req.user._id 
+    };
+    
     const created = await Ingredient.create(body);
 
     console.log("✅ Ingredient created:", created.name, "User:", created.user);
@@ -35,17 +55,47 @@ export const createIngredient = async (req, res) => {
     res.status(201).json(created);
   } catch (err) {
     console.error("Error in createIngredient:", err);
+    
+    // Handle duplicate key error specifically
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: "Ingredient with this name already exists. Please use a different name." 
+      });
+    }
+    
     res.status(500).json({ message: err.message });
   }
 };
 
 export const updateIngredient = async (req, res) => {
   try {
+    // Trim name if provided in update
+    if (req.body.name) {
+      req.body.name = req.body.name.trim();
+      
+      // Check for duplicates (excluding current ingredient)
+      const trimmedName = req.body.name;
+      const existing = await Ingredient.findOne({ 
+        name: { $regex: `^${trimmedName}$`, $options: 'i' },
+        _id: { $ne: req.params.id }
+      });
+      
+      if (existing) {
+        return res.status(400).json({ 
+          message: `Ingredient "${trimmedName}" already exists.` 
+        });
+      }
+    }
+
     const updatedIngredient = await Ingredient.findByIdAndUpdate(
       req.params.id, 
       req.body, 
-      { new: true }
+      { new: true, runValidators: true }
     );
+
+    if (!updatedIngredient) {
+      return res.status(404).json({ message: "Ingredient not found" });
+    }
 
     // ✅ IMMEDIATELY check and create notifications
     const newNotifications = await checkIngredientNotifications(updatedIngredient);
@@ -53,10 +103,9 @@ export const updateIngredient = async (req, res) => {
     // ✅ IMMEDIATELY emit to all connected users
     const io = req.app.get('io');
     if (io) {
-      // **FIXED: Use correct status field and include isActive**
       const users = await User.find({
-        status: 'approved', // Changed from 'active' to 'approved'
-        isActive: true,     // Added isActive check
+        status: 'approved',
+        isActive: true,
         $or: [{ role: 'admin' }, { role: 'staff' }]
       });
 
@@ -79,6 +128,14 @@ export const updateIngredient = async (req, res) => {
     res.json(updatedIngredient);
   } catch (error) {
     console.error("Error updating ingredient:", error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        message: "Ingredient with this name already exists. Please use a different name." 
+      });
+    }
+    
     res.status(400).json({ message: error.message });
   }
 };

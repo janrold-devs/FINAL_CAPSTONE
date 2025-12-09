@@ -24,35 +24,44 @@ const Ingredient = () => {
     expiration: "",
     category: "",
   });
+  const [formErrors, setFormErrors] = useState({}); // NEW: For validation errors
 
   const fetchIngredients = async () => {
-  try {
-    setLoading(true);
-    const res = await axios.get("/ingredients");
-    
-    // Normalize units in the data
-    const normalizedData = res.data.map(ingredient => ({
-      ...ingredient,
-      unit: ingredient.unit?.toLowerCase().replace('ml', 'ml') || ingredient.unit
-    }));
-    
-    setIngredients(normalizedData);
-  } catch (err) {
-    console.error("Error fetching ingredients:", err);
-    toast.error("Failed to fetch ingredients");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      const res = await axios.get("/ingredients");
+      
+      // Normalize units in the data
+      const normalizedData = res.data.map(ingredient => ({
+        ...ingredient,
+        unit: ingredient.unit?.toLowerCase().replace('ml', 'ml') || ingredient.unit
+      }));
+      
+      setIngredients(normalizedData);
+    } catch (err) {
+      console.error("Error fetching ingredients:", err);
+      toast.error("Failed to fetch ingredients");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormErrors({}); // Clear previous errors
+    
     try {
+      // Prepare data with trimmed name
+      const payload = {
+        ...form,
+        name: form.name.trim() // NEW: Trim the name before sending
+      };
+      
       if (editingId) {
-        await axios.put(`/ingredients/${editingId}`, form);
+        await axios.put(`/ingredients/${editingId}`, payload);
         toast.success("Ingredient updated successfully!");
       } else {
-        await axios.post("/ingredients", form);
+        await axios.post("/ingredients", payload);
         toast.success("Ingredient added successfully!");
       }
       setShowModal(false);
@@ -61,7 +70,30 @@ const Ingredient = () => {
       fetchIngredients();
     } catch (err) {
       console.error("Error saving ingredient:", err);
-      toast.error("Failed to save ingredient");
+      
+      // NEW: Handle duplicate error specifically
+      if (err.response?.status === 400) {
+        const errorMessage = err.response.data.message;
+        
+        if (errorMessage.includes("already exists")) {
+          // Extract the existing ingredient ID from the error message
+          const match = errorMessage.match(/ID: (\w+)/);
+          if (match) {
+            setFormErrors({ 
+              name: `Ingredient already exists (ID: ${match[1]}). Please use a different name or edit the existing ingredient.` 
+            });
+          } else {
+            setFormErrors({ name: "Ingredient with this name already exists. Please use a different name." });
+          }
+        } else {
+          toast.error(errorMessage || "Failed to save ingredient");
+        }
+      } else if (err.response?.status === 500 && err.response?.data?.code === 11000) {
+        // Handle MongoDB duplicate key error
+        setFormErrors({ name: "Ingredient with this name already exists. Please use a different name." });
+      } else {
+        toast.error("Failed to save ingredient");
+      }
     }
   };
 
@@ -93,6 +125,7 @@ const Ingredient = () => {
       alert: "",
       expiration: "",
     });
+    setFormErrors({}); // NEW: Clear errors when resetting
   };
 
   const getStockStatus = (quantity, alert) => {
@@ -113,6 +146,7 @@ const Ingredient = () => {
       category: ingredient.category,
     });
     setEditingId(ingredient._id);
+    setFormErrors({}); // NEW: Clear errors when editing
     setShowModal(true);
   };
 
@@ -128,7 +162,6 @@ const Ingredient = () => {
 
   // Simplified filter configuration (removed "Name Starts With")
   const ingredientFilterConfig = [
-
     {
       key: "category",
       label: "Category",
@@ -171,7 +204,7 @@ const Ingredient = () => {
   ];
 
   return (
-    <DashboardLayout> {/*todo: remove remarks field table*/}
+    <DashboardLayout>
       <div className="space-y-6">
         <ToastContainer
           position="bottom-right"
@@ -219,20 +252,12 @@ const Ingredient = () => {
           data={ingredients}
           onFilteredDataChange={setFilteredIngredients}
           searchFields={["name", "category", "unit"]}
-
-          // NEW: full category filter config
           filterConfig={ingredientFilterConfig}
-
-          // keeps all sort functionalities
           sortConfig={ingredientSortConfig}
-
           placeholder="Search ingredients by name, category, or unit..."
-
-          // enable expiration filtering
           enableDateFilter={true}
           dateField="expiration"
         />
-
 
         {/* Table Section */}
         {loading ? (
@@ -329,6 +354,7 @@ const Ingredient = () => {
           form={form}
           setForm={setForm}
           editingId={editingId}
+          formErrors={formErrors} // NEW: Pass errors to modal
         />
 
         {/* Custom Alert Dialog */}
