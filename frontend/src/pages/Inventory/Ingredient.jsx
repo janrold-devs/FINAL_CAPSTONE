@@ -4,8 +4,9 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AlertDialog from "../../components/AlertDialog";
 import IngredientModal from "../../components/modals/IngredientModal";
+import ArchiveModal from "../../components/modals/ArchiveModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Archive } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
 
@@ -25,6 +26,8 @@ const Ingredient = () => {
     category: "",
   });
   const [formErrors, setFormErrors] = useState({}); // NEW: For validation errors
+  const [archiveConflict, setArchiveConflict] = useState(null); // NEW: For archive conflict handling
+  const [showArchiveModal, setShowArchiveModal] = useState(false); // NEW: For archive management
 
   const fetchIngredients = async () => {
     try {
@@ -71,7 +74,13 @@ const Ingredient = () => {
     } catch (err) {
       console.error("Error saving ingredient:", err);
       
-      // NEW: Handle duplicate error specifically
+      // NEW: Handle archive conflict (409)
+      if (err.response?.status === 409 && err.response?.data?.code === "ARCHIVED_EXISTS") {
+        setArchiveConflict(err.response.data);
+        return; // Don't show other errors, let user handle archive conflict
+      }
+      
+      // Handle duplicate error specifically
       if (err.response?.status === 400) {
         const errorMessage = err.response.data.message;
         
@@ -126,6 +135,61 @@ const Ingredient = () => {
       expiration: "",
     });
     setFormErrors({}); // NEW: Clear errors when resetting
+    setArchiveConflict(null); // NEW: Clear archive conflict
+  };
+
+  // NEW: Archive management functions
+  const handleRestoreArchived = async () => {
+    if (!archiveConflict?.archivedIngredient?._id) return;
+    
+    try {
+      await axios.post(`/ingredients/archive/${archiveConflict.archivedIngredient._id}/restore`);
+      toast.success(`Ingredient "${archiveConflict.archivedIngredient.name}" restored successfully!`);
+      setArchiveConflict(null);
+      setShowModal(false);
+      resetForm();
+      fetchIngredients();
+    } catch (err) {
+      console.error("Error restoring ingredient:", err);
+      if (err.response?.status === 400 && err.response?.data?.code === "NAME_CONFLICT") {
+        toast.error(`Cannot restore: ${err.response.data.message}`);
+      } else {
+        toast.error("Failed to restore ingredient");
+      }
+    }
+  };
+
+  const fetchArchivedIngredients = async () => {
+    try {
+      const res = await axios.get("/ingredients/archive/list");
+      return res.data.data || [];
+    } catch (err) {
+      console.error("Error fetching archived ingredients:", err);
+      toast.error("Failed to fetch archived ingredients");
+      return [];
+    }
+  };
+
+  const handlePermanentDelete = async (ingredientId, ingredientName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${ingredientName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`/ingredients/archive/${ingredientId}/permanent`);
+      toast.success(`Ingredient "${ingredientName}" permanently deleted`);
+      // Refresh archive list if archive modal is open
+      if (showArchiveModal) {
+        // This will be handled by the archive modal component
+      }
+    } catch (err) {
+      console.error("Error permanently deleting ingredient:", err);
+      if (err.response?.status === 400 && err.response?.data?.code === "HAS_HISTORICAL_RECORDS") {
+        toast.error(`Cannot delete: ${err.response.data.message}`);
+      } else {
+        toast.error("Failed to permanently delete ingredient");
+      }
+    }
   };
 
   const getStockStatus = (quantity, alert) => {
@@ -218,17 +282,26 @@ const Ingredient = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Ingredients & Materials</h1>
             <p className="text-gray-600">Manage your inventory items and materials</p>
           </div>
-          <button
-            onClick={() => {
-              resetForm();
-              setEditingId(null);
-              setShowModal(true);
-            }}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium mt-4 lg:mt-0"
-          >
-            <Plus className="w-5 h-5" />
-            Add Item
-          </button>
+          <div className="flex gap-3 mt-4 lg:mt-0">
+            <button
+              onClick={() => setShowArchiveModal(true)}
+              className="flex items-center gap-2 bg-gray-600 text-white px-4 py-3 rounded-xl hover:bg-gray-700 transition-colors duration-200 font-medium"
+            >
+              <Archive className="w-5 h-5" />
+              Archive
+            </button>
+            <button
+              onClick={() => {
+                resetForm();
+                setEditingId(null);
+                setShowModal(true);
+              }}
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Add Item
+            </button>
+          </div>
         </div>
 
         {/* Export Buttons */}
@@ -349,12 +422,17 @@ const Ingredient = () => {
         {/* Add/Edit Modal */}
         <IngredientModal
           show={showModal}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setArchiveConflict(null); // Clear archive conflict when closing
+          }}
           onSubmit={handleSubmit}
           form={form}
           setForm={setForm}
           editingId={editingId}
           formErrors={formErrors} // NEW: Pass errors to modal
+          archiveConflict={archiveConflict} // NEW: Pass archive conflict
+          onRestoreArchived={handleRestoreArchived} // NEW: Pass restore function
         />
 
         {/* Custom Alert Dialog */}
@@ -364,6 +442,13 @@ const Ingredient = () => {
           message="Do you really want to delete this ingredient? This action cannot be undone."
           onCancel={() => setShowAlert(false)}
           onConfirm={confirmDelete}
+        />
+
+        {/* Archive Management Modal */}
+        <ArchiveModal
+          show={showArchiveModal}
+          onClose={() => setShowArchiveModal(false)}
+          onRefreshIngredients={fetchIngredients}
         />
       </div>
     </DashboardLayout>

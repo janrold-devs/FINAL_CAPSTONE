@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const ingredientSchema = new mongoose.Schema({
-  name:       { type: String, required: true, unique: true },
+  name:       { type: String, required: true }, // Removed unique: true
   quantity:   { type: Number, default: 0 },
   unit:       { type: String, required: true }, // grams, ml, pcs
   alert:      { type: Number, default: 10 }, // alert level
@@ -20,7 +20,13 @@ const ingredientSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Add index for better query performance
+// Compound unique index: name must be unique only among active ingredients
+ingredientSchema.index({ name: 1, deleted: 1 }, { 
+  unique: true,
+  partialFilterExpression: { deleted: { $ne: true } }
+});
+
+// Add index for better query performance on deleted items
 ingredientSchema.index({ deleted: 1 });
 
 // Add a pre-find middleware to exclude deleted ingredients by default

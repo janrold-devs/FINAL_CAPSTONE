@@ -9,14 +9,35 @@ export const createIngredient = async (req, res) => {
     // Trim the name to prevent whitespace duplicates
     const trimmedName = req.body.name.trim();
     
-    // Check if ingredient with trimmed name already exists
-    const existing = await Ingredient.findOne({ 
-      name: { $regex: `^${trimmedName}$`, $options: 'i' } 
+    // Check if ACTIVE ingredient with trimmed name already exists
+    const existingActive = await Ingredient.findOne({ 
+      name: { $regex: `^${trimmedName}$`, $options: 'i' },
+      deleted: { $ne: true }
     });
     
-    if (existing) {
+    if (existingActive) {
       return res.status(400).json({ 
-        message: `Ingredient "${trimmedName}" already exists.` 
+        message: `Active ingredient "${trimmedName}" already exists.` 
+      });
+    }
+
+    // Check if DELETED ingredient with same name exists (for archive suggestion)
+    const existingDeleted = await Ingredient.findOne({ 
+      name: { $regex: `^${trimmedName}$`, $options: 'i' },
+      deleted: true
+    });
+    
+    if (existingDeleted) {
+      return res.status(409).json({ 
+        message: `An archived ingredient "${trimmedName}" exists. You can restore it instead of creating a new one.`,
+        code: "ARCHIVED_EXISTS",
+        archivedIngredient: {
+          _id: existingDeleted._id,
+          name: existingDeleted.name,
+          category: existingDeleted.category,
+          unit: existingDeleted.unit,
+          deletedAt: existingDeleted.deletedAt
+        }
       });
     }
     
@@ -58,16 +79,17 @@ export const updateIngredient = async (req, res) => {
     if (req.body.name) {
       req.body.name = req.body.name.trim();
       
-      // Check for duplicates (excluding current ingredient)
+      // Check for duplicates among ACTIVE ingredients (excluding current ingredient)
       const trimmedName = req.body.name;
       const existing = await Ingredient.findOne({ 
         name: { $regex: `^${trimmedName}$`, $options: 'i' },
-        _id: { $ne: req.params.id }
+        _id: { $ne: req.params.id },
+        deleted: { $ne: true }
       });
       
       if (existing) {
         return res.status(400).json({ 
-          message: `Ingredient "${trimmedName}" already exists.` 
+          message: `Active ingredient "${trimmedName}" already exists.` 
         });
       }
     }
@@ -154,7 +176,7 @@ export const deleteIngredient = async (req, res) => {
         `Soft deleted ingredient: ${ingredient.name} (${spoilageCount} spoilage records, ${stockInCount} stock-in records preserved)`);
 
       return res.json({ 
-        message: `Ingredient "${ingredient.name}" has been deactivated. Historical records (${spoilageCount} spoilage, ${stockInCount} stock-in) have been preserved.`,
+        message: `Ingredient "${ingredient.name}" has been archived. Historical records (${spoilageCount} spoilage, ${stockInCount} stock-in) have been preserved.`,
         type: "soft_delete",
         preservedRecords: {
           spoilage: spoilageCount,
@@ -175,6 +197,162 @@ export const deleteIngredient = async (req, res) => {
     });
   } catch (err) {
     console.error("Error deleting ingredient:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===== ARCHIVE MANAGEMENT ENDPOINTS =====
+
+// Get all archived ingredients
+export const getArchivedIngredients = async (req, res) => {
+  try {
+    const archivedList = await Ingredient.find({ deleted: true })
+      .sort({ deletedAt: -1 });
+
+    // Get historical record counts for each archived ingredient
+    const Spoilage = (await import("../models/Spoilage.js")).default;
+    const StockIn = (await import("../models/StockIn.js")).default;
+
+    const enrichedList = await Promise.all(
+      archivedList.map(async (ingredient) => {
+        const spoilageCount = await Spoilage.countDocuments({
+          "ingredients.ingredient": ingredient._id
+        });
+        
+        const stockInCount = await StockIn.countDocuments({
+          "ingredients.ingredient": ingredient._id
+        });
+
+        return {
+          ...ingredient.toObject(),
+          historicalRecords: {
+            spoilage: spoilageCount,
+            stockIn: stockInCount,
+            total: spoilageCount + stockInCount
+          }
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: enrichedList,
+      count: enrichedList.length
+    });
+  } catch (err) {
+    console.error("Error fetching archived ingredients:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Restore archived ingredient
+export const restoreIngredient = async (req, res) => {
+  try {
+    const ingredientId = req.params.id;
+    
+    // Find the archived ingredient
+    const ingredient = await Ingredient.findOne({ 
+      _id: ingredientId, 
+      deleted: true 
+    });
+    
+    if (!ingredient) {
+      return res.status(404).json({ 
+        message: "Archived ingredient not found." 
+      });
+    }
+
+    // Check if an active ingredient with the same name already exists
+    const existingActive = await Ingredient.findOne({
+      name: { $regex: `^${ingredient.name}$`, $options: 'i' },
+      deleted: { $ne: true },
+      _id: { $ne: ingredientId }
+    });
+
+    if (existingActive) {
+      return res.status(400).json({
+        message: `Cannot restore "${ingredient.name}" because an active ingredient with the same name already exists.`,
+        code: "NAME_CONFLICT",
+        existingIngredient: {
+          _id: existingActive._id,
+          name: existingActive.name,
+          category: existingActive.category
+        }
+      });
+    }
+
+    // Restore the ingredient
+    ingredient.deleted = false;
+    ingredient.deletedAt = undefined;
+    await ingredient.save();
+
+    // Log activity
+    await logActivity(req, "RESTORE_INGREDIENT", `Restored ingredient: ${ingredient.name}`);
+
+    res.json({
+      success: true,
+      message: `Ingredient "${ingredient.name}" has been restored successfully.`,
+      data: ingredient
+    });
+  } catch (err) {
+    console.error("Error restoring ingredient:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Permanently delete archived ingredient
+export const permanentlyDeleteIngredient = async (req, res) => {
+  try {
+    const ingredientId = req.params.id;
+    
+    // Find the archived ingredient
+    const ingredient = await Ingredient.findOne({ 
+      _id: ingredientId, 
+      deleted: true 
+    });
+    
+    if (!ingredient) {
+      return res.status(404).json({ 
+        message: "Archived ingredient not found." 
+      });
+    }
+
+    // Check for historical records
+    const Spoilage = (await import("../models/Spoilage.js")).default;
+    const StockIn = (await import("../models/StockIn.js")).default;
+
+    const spoilageCount = await Spoilage.countDocuments({
+      "ingredients.ingredient": ingredientId
+    });
+    
+    const stockInCount = await StockIn.countDocuments({
+      "ingredients.ingredient": ingredientId
+    });
+
+    if (spoilageCount > 0 || stockInCount > 0) {
+      return res.status(400).json({
+        message: `Cannot permanently delete "${ingredient.name}" because it has historical records (${spoilageCount} spoilage, ${stockInCount} stock-in). Historical data would be lost.`,
+        code: "HAS_HISTORICAL_RECORDS",
+        historicalRecords: {
+          spoilage: spoilageCount,
+          stockIn: stockInCount,
+          total: spoilageCount + stockInCount
+        }
+      });
+    }
+
+    // Safe to permanently delete
+    await Ingredient.findByIdAndDelete(ingredientId);
+
+    // Log activity
+    await logActivity(req, "PERMANENT_DELETE_INGREDIENT", `Permanently deleted ingredient: ${ingredient.name}`);
+
+    res.json({
+      success: true,
+      message: `Ingredient "${ingredient.name}" has been permanently deleted.`
+    });
+  } catch (err) {
+    console.error("Error permanently deleting ingredient:", err);
     res.status(500).json({ message: err.message });
   }
 };
