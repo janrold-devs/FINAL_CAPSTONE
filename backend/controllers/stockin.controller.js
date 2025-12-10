@@ -100,8 +100,33 @@ export const createStockIn = async (req, res) => {
       }
     }
 
-    // Save stock-in document first (DO NOT send batchNumber, let the model generate it)
-    const doc = await StockIn.create({ stockman, ingredients });
+    // Prepare ingredients with snapshot data
+    const processedIngredients = [];
+    
+    for (const item of ingredients) {
+      const ingredient = await Ingredient.findById(item.ingredient);
+      if (!ingredient) {
+        return res.status(404).json({
+          code: "INGREDIENT_NOT_FOUND",
+          message: `Ingredient with ID ${item.ingredient} not found.`
+        });
+      }
+      
+      processedIngredients.push({
+        ingredient: item.ingredient,
+        ingredientSnapshot: {
+          _id: ingredient._id,
+          name: ingredient.name,
+          category: ingredient.category,
+          unit: ingredient.unit
+        },
+        quantity: item.quantity,
+        unit: item.unit
+      });
+    }
+
+    // Save stock-in document with snapshot data (DO NOT send batchNumber, let the model generate it)
+    const doc = await StockIn.create({ stockman, ingredients: processedIngredients });
 
     // Update ingredient quantities with unit conversion
     for (const item of ingredients) {
@@ -179,12 +204,39 @@ export const getStockIns = async (req, res) => {
   try {
     const list = await StockIn.find()
       .populate("stockman")
-      .populate("ingredients.ingredient")
+      .populate({
+        path: "ingredients.ingredient",
+        // Include deleted ingredients for historical records
+        match: null,
+        options: { strictPopulate: false }
+      })
       .sort({ date: -1 });
+
+    // Process the results to use snapshot data when ingredient is deleted
+    const processedList = list.map(stockIn => {
+      const stockInObj = stockIn.toObject();
+      stockInObj.ingredients = stockInObj.ingredients.map(item => {
+        // If ingredient is deleted or not found, use snapshot data
+        if (!item.ingredient || item.ingredient.deleted) {
+          return {
+            ...item,
+            ingredient: item.ingredientSnapshot || {
+              _id: item.ingredientSnapshot?._id || item.ingredient?._id,
+              name: item.ingredientSnapshot?.name || "[Deleted Ingredient]",
+              category: item.ingredientSnapshot?.category || "Unknown",
+              unit: item.ingredientSnapshot?.unit || item.unit,
+              deleted: true
+            }
+          };
+        }
+        return item;
+      });
+      return stockInObj;
+    });
 
     res.json({
       success: true,
-      data: list
+      data: processedList
     });
   } catch (err) {
     console.error("Error fetching stockins:", err);
@@ -200,16 +252,40 @@ export const getStockIn = async (req, res) => {
   try {
     const item = await StockIn.findById(req.params.id)
       .populate("stockman")
-      .populate("ingredients.ingredient");
+      .populate({
+        path: "ingredients.ingredient",
+        // Include deleted ingredients for historical records
+        match: null,
+        options: { strictPopulate: false }
+      });
 
     if (!item) return res.status(404).json({
       code: "NOT_FOUND",
       message: "StockIn not found"
     });
 
+    // Process the result to use snapshot data when ingredient is deleted
+    const itemObj = item.toObject();
+    itemObj.ingredients = itemObj.ingredients.map(ingredientItem => {
+      // If ingredient is deleted or not found, use snapshot data
+      if (!ingredientItem.ingredient || ingredientItem.ingredient.deleted) {
+        return {
+          ...ingredientItem,
+          ingredient: ingredientItem.ingredientSnapshot || {
+            _id: ingredientItem.ingredientSnapshot?._id || ingredientItem.ingredient?._id,
+            name: ingredientItem.ingredientSnapshot?.name || "[Deleted Ingredient]",
+            category: ingredientItem.ingredientSnapshot?.category || "Unknown",
+            unit: ingredientItem.ingredientSnapshot?.unit || ingredientItem.unit,
+            deleted: true
+          }
+        };
+      }
+      return ingredientItem;
+    });
+
     res.json({
       success: true,
-      data: item
+      data: itemObj
     });
   } catch (err) {
     console.error("Error fetching stockin:", err);

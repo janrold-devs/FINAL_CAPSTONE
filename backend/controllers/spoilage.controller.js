@@ -164,9 +164,15 @@ export const createSpoilage = async (req, res) => {
         ing.quantity = Math.max(0, ing.quantity - convertedQty);
         await ing.save();
 
-        // Add to processed ingredients with ORIGINAL unit case
+        // Add to processed ingredients with ORIGINAL unit case AND snapshot data
         processedIngredients.push({
           ingredient: item.ingredient,
+          ingredientSnapshot: {
+            _id: ing._id,
+            name: ing.name,
+            category: ing.category,
+            unit: ing.unit
+          },
           quantity: Number(item.quantity),
           unit: item.unit, // Store original unit case from frontend
         });
@@ -279,14 +285,41 @@ export const getSpoilages = async (req, res) => {
     // Fetch with pagination and sorting
     const list = await Spoilage.find(filter)
       .populate("personInCharge")
-      .populate("ingredients.ingredient")
+      .populate({
+        path: "ingredients.ingredient",
+        // Include deleted ingredients for historical records
+        match: null,
+        options: { strictPopulate: false }
+      })
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .skip(skip)
       .limit(parseInt(limit));
 
+    // Process the results to use snapshot data when ingredient is deleted
+    const processedList = list.map(spoilage => {
+      const spoilageObj = spoilage.toObject();
+      spoilageObj.ingredients = spoilageObj.ingredients.map(item => {
+        // If ingredient is deleted or not found, use snapshot data
+        if (!item.ingredient || item.ingredient.deleted) {
+          return {
+            ...item,
+            ingredient: item.ingredientSnapshot || {
+              _id: item.ingredientSnapshot?._id || item.ingredient?._id,
+              name: item.ingredientSnapshot?.name || "[Deleted Ingredient]",
+              category: item.ingredientSnapshot?.category || "Unknown",
+              unit: item.ingredientSnapshot?.unit || item.unit,
+              deleted: true
+            }
+          };
+        }
+        return item;
+      });
+      return spoilageObj;
+    });
+
     res.json({
       success: true,
-      data: list,
+      data: processedList,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -318,7 +351,12 @@ export const getSpoilage = async (req, res) => {
 
     const doc = await Spoilage.findById(id)
       .populate("personInCharge")
-      .populate("ingredients.ingredient");
+      .populate({
+        path: "ingredients.ingredient",
+        // Include deleted ingredients for historical records
+        match: null,
+        options: { strictPopulate: false }
+      });
 
     if (!doc) {
       return res.status(404).json({ 
@@ -327,9 +365,28 @@ export const getSpoilage = async (req, res) => {
       });
     }
 
+    // Process the result to use snapshot data when ingredient is deleted
+    const docObj = doc.toObject();
+    docObj.ingredients = docObj.ingredients.map(item => {
+      // If ingredient is deleted or not found, use snapshot data
+      if (!item.ingredient || item.ingredient.deleted) {
+        return {
+          ...item,
+          ingredient: item.ingredientSnapshot || {
+            _id: item.ingredientSnapshot?._id || item.ingredient?._id,
+            name: item.ingredientSnapshot?.name || "[Deleted Ingredient]",
+            category: item.ingredientSnapshot?.category || "Unknown",
+            unit: item.ingredientSnapshot?.unit || item.unit,
+            deleted: true
+          }
+        };
+      }
+      return item;
+    });
+
     res.json({
       success: true,
-      data: doc
+      data: docObj
     });
 
   } catch (err) {

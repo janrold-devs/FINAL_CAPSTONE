@@ -121,13 +121,60 @@ export const getIngredient = async (req, res) => {
 
 export const deleteIngredient = async (req, res) => {
   try {
-    const deleted = await Ingredient.findByIdAndDelete(req.params.id);
-    if (deleted) {
-      // Log activity
-      await logActivity(req, "DELETE_INGREDIENT", `Deleted ingredient: ${deleted.name}`);
+    const ingredientId = req.params.id;
+    
+    // Find the ingredient first
+    const ingredient = await Ingredient.findById(ingredientId);
+    if (!ingredient) {
+      return res.status(404).json({ message: "Ingredient not found." });
     }
-    res.json({ message: "Ingredient deleted." });
+
+    // Import models to check for historical records
+    const Spoilage = (await import("../models/Spoilage.js")).default;
+    const StockIn = (await import("../models/StockIn.js")).default;
+
+    // Check if ingredient is referenced in historical records
+    const spoilageCount = await Spoilage.countDocuments({
+      "ingredients.ingredient": ingredientId
+    });
+    
+    const stockInCount = await StockIn.countDocuments({
+      "ingredients.ingredient": ingredientId
+    });
+
+    // If there are historical records, implement soft delete
+    if (spoilageCount > 0 || stockInCount > 0) {
+      // Add a 'deleted' flag to the ingredient instead of hard delete
+      ingredient.deleted = true;
+      ingredient.deletedAt = new Date();
+      await ingredient.save();
+
+      // Log activity
+      await logActivity(req, "SOFT_DELETE_INGREDIENT", 
+        `Soft deleted ingredient: ${ingredient.name} (${spoilageCount} spoilage records, ${stockInCount} stock-in records preserved)`);
+
+      return res.json({ 
+        message: `Ingredient "${ingredient.name}" has been deactivated. Historical records (${spoilageCount} spoilage, ${stockInCount} stock-in) have been preserved.`,
+        type: "soft_delete",
+        preservedRecords: {
+          spoilage: spoilageCount,
+          stockIn: stockInCount
+        }
+      });
+    }
+
+    // If no historical records, safe to hard delete
+    await Ingredient.findByIdAndDelete(ingredientId);
+    
+    // Log activity
+    await logActivity(req, "DELETE_INGREDIENT", `Deleted ingredient: ${ingredient.name}`);
+
+    res.json({ 
+      message: `Ingredient "${ingredient.name}" deleted successfully.`,
+      type: "hard_delete"
+    });
   } catch (err) {
+    console.error("Error deleting ingredient:", err);
     res.status(500).json({ message: err.message });
   }
 };
