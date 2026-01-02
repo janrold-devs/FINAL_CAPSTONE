@@ -10,6 +10,7 @@ import {
 
 import auth from "../middleware/auth.middleware.js";
 import role from "../middleware/role.middleware.js";
+import { selfOrAdmin } from "../middleware/selfOrAdmin.middleware.js";
 
 const router = express.Router();
 
@@ -26,6 +27,6 @@ router.get("/", auth, getUsers);
 router.get("/:id", auth, getUser);
 
 // PUT /api/users/:id
-router.put("/:id", auth, role(["admin"]), updateUser);
+router.put("/:id", auth, selfOrAdmin, updateUser);
 
 export default router;

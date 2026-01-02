@@ -78,15 +78,19 @@ const Spoilage = () => {
     fetchUsers();
   }, []);
 
-  // Create spoilage - FIXED: Handle new response structure
+  // Create spoilage - FIXED: Handle new response structure and include all required fields
   const handleCreateSpoilage = async (formData) => {
     try {
+
+      
       const response = await axios.post("/spoilages", {
         personInCharge: formData.personInCharge,
         ingredients: formData.ingredients.map((i) => ({
           ingredient: i.ingredient,
           quantity: i.quantity,
           unit: i.unit,
+          spoilageReason: i.spoilageReason || "other",
+          batchNumber: i.batchNumber || null,
         })),
         totalWaste: formData.totalWaste,
         remarks: formData.remarks,
@@ -362,7 +366,7 @@ const Spoilage = () => {
                             onClick={() => handleViewSpoilage(s)}
                             className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                           >
-                            <Eye className="w-4 h-4" /> <span className="text-sm">View</span>
+                            <Eye className="w-4 h-4" /> <span className="text-sm">View Details</span>
                           </button>
                         </td>
                       </tr>

@@ -133,15 +133,6 @@ const StockIn = () => {
     });
   };
 
-  // Get batch number color based on ingredients count
-  const getBatchColor = (ingredientsCount) => {
-    if (ingredientsCount > 5)
-      return "bg-purple-100 text-purple-800 border-purple-200";
-    if (ingredientsCount > 2)
-      return "bg-blue-100 text-blue-800 border-blue-200";
-    return "bg-green-100 text-green-800 border-green-200";
-  };
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -236,11 +227,7 @@ const StockIn = () => {
                             <Package className="w-4 h-4 text-blue-600" />
                           </div>
                           <div>
-                            <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getBatchColor(
-                                item.ingredients?.length || 0
-                              )}`}
-                            >
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border bg-blue-100 text-blue-800 border-blue-200">
                               {item.batchNumber}
                             </span>
                           </div>
@@ -249,7 +236,8 @@ const StockIn = () => {
                       <td className="px-6 py-4 text-center align-top">
                         {item.ingredients && item.ingredients.length > 0 ? (
                           <div className="flex flex-wrap gap-1 justify-center">
-                            {item.ingredients.map((i, index) => (
+                            {/* Show first 3 items */}
+                            {item.ingredients.slice(0, 3).map((i, index) => (
                               <span
                                 key={i._id || index}
                                 className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full border border-gray-200"
@@ -258,6 +246,12 @@ const StockIn = () => {
                                 {i.unit || ""})
                               </span>
                             ))}
+                            {/* Show "+X more" if there are more than 3 items */}
+                            {item.ingredients.length > 3 && (
+                              <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 font-medium">
+                                +{item.ingredients.length - 3} more
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-gray-400 text-sm italic block">

@@ -5,8 +5,9 @@ import "react-toastify/dist/ReactToastify.css";
 import AlertDialog from "../../components/AlertDialog";
 import IngredientModal from "../../components/modals/IngredientModal";
 import ArchiveModal from "../../components/modals/ArchiveModal";
+import IngredientBatchModal from "../../components/modals/IngredientBatchModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
-import { Pencil, Trash2, Plus, Archive } from "lucide-react";
+import { Pencil, Trash2, Plus, Archive, Package } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
 
@@ -28,6 +29,8 @@ const Ingredient = () => {
   const [formErrors, setFormErrors] = useState({}); // NEW: For validation errors
   const [archiveConflict, setArchiveConflict] = useState(null); // NEW: For archive conflict handling
   const [showArchiveModal, setShowArchiveModal] = useState(false); // NEW: For archive management
+  const [showBatchModal, setShowBatchModal] = useState(false); // NEW: For batch view
+  const [selectedIngredient, setSelectedIngredient] = useState(null); // NEW: For batch view
 
   const fetchIngredients = async () => {
     try {
@@ -132,7 +135,7 @@ const Ingredient = () => {
       unit: "",
       quantity: "",
       alert: "",
-      expiration: "",
+      // REMOVED: expiration field
     });
     setFormErrors({}); // NEW: Clear errors when resetting
     setArchiveConflict(null); // NEW: Clear archive conflict
@@ -206,12 +209,18 @@ const Ingredient = () => {
       quantity: ingredient.quantity,
       unit: ingredient.unit,
       alert: ingredient.alert,
-      expiration: ingredient.expiration?.split("T")[0] || "",
+      // REMOVED: expiration field
       category: ingredient.category,
     });
     setEditingId(ingredient._id);
     setFormErrors({}); // NEW: Clear errors when editing
     setShowModal(true);
+  };
+
+  // NEW: Handle batch view
+  const handleViewBatches = (ingredient) => {
+    setSelectedIngredient(ingredient);
+    setShowBatchModal(true);
   };
 
   useEffect(() => {
@@ -315,7 +324,8 @@ const Ingredient = () => {
               { key: "unit", label: "Unit" },
               { key: "quantity", label: "Quantity" },
               { key: "alert", label: "Alert Level" },
-              { key: "expiration", label: "Expiration" },
+              { key: "activeBatches", label: "Active Batches" },
+              { key: "nextExpiration", label: "Next Expiration" },
             ]}
           />
         </div>
@@ -349,7 +359,8 @@ const Ingredient = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Quantity</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Stock Status</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Alert Level</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Expiration</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Batches</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Next Expiration</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
@@ -366,8 +377,18 @@ const Ingredient = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">{i.alert}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">
-                          {i.expiration
-                            ? new Date(i.expiration).toLocaleDateString("en-US", {
+                          <button
+                            onClick={() => handleViewBatches(i)}
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200 px-2 py-1 rounded-lg hover:bg-blue-50"
+                            title="View Batches"
+                          >
+                            <Package className="w-4 h-4" />
+                            {i.activeBatches || 0} active
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {i.nextExpiration
+                            ? new Date(i.nextExpiration).toLocaleDateString("en-US", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
@@ -396,7 +417,7 @@ const Ingredient = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center">
+                      <td colSpan="9" className="px-6 py-12 text-center">
                         <div className="text-gray-500">
                           {loading ? (
                             <div className="flex items-center justify-center gap-2">
@@ -449,6 +470,16 @@ const Ingredient = () => {
           show={showArchiveModal}
           onClose={() => setShowArchiveModal(false)}
           onRefreshIngredients={fetchIngredients}
+        />
+
+        {/* Batch View Modal */}
+        <IngredientBatchModal
+          show={showBatchModal}
+          onClose={() => {
+            setShowBatchModal(false);
+            setSelectedIngredient(null);
+          }}
+          ingredient={selectedIngredient}
         />
       </div>
     </DashboardLayout>

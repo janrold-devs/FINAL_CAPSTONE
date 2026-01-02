@@ -80,7 +80,7 @@ function convertToBaseUnit(value, fromUnit, toUnit) {
   throw new Error(`Unit conversion not supported: ${fromUnit} (${from}) → ${toUnit} (${to})`);
 }
 
-// --- CREATE Spoilage ---
+// --- CREATE Spoilage with FIFO batch tracking ---
 export const createSpoilage = async (req, res) => {
   try {
     const { personInCharge, ingredients, remarks } = req.body;
@@ -100,10 +100,13 @@ export const createSpoilage = async (req, res) => {
       });
     }
 
+    // Import batch service
+    const { deductQuantityFIFO, capitalizeText } = await import("../services/batchService.js");
+
     let totalWaste = 0;
     const processedIngredients = [];
 
-    // Process each ingredient
+    // Process each ingredient using FIFO batch system
     for (const item of ingredients) {
       // Validate ingredient data
       if (!item.ingredient) {
@@ -136,84 +139,129 @@ export const createSpoilage = async (req, res) => {
         });
       }
 
-      // Check if ingredient has sufficient stock
-      if (ing.quantity <= 0) {
-        return res.status(400).json({ 
-          code: "INSUFFICIENT_STOCK",
-          message: `Insufficient stock for ${ing.name}. Current stock: ${ing.quantity} ${ing.unit}` 
-        });
-      }
-
       try {
-        // Convert unit before deducting (case-insensitive)
-        const convertedQty = convertToBaseUnit(
+        // Use FIFO batch system to deduct quantity
+        const deductionResult = await deductQuantityFIFO(
+          item.ingredient,
           item.quantity,
-          item.unit, // Use the unit from request (preserving case)
-          ing.unit   // Use the unit from database (preserving case)
+          item.unit,
+          item.spoilageReason || "other"
         );
-        
-        // Check if we have enough stock after conversion
-        if (convertedQty > ing.quantity) {
-          return res.status(400).json({ 
-            code: "INSUFFICIENT_STOCK_AFTER_CONVERSION",
-            message: `Cannot deduct ${item.quantity} ${item.unit} from ${ing.name}. Available: ${ing.quantity} ${ing.unit}` 
+
+        // Process each batch deduction for spoilage record
+        for (const deduction of deductionResult.deductionDetails) {
+          processedIngredients.push({
+            ingredient: item.ingredient,
+            ingredientSnapshot: {
+              _id: ing._id,
+              name: capitalizeText(ing.name), // AUTO-CAPS
+              category: ing.category,
+              unit: ing.unit
+            },
+            quantity: deduction.quantityDeducted,
+            unit: deductionResult.unit,
+            batchNumber: deduction.batchNumber,
+            expirationDate: deduction.expirationDate,
+            spoilageReason: item.spoilageReason || "other",
+            sourceBatch: deduction.batchId
           });
         }
 
-        // Update ingredient stock
-        ing.quantity = Math.max(0, ing.quantity - convertedQty);
-        await ing.save();
+        // Add to total waste
+        totalWaste += deductionResult.totalDeducted;
 
-        // Add to processed ingredients with ORIGINAL unit case AND snapshot data
-        processedIngredients.push({
-          ingredient: item.ingredient,
-          ingredientSnapshot: {
-            _id: ing._id,
-            name: ing.name,
-            category: ing.category,
-            unit: ing.unit
-          },
-          quantity: Number(item.quantity),
-          unit: item.unit, // Store original unit case from frontend
-        });
-
-        // Add to total waste (use converted quantity for consistency)
-        totalWaste += convertedQty;
-
-      } catch (convError) {
-        console.error("Unit conversion error:", convError);
-        return res.status(400).json({ 
-          code: "UNIT_CONVERSION_ERROR",
-          message: `Cannot convert ${item.quantity} ${item.unit} to ${ing.unit} for ${ing.name}. Please check unit compatibility.` 
-        });
+      } catch (batchError) {
+        console.error("FIFO batch deduction error:", batchError);
+        
+        // If no active batches available, handle as non-batch ingredient
+        if (batchError.message.includes("No active batches available")) {
+          console.log(`⚠️ No batches for ${ing.name}, treating as non-batch ingredient`);
+          
+          // Convert quantity to ingredient's base unit for consistency
+          let convertedQuantity = item.quantity;
+          if (item.unit.toLowerCase() !== ing.unit.toLowerCase()) {
+            try {
+              convertedQuantity = convertToBaseUnit(item.quantity, item.unit, ing.unit);
+            } catch (convError) {
+              console.warn(`Unit conversion failed for ${ing.name}:`, convError);
+              // Use original quantity if conversion fails
+              convertedQuantity = item.quantity;
+            }
+          }
+          
+          // Check if ingredient has enough stock (for non-batch ingredients)
+          if (ing.quantity < convertedQuantity) {
+            return res.status(400).json({ 
+              code: "INSUFFICIENT_STOCK",
+              message: `Insufficient stock for ${ing.name}. Available: ${ing.quantity} ${ing.unit}, Requested: ${convertedQuantity} ${ing.unit}`
+            });
+          }
+          
+          // Deduct from ingredient total quantity
+          ing.quantity = Math.max(0, ing.quantity - convertedQuantity);
+          await ing.save();
+          
+          // Add to spoilage record without batch information
+          processedIngredients.push({
+            ingredient: item.ingredient,
+            ingredientSnapshot: {
+              _id: ing._id,
+              name: capitalizeText(ing.name), // AUTO-CAPS
+              category: ing.category,
+              unit: ing.unit
+            },
+            quantity: convertedQuantity,
+            unit: ing.unit,
+            batchNumber: null, // No batch for non-batch ingredients
+            expirationDate: null,
+            spoilageReason: item.spoilageReason || "other",
+            sourceBatch: null
+          });
+          
+          // Add to total waste
+          totalWaste += convertedQuantity;
+          
+        } else {
+          // Other batch errors (insufficient stock, etc.)
+          return res.status(400).json({ 
+            code: "BATCH_DEDUCTION_ERROR",
+            message: batchError.message
+          });
+        }
       }
     }
 
-    // Create spoilage record with original unit cases
+    // Create spoilage record with batch information
     const spoilageDoc = await Spoilage.create({
       personInCharge,
+      spoilageType: "manual",
       ingredients: processedIngredients,
       totalWaste,
-      remarks: remarks || "",
+      remarks: capitalizeText(remarks || ""), // AUTO-CAPS for remarks
     });
 
     // Populate the created document for response
     const populatedDoc = await Spoilage.findById(spoilageDoc._id)
       .populate("personInCharge")
-      .populate("ingredients.ingredient");
+      .populate("ingredients.ingredient")
+      .populate("ingredients.sourceBatch");
 
     // Log activity
     await logActivity(
       req,
       "CREATE_SPOILAGE",
-      `Recorded spoilage: ${processedIngredients.length} items, total waste: ${totalWaste}`,
+      `Recorded spoilage: ${processedIngredients.length} batch items, total waste: ${totalWaste}`,
       spoilageDoc._id
     );
 
     res.status(201).json({
       success: true,
-      message: "Spoilage recorded successfully",
-      data: populatedDoc
+      message: "Spoilage recorded successfully with batch tracking",
+      data: populatedDoc,
+      batchInfo: {
+        totalBatchesAffected: processedIngredients.length,
+        batchNumbers: [...new Set(processedIngredients.map(item => item.batchNumber))]
+      }
     });
 
   } catch (err) {

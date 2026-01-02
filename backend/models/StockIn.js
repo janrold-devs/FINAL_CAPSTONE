@@ -1,31 +1,76 @@
+// backend/models/StockIn.js
 import mongoose from "mongoose";
 
-// Helper function to auto-generate batch number
-function generateBatchNumber() {
-  const datePart = new Date().toISOString().split("T")[0].replace(/-/g, "");
-  const randomPart = Math.floor(1000 + Math.random() * 9000);
-  return `BATCH-${datePart}-${randomPart}`;
+// Helper function to generate date part of batch number
+function getDatePart() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const year = String(now.getFullYear()).slice(-2);
+  return `${month}/${day}/${year}`;
+}
+
+// Helper function to auto-generate unique batch number with sequential numbering
+// Format: BATCH-MM/DD/YY-N (e.g., BATCH-01/02/26-1, BATCH-01/02/26-2, etc.)
+async function generateBatchNumber() {
+  const datePart = getDatePart();
+  const batchPrefix = `BATCH-${datePart}-`;
+  
+  // Find existing batch numbers for today
+  const StockIn = mongoose.model('StockIn');
+  const existingBatches = await StockIn.find({
+    batchNumber: { $regex: `^${batchPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}` }
+  }).select('batchNumber').lean();
+  
+  // Extract sequence numbers and find the highest
+  let maxSequence = 0;
+  for (const batch of existingBatches) {
+    const sequencePart = batch.batchNumber.replace(batchPrefix, '');
+    const sequenceNum = parseInt(sequencePart, 10);
+    if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+      maxSequence = sequenceNum;
+    }
+  }
+  
+  // Return next sequence number
+  const nextSequence = maxSequence + 1;
+  return `${batchPrefix}${nextSequence}`;
+}
+
+// Synchronous fallback for schema default (will be overridden in controller)
+function generateBatchNumberSync() {
+  const datePart = getDatePart();
+  return `BATCH-${datePart}-1`;
 }
 
 const stockInSchema = new mongoose.Schema({
-  batchNumber: { type: String, required: true, unique: true, default: generateBatchNumber },
+  batchNumber: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    default: generateBatchNumberSync // Use sync version for schema default
+  },
   stockman:    { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   ingredients: [{
-    // Keep reference for active ingredients (for current lookups)
     ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
-    
-    // Snapshot data to preserve historical records (CRITICAL for data integrity)
     ingredientSnapshot: {
-      _id: { type: mongoose.Schema.Types.ObjectId, required: true }, // Original ingredient ID
-      name: { type: String, required: true }, // Ingredient name at time of stock-in
-      category: { type: String, required: true }, // Category at time of stock-in
-      unit: { type: String, required: true } // Unit at time of stock-in
+      _id: { type: mongoose.Schema.Types.ObjectId, required: true },
+      name: { type: String, required: true },
+      category: { type: String, required: true },
+      unit: { type: String, required: true }
     },
-    
     quantity: { type: Number, required: true },
-    unit: { type: String } // Unit used for this specific stock-in entry
+    unit: { type: String },
+    expirationDate: { type: Date, required: false }, // CHANGED: Now optional
+    individualBatchNumber: { type: String },
+    createdBatch: { type: mongoose.Schema.Types.ObjectId, ref: "IngredientBatch" }
   }],
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-export default mongoose.model("StockIn", stockInSchema);
+// Export the model and helper functions
+const StockIn = mongoose.model("StockIn", stockInSchema);
+StockIn.generateBatchNumber = generateBatchNumber;
+StockIn.getDatePart = getDatePart;
+
+export default StockIn;

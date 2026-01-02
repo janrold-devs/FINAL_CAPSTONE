@@ -6,8 +6,8 @@ export const createIngredient = async (req, res) => {
   try {
     console.log("🔍 Creating ingredient - User:", req.user?._id);
     
-    // Trim the name to prevent whitespace duplicates
-    const trimmedName = req.body.name.trim();
+    // Trim and auto-capitalize the name
+    const trimmedName = req.body.name.trim().toUpperCase();
     
     // Check if ACTIVE ingredient with trimmed name already exists
     const existingActive = await Ingredient.findOne({ 
@@ -41,10 +41,10 @@ export const createIngredient = async (req, res) => {
       });
     }
     
-    // Create with trimmed name
+    // Create with auto-capitalized name
     const body = { 
       ...req.body, 
-      name: trimmedName,
+      name: trimmedName, // AUTO-CAPS applied
       user: req.user._id 
     };
     
@@ -75,9 +75,9 @@ export const createIngredient = async (req, res) => {
 
 export const updateIngredient = async (req, res) => {
   try {
-    // Trim name if provided in update
+    // Trim and auto-capitalize name if provided in update
     if (req.body.name) {
-      req.body.name = req.body.name.trim();
+      req.body.name = req.body.name.trim().toUpperCase(); // AUTO-CAPS applied
       
       // Check for duplicates among ACTIVE ingredients (excluding current ingredient)
       const trimmedName = req.body.name;
@@ -125,7 +125,38 @@ export const updateIngredient = async (req, res) => {
 export const getIngredients = async (req, res) => {
   try {
     const list = await Ingredient.find().sort({ name: 1 });
-    res.json(list);
+    
+    // Import IngredientBatch model to get batch information
+    const IngredientBatch = (await import("../models/IngredientBatch.js")).default;
+    
+    // Enhance each ingredient with batch information
+    const enhancedList = await Promise.all(
+      list.map(async (ingredient) => {
+        // Get the earliest expiring active batch for this ingredient
+        const earliestBatch = await IngredientBatch.findOne({
+          ingredient: ingredient._id,
+          status: 'active',
+          currentQuantity: { $gt: 0 }
+        }).sort({ expirationDate: 1 });
+        
+        // Get total number of active batches
+        const activeBatchCount = await IngredientBatch.countDocuments({
+          ingredient: ingredient._id,
+          status: 'active',
+          currentQuantity: { $gt: 0 }
+        });
+        
+        return {
+          ...ingredient.toObject(),
+          // Add batch information
+          nextExpiration: earliestBatch?.expirationDate || null,
+          activeBatches: activeBatchCount,
+          earliestBatchNumber: earliestBatch?.batchNumber || null
+        };
+      })
+    );
+    
+    res.json(enhancedList);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

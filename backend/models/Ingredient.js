@@ -5,7 +5,7 @@ const ingredientSchema = new mongoose.Schema({
   quantity:   { type: Number, default: 0 },
   unit:       { type: String, required: true }, // grams, ml, pcs
   alert:      { type: Number, default: 10 }, // alert level
-  expiration: { type: Date },
+  // REMOVED: expiration field - now handled by individual batches
 
   // NEW FIELD
   category: {

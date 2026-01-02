@@ -19,6 +19,10 @@ import activityLogRoutes from "./routes/activitylog.route.js";
 import notificationRoutes from "./routes/notification.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import adminRoutes from "./routes/admin.route.js";
+import batchRoutes from "./routes/batch.route.js";
+
+// Import scheduled jobs
+import { initializeScheduledJobs } from "./services/scheduledJobs.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,10 +68,23 @@ app.use("/api/activitylogs", activityLogRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/batches", batchRoutes);
 
 
 // Connect to database immediately
 connectDB();
+
+// Initialize scheduled jobs after database connection (with error handling)
+setTimeout(async () => {
+  try {
+    console.log("🕐 Attempting to initialize scheduled jobs...");
+    await initializeScheduledJobs();
+    console.log("✅ Scheduled jobs initialized successfully");
+  } catch (error) {
+    console.error("❌ Failed to initialize scheduled jobs:", error.message);
+    console.log("⚠️ Server will continue without scheduled jobs");
+  }
+}, 5000); // Wait 5 seconds for database to be ready
 
 // Export the app for use by root server.js
 export default app;

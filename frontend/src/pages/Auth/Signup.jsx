@@ -67,7 +67,9 @@ const Signup = () => {
       );
 
       if (result.success) {
-        toast.success("Registration submitted for approval! You will receive an email once your account is approved. 👋");
+        toast.success(
+          "Registration submitted for approval! You will receive an email once your account is approved. 👋"
+        );
         // Clear form
         setForm({
           firstName: "",
@@ -98,26 +100,15 @@ const Signup = () => {
       />
 
       {/* Logo Section */}
-      <div className="text-center mb-8">
-        <div className="flex justify-center items-center mb-4">
-          <div className="bg-gradient-to-br from-[#E89271] to-[#d67a5c] rounded-full p-4 shadow-lg">
-            <svg
-              className="w-12 h-12 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3zM6 7h12v2H6V7zm6 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
-            </svg>
-          </div>
+      <div className="text-center mb-6">
+        <div className="flex justify-center items-center mb-6">
+          <img
+            src="/logo.png"
+            alt="KKOPI Tea Logo"
+            className="max-w-[200px] w-full h-auto object-contain"
+          />
         </div>
-        <h1 className="text-3xl font-bold text-gray-800">KKopi.Tea</h1>
-        <p className="text-gray-600 mt-2">Create your account</p>
-        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800">
-            <strong>Note:</strong> Your account requires admin approval before you can login.
-            You will receive an email with your temporary credentials once approved.
-          </p>
-        </div>
+        <p className="text-gray-600 text-lg mt-2">Create an account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -155,9 +146,7 @@ const Signup = () => {
         </div>
 
         <div>
-          <label className="block text-gray-700 mb-2 font-medium">
-            Email
-          </label>
+          <label className="block text-gray-700 mb-2 font-medium">Email</label>
           <input
             type="email"
             name="email"

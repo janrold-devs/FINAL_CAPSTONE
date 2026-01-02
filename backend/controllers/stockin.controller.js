@@ -58,12 +58,12 @@ function convertToBaseUnit(value, fromUnit, toUnit) {
   throw new Error(`Unit conversion not supported: ${fromUnit} → ${toUnit}`);
 }
 
-// CREATE StockIn with unit conversion + ingredient update
+// CREATE StockIn with batch tracking and FIFO system
 export const createStockIn = async (req, res) => {
   try {
-    const { stockman, ingredients } = req.body; // REMOVED batchNumber
+    const { stockman, ingredients } = req.body;
 
-    // Validate required fields (REMOVED batchNumber from validation)
+    // Validate required fields
     if (!stockman) {
       return res.status(400).json({
         code: "MISSING_FIELDS",
@@ -78,7 +78,7 @@ export const createStockIn = async (req, res) => {
       });
     }
 
-    // Validate each ingredient
+    // Validate each ingredient (expirationDate is now optional)
     for (const item of ingredients) {
       if (!item.ingredient) {
         return res.status(400).json({
@@ -98,9 +98,20 @@ export const createStockIn = async (req, res) => {
           message: "Unit is required for all ingredients."
         });
       }
+      
+      // If expiration date is provided, validate it's in the future
+      if (item.expirationDate) {
+        const expDate = new Date(item.expirationDate);
+        if (expDate <= new Date()) {
+          return res.status(400).json({
+            code: "INVALID_EXPIRATION_DATE",
+            message: "Expiration date must be in the future if provided."
+          });
+        }
+      }
     }
 
-    // Prepare ingredients with snapshot data
+    // Prepare ingredients with snapshot data and auto-caps names
     const processedIngredients = [];
     
     for (const item of ingredients) {
@@ -112,21 +123,38 @@ export const createStockIn = async (req, res) => {
         });
       }
       
+      // Set expiration date to null if not provided
+      const expirationDate = item.expirationDate ? new Date(item.expirationDate) : null;
+      
       processedIngredients.push({
         ingredient: item.ingredient,
         ingredientSnapshot: {
           _id: ingredient._id,
-          name: ingredient.name,
+          name: ingredient.name.toUpperCase(), // AUTO-CAPS
           category: ingredient.category,
           unit: ingredient.unit
         },
         quantity: item.quantity,
-        unit: item.unit
+        unit: item.unit,
+        expirationDate: expirationDate // Can be null for non-perishable items
       });
     }
 
-    // Save stock-in document with snapshot data (DO NOT send batchNumber, let the model generate it)
-    const doc = await StockIn.create({ stockman, ingredients: processedIngredients });
+    // Generate unique batch number with sequential numbering
+    const batchNumber = await StockIn.generateBatchNumber();
+
+    // Save stock-in document with snapshot data and generated batch number
+    const doc = await StockIn.create({ 
+      stockman, 
+      ingredients: processedIngredients,
+      batchNumber: batchNumber
+    });
+
+    // Import batch service
+    const { createBatchesFromStockIn } = await import("../services/batchService.js");
+    
+    // Create ingredient batches for FIFO tracking (only for items with expiration dates)
+    const createdBatches = await createBatchesFromStockIn(doc, doc._id);
 
     // Update ingredient quantities with unit conversion
     for (const item of ingredients) {
@@ -160,28 +188,107 @@ export const createStockIn = async (req, res) => {
       await ingredient.save();
     }
 
+    // Update the stock-in document with batch references
+    await doc.save();
+
     // Log activity
     await logActivity(
       req,
       "CREATE_STOCKIN",
-      `Stock In: Batch ${doc.batchNumber} by ${stockman}`,
+      `Stock In: Batch ${doc.batchNumber} with ${createdBatches.length} ingredient batches`,
       doc._id
     );
 
     res.status(201).json({
       success: true,
-      message: "Stock-in record created successfully",
-      data: doc
+      message: "Stock-in record created successfully with batch tracking",
+      data: {
+        stockIn: doc,
+        createdBatches: createdBatches.length,
+        batchNumbers: createdBatches.map(b => b.batchNumber)
+      }
     });
   } catch (err) {
     console.error("Error creating stockin:", err);
     
-    // Handle duplicate batch number
+    // Handle duplicate batch number (retry with next sequence number)
     if (err.code === 11000) {
-      return res.status(400).json({
-        code: "DUPLICATE_BATCH",
-        message: "Batch number already exists"
-      });
+      try {
+        // Generate a new batch number (should get next sequence)
+        const retryBatchNumber = await StockIn.generateBatchNumber();
+        
+        // Retry with new batch number
+        const { stockman, ingredients } = req.body;
+        const processedIngredients = [];
+        
+        for (const item of ingredients) {
+          const ingredient = await Ingredient.findById(item.ingredient);
+          const expirationDate = item.expirationDate ? new Date(item.expirationDate) : null;
+          
+          processedIngredients.push({
+            ingredient: item.ingredient,
+            ingredientSnapshot: {
+              _id: ingredient._id,
+              name: ingredient.name.toUpperCase(),
+              category: ingredient.category,
+              unit: ingredient.unit
+            },
+            quantity: item.quantity,
+            unit: item.unit,
+            expirationDate: expirationDate
+          });
+        }
+        
+        // Create with new sequential batch number
+        const doc = await StockIn.create({
+          stockman,
+          ingredients: processedIngredients,
+          batchNumber: retryBatchNumber
+        });
+        
+        // Continue with batch creation and logging...
+        const { createBatchesFromStockIn } = await import("../services/batchService.js");
+        const createdBatches = await createBatchesFromStockIn(doc, doc._id);
+        
+        // Update ingredient quantities...
+        for (const item of ingredients) {
+          const ingredient = await Ingredient.findById(item.ingredient);
+          if (!ingredient) continue;
+          
+          let qtyToAdd = item.quantity;
+          if (item.unit.toLowerCase() !== ingredient.unit.toLowerCase()) {
+            qtyToAdd = convertToBaseUnit(item.quantity, item.unit, ingredient.unit);
+          }
+          ingredient.quantity += qtyToAdd;
+          await ingredient.save();
+        }
+        
+        await doc.save();
+        
+        await logActivity(
+          req,
+          "CREATE_STOCKIN",
+          `Stock In: Batch ${doc.batchNumber} with ${createdBatches.length} ingredient batches`,
+          doc._id
+        );
+        
+        return res.status(201).json({
+          success: true,
+          message: "Stock-in record created successfully with sequential batch number",
+          data: {
+            stockIn: doc,
+            createdBatches: createdBatches.length,
+            batchNumbers: createdBatches.map(b => b.batchNumber)
+          }
+        });
+        
+      } catch (retryErr) {
+        console.error("Retry failed:", retryErr);
+        return res.status(400).json({
+          code: "DUPLICATE_BATCH",
+          message: "Unable to generate unique batch number. Please try again in a moment."
+        });
+      }
     }
     
     // Handle validation errors
