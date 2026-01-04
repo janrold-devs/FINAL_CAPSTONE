@@ -459,16 +459,26 @@ const StockInModal = ({
               {/* Select Ingredients */}
               {selectedCategory && (
                 <div className="mb-4">
-                  <label className="block text-sm text-gray-600 mb-2">Select Ingredients</label>
+                  <label className="block text-sm text-gray-600 mb-2">Select Ingredients/Materials</label>
                   
                   {/* Ingredient Dropdown - Moved to top */}
                   <div className="mb-4 relative" ref={dropdownRef}>
+                    {/*
+                      Dynamic label:
+                      - If Material -> "Click to add materials"
+                      - If Solid/Liquid (or other) -> "Click to add ingredients"
+                      - When open -> "Click to close"
+                    */}
                     <div
                       className="border border-gray-300 rounded-lg px-3 py-2 bg-white cursor-pointer hover:bg-gray-50"
                       onClick={() => setDropdownOpen(!dropdownOpen)}
                     >
                       <span className="text-gray-600">
-                        {dropdownOpen ? "Click to close" : "Click to add ingredients"}
+                        {dropdownOpen
+                          ? "Click to close"
+                          : selectedCategory === "Material"
+                          ? "Click to add materials"
+                          : "Click to add ingredients"}
                       </span>
                     </div>
 
