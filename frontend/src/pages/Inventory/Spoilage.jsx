@@ -376,12 +376,6 @@ const Spoilage = () => {
                       <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                         <p className="text-lg font-medium text-gray-900">No spoilage records found</p>
                         <p className="text-gray-600 mb-4">Start by recording your first spoilage incident</p>
-                        <button
-                          onClick={handleOpenCreateModal}
-                          className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" /> Record Spoilage
-                        </button>
                       </td>
                     </tr>
                   )}
