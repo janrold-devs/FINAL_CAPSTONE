@@ -68,9 +68,9 @@ const IngredientModal = ({
   };
 
   const unitsByCategory = {
-    "Solid Ingredient": ["kg", "g", "pcs"],
-    "Liquid Ingredient": ["L", "mL"],
-    Material: ["kg", "g", "pcs", "L", "mL"],
+    "Solid Ingredient": ["kg", "g", "pcs", "l", "ml"],
+    "Liquid Ingredient": ["kg", "g", "pcs", "l", "ml"],
+    "Material": ["kg", "g", "pcs", "l", "ml"],
   };
 
   const categoryUnits =
@@ -215,7 +215,7 @@ const FormView = ({
           </label>
           <input
             type="number"
-            placeholder="0.00"
+            placeholder="0"
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
             value={form.quantity}
             onChange={(e) => handleInputChange("quantity", e.target.value)}
@@ -246,9 +246,9 @@ const FormView = ({
             {categoryUnits.map((unit) => (
               <option key={unit} value={unit}>
                 {unit}{" "}
-                {unit === "L"
+                {unit === "l"
                   ? "(liters)"
-                  : unit === "mL"
+                  : unit === "ml"
                   ? "(milliliters)"
                   : unit === "kg"
                   ? "(kilograms)"

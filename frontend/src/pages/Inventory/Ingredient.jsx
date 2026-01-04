@@ -63,12 +63,13 @@ const Ingredient = () => {
         name: form.name.trim() // NEW: Trim the name before sending
       };
       
+      // Normalize unit to lowercase before sending
+      if (payload.unit) payload.unit = payload.unit.toLowerCase();
+      
       if (editingId) {
         await axios.put(`/ingredients/${editingId}`, payload);
-        toast.success("Ingredient updated successfully!");
       } else {
         await axios.post("/ingredients", payload);
-        toast.success("Ingredient added successfully!");
       }
       setShowModal(false);
       setEditingId(null);

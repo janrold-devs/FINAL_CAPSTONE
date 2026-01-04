@@ -156,10 +156,10 @@ export const createSpoilage = async (req, res) => {
               _id: ing._id,
               name: capitalizeText(ing.name), // AUTO-CAPS
               category: ing.category,
-              unit: ing.unit
+              unit: (ing.unit || "").toLowerCase()
             },
             quantity: deduction.quantityDeducted,
-            unit: deductionResult.unit,
+            unit: (deductionResult.unit || "").toLowerCase(),
             batchNumber: deduction.batchNumber,
             expirationDate: deduction.expirationDate,
             spoilageReason: item.spoilageReason || "other",
@@ -208,10 +208,10 @@ export const createSpoilage = async (req, res) => {
               _id: ing._id,
               name: capitalizeText(ing.name), // AUTO-CAPS
               category: ing.category,
-              unit: ing.unit
+              unit: (ing.unit || "").toLowerCase()
             },
             quantity: convertedQuantity,
-            unit: ing.unit,
+            unit: (ing.unit || "").toLowerCase(),
             batchNumber: null, // No batch for non-batch ingredients
             expirationDate: null,
             spoilageReason: item.spoilageReason || "other",
@@ -512,14 +512,6 @@ export const deleteSpoilage = async (req, res) => {
 
   } catch (err) {
     console.error("Error deleting spoilage:", err);
-    
-    if (err.name === 'CastError') {
-      return res.status(400).json({ 
-        code: "INVALID_ID_FORMAT",
-        message: "Invalid spoilage ID format" 
-      });
-    }
-    
     res.status(500).json({ 
       code: "SERVER_ERROR",
       message: "Failed to delete spoilage record" 

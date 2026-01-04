@@ -114,7 +114,7 @@ const ProductModal = ({
             name: i.ingredient?.name || i.name,
             quantity: i.quantity || 1,
             category: i.ingredient?.category || "",
-            unit: i.ingredient?.unit || i.unit || "",
+            unit: (i.ingredient?.unit || i.unit || "").toLowerCase(),
           })) || [],
         ingredientCategory: "",
       });
@@ -271,7 +271,7 @@ const ProductModal = ({
             name: ingredient.name,
             quantity: 1,
             category: ingredient.category,
-            unit: ingredient.unit || "",
+            unit: (ingredient.unit || "").toLowerCase(),
           },
         ],
       });

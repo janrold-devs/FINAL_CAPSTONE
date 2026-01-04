@@ -106,7 +106,7 @@ const SpoilageModal = ({
             ingredient: batch.ingredient._id,
             name: batch.ingredient.name,
             quantity: batch.currentQuantity,
-            unit: batch.unit,
+            unit: (batch.unit || "").toLowerCase(),
             batchNumber: batch.batchNumber,
             spoilageReason: "expired",
           },
@@ -262,7 +262,7 @@ const SpoilageModal = ({
         ingredient: ingredient._id,
         name: ingredient.name,
         quantity: 1,
-        unit: ingredient.unit,
+        unit: (ingredient.unit || "").toLowerCase(),
         spoilageReason: "damaged", // Default reason for manually added items
       };
       

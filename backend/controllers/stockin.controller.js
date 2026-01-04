@@ -132,10 +132,10 @@ export const createStockIn = async (req, res) => {
           _id: ingredient._id,
           name: ingredient.name.toUpperCase(), // AUTO-CAPS
           category: ingredient.category,
-          unit: ingredient.unit
+          unit: (ingredient.unit || "").toLowerCase()
         },
         quantity: item.quantity,
-        unit: item.unit,
+        unit: (item.unit || "").toLowerCase(),
         expirationDate: expirationDate // Can be null for non-perishable items
       });
     }
@@ -231,10 +231,10 @@ export const createStockIn = async (req, res) => {
               _id: ingredient._id,
               name: ingredient.name.toUpperCase(),
               category: ingredient.category,
-              unit: ingredient.unit
+              unit: (ingredient.unit || "").toLowerCase()
             },
             quantity: item.quantity,
-            unit: item.unit,
+            unit: (item.unit || "").toLowerCase(),
             expirationDate: expirationDate
           });
         }
