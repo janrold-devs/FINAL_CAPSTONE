@@ -111,7 +111,7 @@ const Signup = () => {
         <p className="text-gray-600 text-lg mt-2">Create an account</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" data-auth-form>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-gray-700 mb-2 font-medium">
@@ -126,6 +126,7 @@ const Signup = () => {
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
               disabled={loading}
+              data-no-uppercase
             />
           </div>
           <div>
@@ -141,6 +142,7 @@ const Signup = () => {
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
               disabled={loading}
+              data-no-uppercase
             />
           </div>
         </div>
@@ -156,6 +158,7 @@ const Signup = () => {
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
             disabled={loading}
+            data-no-uppercase
           />
         </div>
 
@@ -172,6 +175,7 @@ const Signup = () => {
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
             disabled={loading}
+            data-no-uppercase
           />
         </div>
 

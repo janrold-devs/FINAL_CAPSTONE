@@ -1,7 +1,20 @@
 export function initForceUppercaseInputs() {
-  const allowedInputTypes = new Set(["text", "search", "email", "tel", "url", "password"]);
+  const allowedInputTypes = new Set(["text", "search", "tel", "url"]);
   const shouldProcess = (el) => {
     if (!el) return false;
+    
+    // Skip if element has data-no-uppercase attribute
+    if (el.hasAttribute('data-no-uppercase')) return false;
+    
+    // Skip if element has class that indicates no uppercase
+    if (el.classList.contains('no-uppercase')) return false;
+    
+    // Skip email and password inputs entirely
+    if (el.type === 'email' || el.type === 'password') return false;
+    
+    // Skip inputs in auth forms (login/register)
+    if (el.closest('.auth-form') || el.closest('[data-auth-form]')) return false;
+    
     if (el.tagName === "TEXTAREA") return true; // include textarea if you want
     if (el.tagName !== "INPUT") return false;
     return allowedInputTypes.has((el.type || "text").toLowerCase());

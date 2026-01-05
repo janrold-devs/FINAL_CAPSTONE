@@ -103,7 +103,7 @@ const Login = () => {
         <p className="text-gray-600 text-lg mt-2">Login to your account</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" data-auth-form>
         <div>
           <label className="block text-gray-700 mb-2 font-medium">
             Username
@@ -117,6 +117,7 @@ const Login = () => {
             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
             placeholder="Enter your username"
             disabled={loading}
+            data-no-uppercase
           />
         </div>
 
@@ -134,6 +135,7 @@ const Login = () => {
               className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-colors"
               placeholder="Enter your password"
               disabled={loading}
+              data-no-uppercase
             />
             <button
               type="button"
