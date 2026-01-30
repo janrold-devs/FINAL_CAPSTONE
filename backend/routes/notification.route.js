@@ -5,7 +5,8 @@ import {
   clearNotification,
   clearAllNotifications,
   triggerNotificationGeneration,
-  getNotificationStats
+  getNotificationStats,
+  getExpiringBatches
 } from "../controllers/notification.controller.js";
 import auth from "../middleware/auth.middleware.js";
 
@@ -16,6 +17,9 @@ router.get("/", auth, getNotifications);
 
 // Get notification statistics
 router.get("/stats", auth, getNotificationStats);
+
+// Get expiring batches summary
+router.get("/expiring-batches", auth, getExpiringBatches);
 
 // Clear single notification
 router.delete("/:id", auth, clearNotification);

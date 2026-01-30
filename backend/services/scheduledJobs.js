@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { processExpiredBatches } from "./batchService.js";
+import { generateAndSaveNotifications } from "../controllers/notification.controller.js";
 import User from "../models/User.js";
 
 /**
@@ -44,6 +45,7 @@ const getSystemUser = async () => {
 
 /**
  * Check for expired batches and create automatic spoilage records
+ * Also generate notifications for expiring/expired batches
  */
 const checkExpiredBatches = async () => {
   if (isJobRunning) {
@@ -58,13 +60,19 @@ const checkExpiredBatches = async () => {
     const systemUserId = await getSystemUser();
     const result = await processExpiredBatches(systemUserId);
     
+    // Generate notifications for expiring/expired batches
+    console.log("📢 Generating expiration notifications...");
+    const notifications = await generateAndSaveNotifications();
+    
     if (result.processedBatches > 0) {
       console.log(`Automatic expiration check completed:`);
       console.log(`   - Processed ${result.processedBatches} expired batches`);
       console.log(`   - Created ${result.spoilageRecords} spoilage records`);
       console.log(`   - Affected ${result.expiredIngredients} ingredients`);
+      console.log(`   - Generated ${notifications.length} notifications`);
     } else {
-      console.log("✅ Automatic expiration check completed - no expired batches found");
+      console.log(`✅ Automatic expiration check completed - no expired batches found`);
+      console.log(`   - Generated ${notifications.length} notifications`);
     }
     
   } catch (error) {
@@ -99,6 +107,22 @@ export const initializeScheduledJobs = async () => {
       timezone: "Asia/Manila" // Adjust timezone as needed
     });
     
+    // Generate notifications every 15 minutes (more frequent for better UX)
+    cron.schedule("*/15 * * * *", async () => {
+      console.log("📢 Running notification generation...");
+      try {
+        const notifications = await generateAndSaveNotifications();
+        if (notifications.length > 0) {
+          console.log(`   - Generated ${notifications.length} new notifications`);
+        }
+      } catch (error) {
+        console.error("Error generating notifications:", error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "Asia/Manila"
+    });
+    
     // Run expiration check at server startup (after 30 seconds)
     setTimeout(async () => {
       console.log("🚀 Running startup expiration check...");
@@ -108,6 +132,7 @@ export const initializeScheduledJobs = async () => {
     console.log("Scheduled jobs initialized:");
     console.log("   - Hourly expiration check: 0 * * * *");
     console.log("   - Daily expiration check: 0 6 * * *");
+    console.log("   - Notification generation: */15 * * * * (every 15 minutes)");
     console.log("   - Startup check: 30 seconds after server start");
     
     return true;

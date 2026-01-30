@@ -1,5 +1,6 @@
 import Notification from "../models/Notification.js";
 import Ingredient from "../models/Ingredient.js";
+import IngredientBatch from "../models/IngredientBatch.js";
 import User from "../models/User.js";
 
 // Get notifications for current user
@@ -70,12 +71,12 @@ export const generateAndSaveNotifications = async () => {
 
     // Get all ingredients (not filtered by user)
     const ingredients = await Ingredient.find({ 
-      status: { $ne: "inactive" }
+      deleted: { $ne: true }
     });
     
     // Get all admin and staff users
     const users = await User.find({
-      status: 'active',
+      status: 'approved', // Fixed: Users have 'approved' status, not 'active'
       $or: [{ role: 'admin' }, { role: 'staff' }]
     });
     
@@ -85,7 +86,8 @@ export const generateAndSaveNotifications = async () => {
 
     for (const user of users) {
       for (const ing of ingredients) {
-        const threshold = Number(ing.alertLevel) || Number(ing.alert) || 10;
+        // Fix: Use 'alert' field instead of 'alertLevel'
+        const threshold = Number(ing.alert) || 10;
 
         // Check if notification already exists for this condition
         const existingNotification = await Notification.findOne({
@@ -125,20 +127,37 @@ export const generateAndSaveNotifications = async () => {
           }
         }
 
-        // Expiration check
-        if (ing.expiration) {
-          const expirationDate = new Date(ing.expiration);
+        // NEW: Batch-based expiration check
+        const activeBatches = await IngredientBatch.find({
+          ingredient: ing._id,
+          status: 'active',
+          currentQuantity: { $gt: 0 },
+          expirationDate: { $exists: true }
+        }).sort({ expirationDate: 1 }); // Sort by expiration date (earliest first)
+
+        for (const batch of activeBatches) {
+          const expirationDate = new Date(batch.expirationDate);
           const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
           
+          // Check if notification already exists for this specific batch
+          const existingBatchNotification = await Notification.findOne({
+            user: user._id,
+            ingredientId: ing._id,
+            type: { $in: ['expiring', 'expired'] },
+            isCleared: false,
+            message: { $regex: batch.batchNumber } // Check if batch number is in message
+          });
+
+          // Expiring soon (1-3 days)
           if (daysLeft <= expiringSoonThreshold && daysLeft >= 0) {
-            const priority = daysLeft <= 1 ? "critical" : daysLeft <= 3 ? "high" : "medium";
-            if (!existingNotification || existingNotification.type !== 'expiring') {
+            const priority = daysLeft <= 1 ? "critical" : daysLeft <= 2 ? "high" : "medium";
+            if (!existingBatchNotification || !existingBatchNotification.message.includes('expires in')) {
               const notification = await Notification.create({
                 user: user._id,
                 type: "expiring",
                 priority: priority,
-                title: "Expiring Soon",
-                message: `${ing.name} expires in ${daysLeft} day(s) on ${expirationDate.toLocaleDateString()}`,
+                title: "Batch Expiring Soon",
+                message: `${ing.name} (Batch: ${batch.batchNumber}) expires in ${daysLeft} day(s) on ${expirationDate.toLocaleDateString()}. Quantity: ${batch.currentQuantity} ${batch.unit}`,
                 ingredientId: ing._id
               });
               notifications.push(notification);
@@ -147,22 +166,27 @@ export const generateAndSaveNotifications = async () => {
           
           // Already expired
           if (daysLeft < 0) {
-            if (!existingNotification || existingNotification.type !== 'expired') {
+            if (!existingBatchNotification || !existingBatchNotification.message.includes('expired')) {
               const notification = await Notification.create({
                 user: user._id,
                 type: "expired",
                 priority: "critical",
-                title: "Expired Ingredient!",
-                message: `${ing.name} expired ${Math.abs(daysLeft)} day(s) ago!`,
+                title: "Batch Expired!",
+                message: `${ing.name} (Batch: ${batch.batchNumber}) expired ${Math.abs(daysLeft)} day(s) ago! Quantity: ${batch.currentQuantity} ${batch.unit}`,
                 ingredientId: ing._id
               });
               notifications.push(notification);
+              
+              // Auto-update batch status to expired
+              batch.status = 'expired';
+              await batch.save();
             }
           }
         }
       }
     }
 
+    console.log(`✅ Generated ${notifications.length} new notifications`);
     return notifications;
   } catch (error) {
     console.error("Error generating and saving notifications:", error);
@@ -220,6 +244,59 @@ export const getNotificationStats = async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching notification stats:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// NEW: Get expiring batches summary (useful for debugging)
+export const getExpiringBatches = async (req, res) => {
+  try {
+    const today = new Date();
+    const expiringSoonThreshold = 3; // days
+    
+    const expiringBatches = await IngredientBatch.find({
+      status: 'active',
+      currentQuantity: { $gt: 0 },
+      expirationDate: { 
+        $exists: true,
+        $gte: today,
+        $lte: new Date(today.getTime() + expiringSoonThreshold * 24 * 60 * 60 * 1000)
+      }
+    })
+    .populate('ingredient', 'name unit')
+    .sort({ expirationDate: 1 });
+
+    const expiredBatches = await IngredientBatch.find({
+      status: 'active',
+      currentQuantity: { $gt: 0 },
+      expirationDate: { 
+        $exists: true,
+        $lt: today
+      }
+    })
+    .populate('ingredient', 'name unit')
+    .sort({ expirationDate: 1 });
+
+    res.json({
+      expiringSoon: expiringBatches.map(batch => ({
+        batchNumber: batch.batchNumber,
+        ingredient: batch.ingredient.name,
+        quantity: batch.currentQuantity,
+        unit: batch.unit,
+        expirationDate: batch.expirationDate,
+        daysLeft: Math.ceil((batch.expirationDate - today) / (1000 * 60 * 60 * 24))
+      })),
+      expired: expiredBatches.map(batch => ({
+        batchNumber: batch.batchNumber,
+        ingredient: batch.ingredient.name,
+        quantity: batch.currentQuantity,
+        unit: batch.unit,
+        expirationDate: batch.expirationDate,
+        daysOverdue: Math.abs(Math.ceil((batch.expirationDate - today) / (1000 * 60 * 60 * 24)))
+      }))
+    });
+  } catch (err) {
+    console.error("Error fetching expiring batches:", err);
     res.status(500).json({ message: err.message });
   }
 };
