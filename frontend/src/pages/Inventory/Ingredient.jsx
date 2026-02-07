@@ -60,7 +60,7 @@ const Ingredient = () => {
       // Prepare data with trimmed name
       const payload = {
         ...form,
-        name: form.name.trim() // NEW: Trim the name before sending
+        name: (form.name || "").trim().toUpperCase()
       };
       
       // Normalize unit to lowercase before sending

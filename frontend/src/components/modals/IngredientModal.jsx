@@ -187,21 +187,21 @@ const FormView = ({
           Item Name <span className="text-red-500">*</span>
         </label>
         <input
-          ref={firstInputRef}
-          type="text"
-          placeholder="Enter item name"
-          className={`w-full px-3 py-2.5 border ${
-            formErrors.name
-              ? "border-red-500 focus:ring-red-500"
-              : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-          } rounded-lg transition-colors focus:outline-none`}
+           ref={firstInputRef}
+           type="text"
+           placeholder="Enter item name"
+           className={`w-full px-3 py-2.5 border ${
+             formErrors.name
+               ? "border-red-500 focus:ring-red-500"
+               : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+           } rounded-lg transition-colors focus:outline-none`}
           value={form.name}
-          onChange={(e) => handleInputChange("name", e.target.value)}
-          onBlur={handleNameBlur}
-          required
-          maxLength={100}
-          disabled={isLoading}
-        />
+          onChange={(e) => handleInputChange("name", (e.target.value || "").toUpperCase())}
+          onBlur={(e) => handleInputChange("name", (e.target.value || "").trim().toUpperCase())}
+           required
+           maxLength={100}
+           disabled={isLoading}
+         />
         {formErrors.name && (
           <p className="mt-1.5 text-sm text-red-600">{formErrors.name}</p>
         )}

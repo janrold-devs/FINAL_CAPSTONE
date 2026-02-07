@@ -76,6 +76,7 @@ export const createIngredient = async (req, res) => {
 
 export const updateIngredient = async (req, res) => {
   try {
+    console.log("DEBUG updateIngredient - received body.name:", req.body?.name);
     // Normalize unit and Trim/auto-capitalize name if provided in update
     if (req.body.name) {
       req.body.name = req.body.name.trim().toUpperCase(); // AUTO-CAPS applied
