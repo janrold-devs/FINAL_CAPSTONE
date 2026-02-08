@@ -8,6 +8,12 @@ import {
 
 export const createProduct = async (req, res) => {
   try {
+    // normalize incoming category to UPPERCASE
+    if (req.body.category)
+      req.body.category = (req.body.category || "").trim().toUpperCase();
+    if (req.body.productName)
+      req.body.productName = (req.body.productName || "").trim().toUpperCase();
+
     const { productName, sizes, category, status, ingredients, isAddon } =
       req.body;
 
@@ -88,6 +94,12 @@ export const getProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
+    // normalize incoming category to UPPERCASE
+    if (req.body.category)
+      req.body.category = (req.body.category || "").trim().toUpperCase();
+    if (req.body.productName)
+      req.body.productName = (req.body.productName || "").trim().toUpperCase();
+
     const {
       productName,
       sizes,

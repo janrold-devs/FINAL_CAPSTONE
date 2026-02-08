@@ -9,24 +9,25 @@ const ProductModal = ({
 }) => {
   // Predefined categories (must match Product.jsx)
   const initialPredefinedCategories = [
-    "iced latte",
-    "bubble tea",
-    "fruit tea",
-    "amerikano",
-    "non caffeine",
-    "frappe",
-    "choco Series",
-    "hot drink",
-    "shiro Series"
+  "ICED LATTE",
+  "BUBBLE TEA",
+  "FRUIT TEA",
+  "AMERIKANO",
+  "NON CAFFEINE",
+  "FRAPPE",
+  "CHOCO SERIES",
+  "HOT DRINK",
+  "SHIRO SERIES",
   ];
 
   // Load saved custom categories from localStorage
   const [savedCustomCategories, setSavedCustomCategories] = useState(() => {
     try {
-      const saved = localStorage.getItem('productCustomCategories');
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Error loading custom categories:', error);
+      const raw = localStorage.getItem("customCategories");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map((c) => (c || "").toString().trim().toUpperCase()) : [];
+    } catch {
       return [];
     }
   });
@@ -150,27 +151,11 @@ const ProductModal = ({
   }, []);
 
   // Save custom category to localStorage
-  const saveCustomCategory = (categoryName) => {
-    if (!categoryName.trim()) return;
-    
-    const formattedCategory = categoryName.trim().toLowerCase();
-    
-    // Check if category already exists
-    const alreadyExists = allCategories.some(cat => 
-      cat.toLowerCase() === formattedCategory
-    );
-    
-    if (!alreadyExists) {
-      const updatedCategories = [...savedCustomCategories, formattedCategory];
-      setSavedCustomCategories(updatedCategories);
-      
-      try {
-        localStorage.setItem('productCustomCategories', JSON.stringify(updatedCategories));
-        console.log('Saved custom category:', formattedCategory);
-      } catch (error) {
-        console.error('Error saving custom category:', error);
-      }
-    }
+  const saveCustomCategory = (newCat) => {
+    const upper = (newCat || "").trim().toUpperCase();
+    const next = Array.from(new Set([upper, ...savedCustomCategories]));
+    setSavedCustomCategories(next);
+    localStorage.setItem("customCategories", JSON.stringify(next));
   };
 
   // Handle image file selection
@@ -218,11 +203,12 @@ const ProductModal = ({
 
   // Handle custom category input
   const handleCustomCategoryChange = (e) => {
-    const value = e.target.value;
-    setForm(prev => ({
+    const raw = e.target.value || "";
+    const upper = raw.toUpperCase();
+    setForm((prev) => ({
       ...prev,
-      customCategory: value,
-      category: value
+      customCategory: upper, // visual: ALL CAPS
+      category: upper.trim(), // stored value: ALL CAPS
     }));
   };
 
@@ -320,7 +306,8 @@ const ProductModal = ({
     else if (form.image) formData.append("image", form.image);
 
     formData.append("productName", form.productName);
-    formData.append("category", form.category);
+    // Always send category in UPPERCASE (custom or predefined)
+    formData.append("category", (form.category || "").trim().toUpperCase());
     formData.append("status", form.status);
     formData.append("sizes", JSON.stringify(form.sizes));
     formData.append(
@@ -466,10 +453,8 @@ const ProductModal = ({
                   {savedCustomCategories.length > 0 && (
                     <optgroup label="Custom Categories">
                       {savedCustomCategories.map((category) => (
-                        <option key={category} value={category}>
-                          {category.split(' ').map(word => 
-                            word.charAt(0).toUpperCase() + word.slice(1)
-                          ).join(' ')}
+                        <option key={category} value={(category || "").toUpperCase()}>
+                          {(category || "").toUpperCase()}
                         </option>
                       ))}
                     </optgroup>
