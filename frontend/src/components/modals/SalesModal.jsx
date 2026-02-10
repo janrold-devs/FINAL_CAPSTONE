@@ -8,19 +8,22 @@ const SalesModal = ({ show, onClose, salesData }) => {
     if (!salesData.transactions || !Array.isArray(salesData.transactions)) {
       return salesData.totalSales || 0;
     }
-    
+
     try {
-      const accurateTotal = salesData.transactions.reduce((total, transaction) => {
-        return total + (transaction.totalAmount || 0);
-      }, 0);
-      
+      const accurateTotal = salesData.transactions.reduce(
+        (total, transaction) => {
+          return total + (transaction.totalAmount || 0);
+        },
+        0,
+      );
+
       console.log("💰 Modal Total Calculation:", {
         transactionsCount: salesData.transactions.length,
         salesDataTotal: salesData.totalSales,
         calculatedTotal: accurateTotal,
-        difference: accurateTotal - (salesData.totalSales || 0)
+        difference: accurateTotal - (salesData.totalSales || 0),
       });
-      
+
       return accurateTotal;
     } catch (error) {
       console.error("Error calculating total:", error);
@@ -39,15 +42,15 @@ const SalesModal = ({ show, onClose, salesData }) => {
         (sum, t) =>
           sum +
           (t.itemsSold || []).reduce((s, item) => s + (item.quantity || 0), 0),
-        0
+        0,
       );
 
       const uniqueProducts = new Set(
         salesData.transactions.flatMap((t) =>
           (t.itemsSold || []).map(
-            (item) => item.snapshot?.productName || "unknown"
-          )
-        )
+            (item) => item.snapshot?.productName || "unknown",
+          ),
+        ),
       ).size;
 
       // Calculate accurate total sales
@@ -68,7 +71,7 @@ const SalesModal = ({ show, onClose, salesData }) => {
     const addonsTotal =
       snapshot?.addons?.reduce(
         (sum, addon) => sum + (addon.price || 0) * (addon.quantity || 1),
-        0
+        0,
       ) || 0;
 
     return (snapshot?.basePrice || item.price) - addonsTotal;
@@ -79,11 +82,11 @@ const SalesModal = ({ show, onClose, salesData }) => {
     if (!salesData.transactions || !Array.isArray(salesData.transactions)) {
       return 0;
     }
-    
+
     try {
       let tableTotal = 0;
-      salesData.transactions.forEach(t => {
-        (t.itemsSold || []).forEach(item => {
+      salesData.transactions.forEach((t) => {
+        (t.itemsSold || []).forEach((item) => {
           tableTotal += item.totalCost || 0;
         });
       });
@@ -102,7 +105,7 @@ const SalesModal = ({ show, onClose, salesData }) => {
     accurateTotal,
     tableTotal,
     transactionsCount: salesData.transactions?.length,
-    discrepancy: accurateTotal - (salesData.totalSales || 0)
+    discrepancy: accurateTotal - (salesData.totalSales || 0),
   });
 
   return (
@@ -139,145 +142,195 @@ const SalesModal = ({ show, onClose, salesData }) => {
           </div>
 
           {/* Debug info - only show if there's a discrepancy */}
-          {(accurateTotal !== (salesData.totalSales || 0) || accurateTotal !== tableTotal) && (
+          {(accurateTotal !== (salesData.totalSales || 0) ||
+            accurateTotal !== tableTotal) && (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-center text-sm text-yellow-800">
                 <span className="font-medium">Data Verification:</span>
                 <div className="ml-3 space-y-1">
                   <div>Table calculated: ₱{tableTotal.toFixed(2)}</div>
                   <div>Transactions total: ₱{accurateTotal.toFixed(2)}</div>
-                  <div>Batch total: ₱{(salesData.totalSales || 0).toFixed(2)}</div>
+                  <div>
+                    Batch total: ₱{(salesData.totalSales || 0).toFixed(2)}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Items Sold with Add-ons */}
+          {/* Items Sold with Add-ons - Grouped by Transaction */}
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-2">
-              Items Sold
+              Items Sold by Transaction
             </label>
 
             {salesData.transactions &&
             salesData.transactions.length > 0 &&
             salesData.transactions.some((t) => t.itemsSold?.length > 0) ? (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Product</th>
-                      <th className="text-left py-2">Category</th>
-                      <th className="text-left py-2">Size</th>
-                      <th className="text-left py-2">Add-ons</th>
-                      <th className="text-center py-2">Qty</th>
-                      <th className="text-right py-2">Price</th>
-                      <th className="text-right py-2">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salesData.transactions.flatMap((t, tIndex) =>
-                      (t.itemsSold || []).map((item, i) => {
-                        // Use snapshot data instead of populated product
-                        const snapshot = item.snapshot;
-                        const basePrice = calculateBasePrice(item);
+              <div className="space-y-4">
+                {salesData.transactions.map((transaction, tIndex) => (
+                  <div
+                    key={transaction._id || tIndex}
+                    className="border-2 border-blue-200 rounded-lg overflow-hidden bg-blue-50"
+                  >
+                    {/* Transaction Header */}
+                    <div className="bg-blue-400 text-white px-4 py-3 flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-lg">
+                          Transaction #{tIndex + 1}
+                        </h3>
+                        <div className="text-sm text-blue-100 mt-1 space-y-0.5">
+                          <div>
+                            Cashier:{" "}
+                            <span className="font-medium">
+                              {transaction.cashier?.firstName
+                                ? `${transaction.cashier.firstName} ${transaction.cashier.lastName}`
+                                : "Unknown Cashier"}
+                            </span>
+                          </div>
+                          <div>
+                            Time:{" "}
+                            <span className="font-medium">
+                              {new Date(
+                                transaction.transactionDate,
+                              ).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div>
+                            Payment:{" "}
+                            <span className="font-medium">
+                              {transaction.modeOfPayment || "Cash"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-blue-100">Total</div>
+                        <div className="text-2xl font-bold">
+                          ₱{(transaction.totalAmount || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
 
-                        return (
-                          <React.Fragment key={`${tIndex}-${i}`}>
-                            {/* Main Product Row */}
-                            <tr className="border-b last:border-b-0">
-                              <td className="py-2">
-                                <div className="text-gray-800 font-medium">
-                                  {snapshot?.productName || (
-                                    <span className="text-gray-400 italic">
-                                      Deleted Product
-                                    </span>
-                                  )}
-                                </div>
-                                {tIndex === 0 && i === 0 && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Transaction #{tIndex + 1}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-2 text-gray-600">
-                                {snapshot?.category || "—"}
-                              </td>
-                              <td className="py-2 text-gray-600">
-                                {snapshot?.size ? `${snapshot.size} oz` : "—"}
-                              </td>
-                              <td className="py-2 text-gray-600">
-                                {snapshot?.addons &&
-                                snapshot.addons.length > 0 ? (
-                                  <span className="text-blue-600 text-xs">
-                                    {snapshot.addons.length} add-on(s)
-                                  </span>
-                                ) : (
-                                  "—"
-                                )}
-                              </td>
-                              <td className="text-center py-2 text-gray-800 font-medium">
-                                {item.quantity}
-                              </td>
-                              <td className="text-right py-2 text-gray-600">
-                                ₱{basePrice.toFixed(2)}
-                              </td>
-                              <td className="text-right py-2 font-semibold text-green-700">
-                                ₱{item.totalCost?.toFixed(2)}
-                              </td>
-                            </tr>
+                    {/* Transaction Items Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-blue-100">
+                          <tr>
+                            <th className="text-left py-2 px-3">Product</th>
+                            <th className="text-left py-2 px-3">Category</th>
+                            <th className="text-left py-2 px-3">Size</th>
+                            <th className="text-left py-2 px-3">Add-ons</th>
+                            <th className="text-center py-2 px-3">Qty</th>
+                            <th className="text-right py-2 px-3">Price</th>
+                            <th className="text-right py-2 px-3">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {(transaction.itemsSold || []).map((item, i) => {
+                            const snapshot = item.snapshot;
+                            const basePrice = calculateBasePrice(item);
 
-                            {/* Add-ons Rows - Use snapshot addons */}
-                            {snapshot?.addons?.map((addon, addonIdx) => (
-                              <tr
-                                key={`${tIndex}-${i}-${addonIdx}`}
-                                className="bg-gray-50 border-b border-gray-100 last:border-b-0"
-                              >
-                                <td className="py-1 pl-4">
-                                  <div className="text-gray-600 text-xs flex items-center">
-                                    <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                                    {addon.addonName || "Add-on"}
-                                  </div>
-                                </td>
-                                <td className="py-1 text-gray-500 text-xs">
-                                  Add-on
-                                </td>
-                                <td className="py-1 text-gray-500 text-xs">
-                                  —
-                                </td>
-                                <td className="py-1 text-gray-500 text-xs">
-                                  <div className="text-xs">Extra</div>
-                                </td>
-                                <td className="py-1 text-center text-gray-600 text-xs font-medium">
-                                  {addon.quantity || 1}
-                                </td>
-                                <td className="py-1 text-right text-gray-500 text-xs">
-                                  ₱{addon.price?.toFixed(2) || "0.00"}
-                                </td>
-                                <td className="py-1 text-right text-gray-600 text-xs font-medium">
-                                  ₱
-                                  {(
-                                    (addon.price || 0) * (addon.quantity || 1)
-                                  ).toFixed(2)}
-                                </td>
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                        );
-                      })
-                    )}
-                  </tbody>
-                  {/* Table Footer with total */}
-                  <tfoot>
-                    <tr className="border-t border-gray-300">
-                      <td colSpan="6" className="py-2 text-right font-medium text-gray-700">
-                        Table Total:
-                      </td>
-                      <td className="py-2 text-right font-bold text-green-700">
+                            return (
+                              <React.Fragment key={`${tIndex}-${i}`}>
+                                {/* Main Product Row */}
+                                <tr className="border-b hover:bg-gray-50">
+                                  <td className="py-2 px-3">
+                                    <div className="text-gray-800 font-medium">
+                                      {snapshot?.productName || (
+                                        <span className="text-gray-400 italic">
+                                          Deleted Product
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-2 px-3 text-gray-600">
+                                    {snapshot?.category || "—"}
+                                  </td>
+                                  <td className="py-2 px-3 text-gray-600">
+                                    {snapshot?.size
+                                      ? `${snapshot.size} oz`
+                                      : "—"}
+                                  </td>
+                                  <td className="py-2 px-3 text-gray-600">
+                                    {snapshot?.addons &&
+                                    snapshot.addons.length > 0 ? (
+                                      <span className="text-blue-600 text-xs font-medium">
+                                        {snapshot.addons.length} add-on(s)
+                                      </span>
+                                    ) : (
+                                      "—"
+                                    )}
+                                  </td>
+                                  <td className="text-center py-2 px-3 text-gray-800 font-medium">
+                                    {item.quantity}
+                                  </td>
+                                  <td className="text-right py-2 px-3 text-gray-600">
+                                    ₱{basePrice.toFixed(2)}
+                                  </td>
+                                  <td className="text-right py-2 px-3 font-semibold text-green-700">
+                                    ₱{item.totalCost?.toFixed(2)}
+                                  </td>
+                                </tr>
+
+                                {/* Add-ons Rows */}
+                                {snapshot?.addons?.map((addon, addonIdx) => (
+                                  <tr
+                                    key={`${tIndex}-${i}-${addonIdx}`}
+                                    className="bg-gray-50 border-b border-gray-100 hover:bg-gray-100"
+                                  >
+                                    <td className="py-1 px-3">
+                                      <div className="text-gray-600 text-xs flex items-center">
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                        {addon.addonName || "Add-on"}
+                                      </div>
+                                    </td>
+                                    <td className="py-1 px-3 text-gray-500 text-xs">
+                                      Add-on
+                                    </td>
+                                    <td className="py-1 px-3 text-gray-500 text-xs">
+                                      —
+                                    </td>
+                                    <td className="py-1 px-3 text-gray-500 text-xs">
+                                      <div className="text-xs">Extra</div>
+                                    </td>
+                                    <td className="py-1 px-3 text-center text-gray-600 text-xs font-medium">
+                                      {addon.quantity || 1}
+                                    </td>
+                                    <td className="py-1 px-3 text-right text-gray-500 text-xs">
+                                      ₱{addon.price?.toFixed(2) || "0.00"}
+                                    </td>
+                                    <td className="py-1 px-3 text-right text-gray-600 text-xs font-medium">
+                                      ₱
+                                      {(
+                                        (addon.price || 0) *
+                                        (addon.quantity || 1)
+                                      ).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Overall Total Footer */}
+                <div className="flex justify-end">
+                  <div className="bg-green-100 border-2 border-green-300 rounded-lg px-6 py-3 w-full md:w-96">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-gray-700">
+                        Batch Total:
+                      </span>
+                      <span className="text-2xl font-bold text-green-700">
                         ₱{tableTotal.toFixed(2)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-gray-500 italic">No items sold</p>
@@ -318,41 +371,17 @@ const SalesModal = ({ show, onClose, salesData }) => {
                 <p className="text-xs text-green-600 mt-1">
                   ({salesData.transactions?.length || 0} transactions)
                 </p>
-                {salesData.totalSales && accurateTotal !== salesData.totalSales && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Original: ₱{salesData.totalSales.toLocaleString()}
-                  </p>
-                )}
+                {salesData.totalSales &&
+                  accurateTotal !== salesData.totalSales && (
+                    <p className="text-xs text-yellow-600 mt-1">
+                      Original: ₱{salesData.totalSales.toLocaleString()}
+                    </p>
+                  )}
               </div>
             </div>
           </div>
 
-          {/* Transaction List */}
-          {salesData.transactions && salesData.transactions.length > 0 && (
-            <div className="border-t pt-4">
-              <label className="block text-sm font-semibold text-gray-600 mb-2">
-                Transactions in this Batch ({salesData.transactions.length})
-              </label>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {salesData.transactions.map((t, index) => (
-                  <div 
-                    key={t._id || index}
-                    className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-200"
-                  >
-                    <div className="text-sm">
-                      <span className="font-medium">Transaction #{index + 1}</span>
-                      <span className="text-gray-600 ml-3">
-                        {t.cashier?.firstName ? `${t.cashier.firstName} ${t.cashier.lastName}` : 'Unknown Cashier'}
-                      </span>
-                    </div>
-                    <div className="text-sm font-medium text-green-700">
-                      ₱{(t.totalAmount || 0).toFixed(2)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Transaction List - REMOVED since transactions are now shown with items */}
         </div>
 
         {/* Close Button */}

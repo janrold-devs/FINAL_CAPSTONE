@@ -187,7 +187,6 @@ const BestSellingModal = ({
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                           Category
                         </th>
-                        {/* Size and Price columns intentionally removed per request */}
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                           Sold
                         </th>
@@ -198,7 +197,6 @@ const BestSellingModal = ({
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {data.products.map((product, index) => {
-                        // size and price retrieval is preserved (not used in UI now)
                         const { size, price } = getProductSizeAndPrice(product);
 
                         // Compute progress width safely

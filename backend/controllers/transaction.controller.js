@@ -5,6 +5,28 @@ import Ingredient from "../models/Ingredient.js";
 import Sales from "../models/Sales.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 
+// Helper function to determine if an ingredient should be deducted based on selected size
+const shouldDeductIngredient = (ingredientName, selectedSize) => {
+  if (!ingredientName) return true;
+
+  const ingredientNameUpper = ingredientName.toUpperCase();
+
+  // Check if this is a cup ingredient
+  if (ingredientNameUpper.includes("CUP")) {
+    // Extract size number from ingredient name (e.g., "16" from "PLASTIC CUPS (16 OZ)")
+    const sizeMatch = ingredientNameUpper.match(/\((\d+)\s*OZ\)/);
+
+    if (sizeMatch) {
+      const cupSize = parseInt(sizeMatch[1], 10);
+      // Only deduct if the cup size matches the selected size
+      return cupSize === selectedSize;
+    }
+  }
+
+  // For non-cup ingredients, always deduct
+  return true;
+};
+
 const updateSalesBatchCalculation = async (salesBatch) => {
   try {
     const transactions = await Transaction.find({
@@ -32,13 +54,18 @@ export const checkStockAvailability = async (req, res) => {
 
     for (const item of itemsSold) {
       const product = await Product.findById(item.product).populate(
-        "ingredients.ingredient"
+        "ingredients.ingredient",
       );
       if (!product) continue;
 
       for (const recipe of product.ingredients) {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
+
+        // Skip this ingredient if it doesn't match the selected size
+        if (!shouldDeductIngredient(ingredient.name, item.size)) {
+          continue;
+        }
 
         const requiredQuantity = recipe.quantity * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
@@ -54,7 +81,7 @@ export const checkStockAvailability = async (req, res) => {
       if (item.addons && item.addons.length > 0) {
         for (const addon of item.addons) {
           const addonProduct = await Product.findById(addon.addonId).populate(
-            "ingredients.ingredient"
+            "ingredients.ingredient",
           );
           if (!addonProduct) continue;
 
@@ -62,9 +89,14 @@ export const checkStockAvailability = async (req, res) => {
             if (!addonRecipe.ingredient) continue;
 
             const addonIngredient = await Ingredient.findById(
-              addonRecipe.ingredient._id
+              addonRecipe.ingredient._id,
             );
             if (!addonIngredient) continue;
+
+            // Skip this addon ingredient if it doesn't match the selected size
+            if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+              continue;
+            }
 
             const addonRequiredQuantity =
               addonRecipe.quantity * addon.quantity * item.quantity;
@@ -172,19 +204,19 @@ export const createTransaction = async (req, res) => {
                 quantity: addon.quantity || 1,
                 price: addon.price || addonProduct?.sizes?.[0]?.price || 0,
               };
-            })
+            }),
           );
         }
 
         return transactionItem;
-      })
+      }),
     );
 
     // Check stock availability
     const outOfStock = [];
     for (const item of itemsWithSnapshots) {
       const product = await Product.findById(item.product).populate(
-        "ingredients.ingredient"
+        "ingredients.ingredient",
       );
       if (!product) continue;
 
@@ -194,6 +226,11 @@ export const createTransaction = async (req, res) => {
 
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
+
+        // Skip this ingredient if it doesn't match the selected size
+        if (!shouldDeductIngredient(ingredient.name, item.size)) {
+          continue;
+        }
 
         const requiredQuantity = recipe.quantity * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
@@ -210,7 +247,7 @@ export const createTransaction = async (req, res) => {
       if (item.addons && item.addons.length > 0) {
         for (const addon of item.addons) {
           const addonProduct = await Product.findById(addon.addonId).populate(
-            "ingredients.ingredient"
+            "ingredients.ingredient",
           );
           if (!addonProduct) continue;
 
@@ -218,9 +255,14 @@ export const createTransaction = async (req, res) => {
             if (!addonRecipe.ingredient) continue;
 
             const addonIngredient = await Ingredient.findById(
-              addonRecipe.ingredient._id
+              addonRecipe.ingredient._id,
             );
             if (!addonIngredient) continue;
+
+            // Skip this addon ingredient if it doesn't match the selected size
+            if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+              continue;
+            }
 
             const addonRequiredQuantity =
               addonRecipe.quantity * addon.quantity * item.quantity;
@@ -249,7 +291,7 @@ export const createTransaction = async (req, res) => {
     // Compute grand total
     const totalAmount = itemsWithSnapshots.reduce(
       (s, it) => s + (it.totalCost || 0),
-      0
+      0,
     );
 
     // Create transaction
@@ -266,7 +308,7 @@ export const createTransaction = async (req, res) => {
     await Promise.all(
       itemsWithSnapshots.map(async (item) => {
         const product = await Product.findById(item.product).populate(
-          "ingredients.ingredient"
+          "ingredients.ingredient",
         );
         if (!product) return;
 
@@ -277,6 +319,11 @@ export const createTransaction = async (req, res) => {
           const ingredient = await Ingredient.findById(recipe.ingredient._id);
           if (!ingredient) continue;
 
+          // Skip this ingredient if it doesn't match the selected size
+          if (!shouldDeductIngredient(ingredient.name, item.size)) {
+            continue;
+          }
+
           const deductQty = recipe.quantity * item.quantity;
           ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
           await ingredient.save();
@@ -286,7 +333,7 @@ export const createTransaction = async (req, res) => {
         if (item.addons && item.addons.length > 0) {
           for (const addon of item.addons) {
             const addonProduct = await Product.findById(addon.addonId).populate(
-              "ingredients.ingredient"
+              "ingredients.ingredient",
             );
             if (!addonProduct) continue;
 
@@ -294,21 +341,26 @@ export const createTransaction = async (req, res) => {
               if (!addonRecipe.ingredient) continue;
 
               const addonIngredient = await Ingredient.findById(
-                addonRecipe.ingredient._id
+                addonRecipe.ingredient._id,
               );
               if (!addonIngredient) continue;
+
+              // Skip this addon ingredient if it doesn't match the selected size
+              if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+                continue;
+              }
 
               const addonDeductQty =
                 addonRecipe.quantity * addon.quantity * item.quantity;
               addonIngredient.quantity = Math.max(
                 0,
-                addonIngredient.quantity - addonDeductQty
+                addonIngredient.quantity - addonDeductQty,
               );
               await addonIngredient.save();
             }
           }
         }
-      })
+      }),
     );
 
     // In the createTransaction function, replace the sales batch section:
@@ -343,7 +395,7 @@ export const createTransaction = async (req, res) => {
       await salesBatch.save();
 
       console.log(
-        `✅ Updated sales batch ${batchNumber}: ₱${recalculatedTotal}`
+        `✅ Updated sales batch ${batchNumber}: ₱${recalculatedTotal}`,
       );
     } else {
       salesBatch = await Sales.create({
@@ -362,7 +414,7 @@ export const createTransaction = async (req, res) => {
     await logActivity(
       req,
       "CREATE_TRANSACTION",
-      `Transaction recorded by cashier: ${cashier}. Total: ₱${totalAmount}. Added to ${batchNumber}.`
+      `Transaction recorded by cashier: ${cashier}. Total: ₱${totalAmount}. Added to ${batchNumber}.`,
     );
 
     // Return populated transaction for receipt
@@ -376,7 +428,7 @@ export const createTransaction = async (req, res) => {
 
     if (err.name === "ValidationError") {
       const validationErrors = Object.values(err.errors).map(
-        (error) => error.message
+        (error) => error.message,
       );
       return res.status(400).json({
         message: "Transaction validation failed",
@@ -475,13 +527,18 @@ export const deleteTransaction = async (req, res) => {
     // Restore ingredients
     for (const item of deleted.itemsSold) {
       const product = await Product.findById(item.product).populate(
-        "ingredients.ingredient"
+        "ingredients.ingredient",
       );
       if (!product) continue;
 
       for (const recipe of product.ingredients) {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
+
+        // Skip this ingredient if it doesn't match the selected size
+        if (!shouldDeductIngredient(ingredient.name, item.size)) {
+          continue;
+        }
 
         const restoreQty = recipe.quantity * item.quantity;
         ingredient.quantity += restoreQty;
@@ -491,15 +548,20 @@ export const deleteTransaction = async (req, res) => {
       if (item.addons && item.addons.length > 0) {
         for (const addon of item.addons) {
           const addonProduct = await Product.findById(addon.addonId).populate(
-            "ingredients.ingredient"
+            "ingredients.ingredient",
           );
           if (!addonProduct) continue;
 
           for (const addonRecipe of addonProduct.ingredients) {
             const addonIngredient = await Ingredient.findById(
-              addonRecipe.ingredient._id
+              addonRecipe.ingredient._id,
             );
             if (!addonIngredient) continue;
+
+            // Skip this addon ingredient if it doesn't match the selected size
+            if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+              continue;
+            }
 
             const addonRestoreQty =
               addonRecipe.quantity * addon.quantity * item.quantity;
@@ -521,7 +583,7 @@ export const deleteTransaction = async (req, res) => {
     if (salesBatch) {
       // Remove the transaction
       salesBatch.transactions = salesBatch.transactions.filter(
-        (t) => t.toString() !== req.params.id
+        (t) => t.toString() !== req.params.id,
       );
 
       // Recalculate total from remaining transactions
@@ -547,7 +609,7 @@ export const deleteTransaction = async (req, res) => {
     await logActivity(
       req,
       "DELETE_TRANSACTION",
-      `Transaction deleted. Total: ₱${deleted.totalAmount}. Removed from ${batchNumber}. Ingredients restored to inventory.`
+      `Transaction deleted. Total: ₱${deleted.totalAmount}. Removed from ${batchNumber}. Ingredients restored to inventory.`,
     );
 
     res.json({ message: "Transaction removed and ingredients restored" });

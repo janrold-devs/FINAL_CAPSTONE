@@ -1,25 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import DashboardLayout from '../../layouts/DashboardLayout';
-import api from '../../api/axios';
-import { Eye, EyeOff, Lock } from 'lucide-react';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import React, { useState, useEffect } from "react";
+import DashboardLayout from "../../layouts/DashboardLayout";
+import api from "../../api/axios";
+import { Eye, EyeOff, Lock, Check, X } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showPasswords, setShowPasswords] = useState({
     currentPassword: false,
     newPassword: false,
-    confirmPassword: false
+    confirmPassword: false,
   });
 
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
+
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasNumbers: false,
+    hasSpecialChar: false,
+  });
+
+  // Password validation criteria
+  const validatePassword = (password) => {
+    const minLength = password.length >= 8;
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(
+      password,
+    );
+
+    setPasswordValidation({
+      minLength,
+      hasNumbers,
+      hasSpecialChar,
+    });
+
+    return minLength && hasNumbers && hasSpecialChar;
+  };
+
+  const isPasswordValid =
+    passwordData.newPassword.length > 0 &&
+    passwordValidation.minLength &&
+    passwordValidation.hasNumbers &&
+    passwordValidation.hasSpecialChar;
 
   useEffect(() => {
     fetchUserProfile();
@@ -27,13 +56,13 @@ const Settings = () => {
 
   const fetchUserProfile = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const decoded = JSON.parse(atob(token.split('.')[1]));
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
       const response = await api.get(`/users/${decoded.id}`);
       setUser(response.data);
       setLoading(false);
     } catch (err) {
-      toast.error('Failed to load user profile', {
+      toast.error("Failed to load user profile", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -43,56 +72,68 @@ const Settings = () => {
 
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
+    setPasswordData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
+
+    // Validate password as user types (only for new password)
+    if (name === "newPassword") {
+      validatePassword(value);
+    }
   };
 
   const togglePasswordVisibility = (field) => {
-    setShowPasswords(prev => ({
+    setShowPasswords((prev) => ({
       ...prev,
-      [field]: !prev[field]
+      [field]: !prev[field],
     }));
   };
 
   const handleChangePassword = async () => {
     try {
+      // Validate new password meets all requirements
+      if (!isPasswordValid) {
+        toast.error("Password must meet all requirements", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
+
       if (passwordData.newPassword !== passwordData.confirmPassword) {
-        toast.error('New passwords do not match', {
+        toast.error("New passwords do not match", {
           position: "top-right",
           autoClose: 3000,
         });
         return;
       }
 
-      if (passwordData.newPassword.length < 8) {
-        toast.error('Password must be at least 8 characters', {
-          position: "top-right",
-          autoClose: 3000,
-        });
-        return;
-      }
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
 
-      const token = localStorage.getItem('token');
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      
       await api.put(`/users/${decoded.id}`, {
-        password: passwordData.newPassword
+        password: passwordData.newPassword,
       });
 
       setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
-      
-      toast.success('Password changed successfully!', {
+
+      setPasswordValidation({
+        minLength: false,
+        hasNumbers: false,
+        hasSpecialChar: false,
+      });
+
+      toast.success("Password changed successfully!", {
         position: "top-right",
         autoClose: 3000,
       });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to change password', {
+      toast.error(err.response?.data?.message || "Failed to change password", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -100,11 +141,11 @@ const Settings = () => {
   };
 
   const handleCancel = () => {
-    if (activeTab === 'password') {
+    if (activeTab === "password") {
       setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
     }
   };
@@ -134,41 +175,45 @@ const Settings = () => {
         pauseOnHover
         theme="light"
       />
-      
+
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
-            <p className="text-gray-500 mt-2">Manage your account preferences and security</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Account Settings
+            </h1>
+            <p className="text-gray-500 mt-2">
+              Manage your account preferences and security
+            </p>
           </div>
 
           {/* Tabs */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="flex border-b border-gray-200 bg-gray-50">
               <button
-                onClick={() => setActiveTab('profile')}
+                onClick={() => setActiveTab("profile")}
                 className={`flex-1 px-6 py-4 font-medium transition-all relative ${
-                  activeTab === 'profile'
-                    ? 'text-[#E89271] bg-white'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  activeTab === "profile"
+                    ? "text-[#E89271] bg-white"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                 }`}
               >
                 Profile Details
-                {activeTab === 'profile' && (
+                {activeTab === "profile" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E89271]"></div>
                 )}
               </button>
               <button
-                onClick={() => setActiveTab('password')}
+                onClick={() => setActiveTab("password")}
                 className={`flex-1 px-6 py-4 font-medium transition-all relative ${
-                  activeTab === 'password'
-                    ? 'text-[#E89271] bg-white'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  activeTab === "password"
+                    ? "text-[#E89271] bg-white"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                 }`}
               >
                 Change Password
-                {activeTab === 'password' && (
+                {activeTab === "password" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E89271]"></div>
                 )}
               </button>
@@ -176,30 +221,46 @@ const Settings = () => {
 
             {/* Content */}
             {/* Profile Tab - Updated to read-only display */}
-            {activeTab === 'profile' && (
+            {activeTab === "profile" && (
               <div className="p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-1">
-                    <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
-                    <p className="text-sm text-gray-500 mt-1">View your account details</p>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Profile Information
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      View your account details
+                    </p>
                   </div>
-                  
+
                   <div className="md:col-span-2">
                     <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
                       <div className="space-y-4">
                         <div className="flex items-start">
-                          <div className="flex-shrink-0 w-32 font-medium text-gray-600">First Name</div>
-                          <div className="flex-1 text-gray-900">{user?.firstName || 'N/A'}</div>
+                          <div className="flex-shrink-0 w-32 font-medium text-gray-600">
+                            First Name
+                          </div>
+                          <div className="flex-1 text-gray-900">
+                            {user?.firstName || "N/A"}
+                          </div>
                         </div>
                         <div className="border-t border-gray-200"></div>
                         <div className="flex items-start">
-                          <div className="flex-shrink-0 w-32 font-medium text-gray-600">Last Name</div>
-                          <div className="flex-1 text-gray-900">{user?.lastName || 'N/A'}</div>
+                          <div className="flex-shrink-0 w-32 font-medium text-gray-600">
+                            Last Name
+                          </div>
+                          <div className="flex-1 text-gray-900">
+                            {user?.lastName || "N/A"}
+                          </div>
                         </div>
                         <div className="border-t border-gray-200"></div>
                         <div className="flex items-start">
-                          <div className="flex-shrink-0 w-32 font-medium text-gray-600">Email</div>
-                          <div className="flex-1 text-gray-900">{user?.email || 'N/A'}</div>
+                          <div className="flex-shrink-0 w-32 font-medium text-gray-600">
+                            Email
+                          </div>
+                          <div className="flex-1 text-gray-900">
+                            {user?.email || "N/A"}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -211,7 +272,7 @@ const Settings = () => {
             )}
 
             {/* Change Password Tab */}
-            {activeTab === 'password' && (
+            {activeTab === "password" && (
               <div className="p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-1">
@@ -219,11 +280,15 @@ const Settings = () => {
                       <div className="w-10 h-10 bg-[#E89271]/10 rounded-lg flex items-center justify-center">
                         <Lock className="w-5 h-5 text-[#E89271]" />
                       </div>
-                      <h2 className="text-lg font-semibold text-gray-900">Security</h2>
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Security
+                      </h2>
                     </div>
-                    <p className="text-sm text-gray-500">Update your password to keep your account secure</p>
+                    <p className="text-sm text-gray-500">
+                      Update your password to keep your account secure
+                    </p>
                   </div>
-                  
+
                   <div className="md:col-span-2 space-y-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -231,16 +296,21 @@ const Settings = () => {
                       </label>
                       <div className="relative">
                         <input
-                          type={showPasswords.currentPassword ? 'text' : 'password'}
+                          type={
+                            showPasswords.currentPassword ? "text" : "password"
+                          }
                           name="currentPassword"
                           value={passwordData.currentPassword}
                           onChange={handlePasswordChange}
+                          data-no-uppercase
                           className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-all"
                           placeholder="Enter current password"
                         />
                         <button
                           type="button"
-                          onClick={() => togglePasswordVisibility('currentPassword')}
+                          onClick={() =>
+                            togglePasswordVisibility("currentPassword")
+                          }
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                           {showPasswords.currentPassword ? (
@@ -258,16 +328,19 @@ const Settings = () => {
                       </label>
                       <div className="relative">
                         <input
-                          type={showPasswords.newPassword ? 'text' : 'password'}
+                          type={showPasswords.newPassword ? "text" : "password"}
                           name="newPassword"
                           value={passwordData.newPassword}
                           onChange={handlePasswordChange}
+                          data-no-uppercase
                           className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-all"
                           placeholder="Enter new password"
                         />
                         <button
                           type="button"
-                          onClick={() => togglePasswordVisibility('newPassword')}
+                          onClick={() =>
+                            togglePasswordVisibility("newPassword")
+                          }
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                           {showPasswords.newPassword ? (
@@ -277,6 +350,90 @@ const Settings = () => {
                           )}
                         </button>
                       </div>
+
+                      {/* Password Requirements Checklist */}
+                      {passwordData.newPassword.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                            Password Requirements
+                          </p>
+
+                          <div className="space-y-2">
+                            {/* Minimum Length Requirement */}
+                            <div
+                              className={`flex items-center gap-2 p-2.5 rounded-lg ${
+                                passwordValidation.minLength
+                                  ? "bg-green-50 border border-green-200"
+                                  : "bg-red-50 border border-red-200"
+                              }`}
+                            >
+                              {passwordValidation.minLength ? (
+                                <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <X className="w-4 h-4 text-red-600 flex-shrink-0" />
+                              )}
+                              <span
+                                className={`text-sm ${
+                                  passwordValidation.minLength
+                                    ? "text-green-700 font-medium"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                At least 8 characters (
+                                {passwordData.newPassword.length}/8)
+                              </span>
+                            </div>
+
+                            {/* Numbers Requirement */}
+                            <div
+                              className={`flex items-center gap-2 p-2.5 rounded-lg ${
+                                passwordValidation.hasNumbers
+                                  ? "bg-green-50 border border-green-200"
+                                  : "bg-red-50 border border-red-200"
+                              }`}
+                            >
+                              {passwordValidation.hasNumbers ? (
+                                <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <X className="w-4 h-4 text-red-600 flex-shrink-0" />
+                              )}
+                              <span
+                                className={`text-sm ${
+                                  passwordValidation.hasNumbers
+                                    ? "text-green-700 font-medium"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                Includes at least one number (0-9)
+                              </span>
+                            </div>
+
+                            {/* Special Characters Requirement */}
+                            <div
+                              className={`flex items-center gap-2 p-2.5 rounded-lg ${
+                                passwordValidation.hasSpecialChar
+                                  ? "bg-green-50 border border-green-200"
+                                  : "bg-red-50 border border-red-200"
+                              }`}
+                            >
+                              {passwordValidation.hasSpecialChar ? (
+                                <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <X className="w-4 h-4 text-red-600 flex-shrink-0" />
+                              )}
+                              <span
+                                className={`text-sm ${
+                                  passwordValidation.hasSpecialChar
+                                    ? "text-green-700 font-medium"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                Includes special character (!@#$%^&* etc.)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -285,16 +442,21 @@ const Settings = () => {
                       </label>
                       <div className="relative">
                         <input
-                          type={showPasswords.confirmPassword ? 'text' : 'password'}
+                          type={
+                            showPasswords.confirmPassword ? "text" : "password"
+                          }
                           name="confirmPassword"
                           value={passwordData.confirmPassword}
                           onChange={handlePasswordChange}
+                          data-no-uppercase
                           className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-all"
                           placeholder="Confirm new password"
                         />
                         <button
                           type="button"
-                          onClick={() => togglePasswordVisibility('confirmPassword')}
+                          onClick={() =>
+                            togglePasswordVisibility("confirmPassword")
+                          }
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                           {showPasswords.confirmPassword ? (
@@ -306,31 +468,32 @@ const Settings = () => {
                       </div>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
-                        <span className="font-medium">Password requirements:</span>
-                        <br />
-                        • At least 8 characters long
-                        <br />
-                        • Include numbers and special characters
-                      </p>
+                    <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
+                      <button
+                        onClick={handleCancel}
+                        className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={
+                          !isPasswordValid ||
+                          passwordData.newPassword !==
+                            passwordData.confirmPassword
+                        }
+                        className={`px-6 py-2.5 font-medium rounded-lg shadow-sm transition-colors ${
+                          isPasswordValid &&
+                          passwordData.newPassword ===
+                            passwordData.confirmPassword
+                            ? "bg-[#E89271] text-white hover:bg-[#ed9e7f] cursor-pointer"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        }`}
+                      >
+                        Update Password
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
-                  <button
-                    onClick={handleCancel}
-                    className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleChangePassword}
-                    className="px-6 py-2.5 bg-[#E89271] text-white font-medium rounded-lg hover:bg-[#ed9e7f] transition-colors shadow-sm"
-                  >
-                    Update Password
-                  </button>
                 </div>
               </div>
             )}
