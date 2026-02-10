@@ -220,6 +220,7 @@ const SearchFilter = ({
             placeholder={placeholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            data-no-uppercase="true"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white text-sm"
           />
         </div>
