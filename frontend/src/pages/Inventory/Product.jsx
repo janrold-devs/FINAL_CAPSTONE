@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "../../api/axios";
 import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css"
+import "react-toastify/dist/ReactToastify.css";
 import ProductModal from "../../components/modals/ProductModal";
 import AlertDialog from "../../components/AlertDialog";
 import DashboardLayout from "../../layouts/DashboardLayout";
@@ -10,7 +10,6 @@ import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
 
 const Product = () => {
-
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [ingredientsList, setIngredientsList] = useState([]);
@@ -30,7 +29,7 @@ const Product = () => {
     "frappe",
     "choco Series",
     "hot drink",
-    "shiro Series"
+    "shiro Series",
   ];
 
   // Fetch products
@@ -40,7 +39,7 @@ const Product = () => {
       const res = await axios.get("/products");
       // Filter out add-ons from the product list
       const regularProducts = res.data.filter(
-        (product) => !product.isAddon && product.category !== "Add-ons"
+        (product) => !product.isAddon && product.category !== "Add-ons",
       );
       setProducts(regularProducts);
       setFilteredProducts(regularProducts);
@@ -89,7 +88,8 @@ const Product = () => {
       setEditingProduct(null);
     } catch (err) {
       // Display specific error message from backend
-      const errorMessage = err.response?.data?.message || "Failed to save product";
+      const errorMessage =
+        err.response?.data?.message || "Failed to save product";
       toast.error(errorMessage);
     }
   };
@@ -117,11 +117,12 @@ const Product = () => {
         { value: "fruit tea", label: "Fruit Tea" },
         { value: "amerikano", label: "Amerikano" },
         { value: "non caffeine", label: "Non Caffeine" },
-        { value: "frappe", label: "Frappe" },
+        { value: "coffee-based frappe", label: "Coffee-Based Frappe" },
+        { value: "cream-based frappe", label: "Cream-Based Frappe" },
         { value: "choco Series", label: "Choco Series" },
         { value: "hot drink", label: "Hot Drink" },
         { value: "shiro Series", label: "Shiro Series" },
-        { value: "others", label: "Others" }, // New option
+        { value: "others", label: "Others" },
       ],
       customFilter: (item, filterValue) => {
         if (filterValue === "others") {
@@ -130,7 +131,7 @@ const Product = () => {
         }
         // Normal filter for predefined categories
         return item.category?.toLowerCase() === filterValue;
-      }
+      },
     },
     {
       key: "size",
@@ -151,19 +152,20 @@ const Product = () => {
   // Format category for display
   const formatCategory = (category) => {
     if (!category) return "";
-    
+
     // Check if it's a predefined category
-    const isPredefined = predefinedCategories.some(predefined => 
-      predefined.toLowerCase() === category.toLowerCase()
+    const isPredefined = predefinedCategories.some(
+      (predefined) => predefined.toLowerCase() === category.toLowerCase(),
     );
-    
+
     if (isPredefined) {
       // Capitalize each word
-      return category.split(' ').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
+      return category
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
     }
-    
+
     // For custom categories, just capitalize first letter
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
@@ -345,7 +347,10 @@ const Product = () => {
                                 >
                                   {i.ingredient?.name || "Unknown"} (
                                   {i.quantity}
-                                  {(i.ingredient?.unit || i.unit || "").toLowerCase().replace('ml', 'ml')})
+                                  {(i.ingredient?.unit || i.unit || "")
+                                    .toLowerCase()
+                                    .replace("ml", "ml")}
+                                  )
                                 </span>
                               ))}
                             </div>
@@ -370,8 +375,8 @@ const Product = () => {
                             {/* For new multi-size products */}
                             {p.sizes &&
                               p.sizes.map((sizeObj, index) => (
-                                <div 
-                                  key={index} 
+                                <div
+                                  key={index}
                                   className="h-7 flex items-center justify-center"
                                 >
                                   <span className="text-sm font-medium text-gray-900">
@@ -396,8 +401,8 @@ const Product = () => {
                             {/* For new multi-price products */}
                             {p.sizes &&
                               p.sizes.map((sizeObj, index) => (
-                                <div 
-                                  key={index} 
+                                <div
+                                  key={index}
                                   className="h-7 flex items-center justify-center"
                                 >
                                   <span className="text-sm font-semibold text-gray-900">

@@ -61,7 +61,7 @@ const SearchFilter = ({
             ?.toString()
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
-        })
+        }),
       );
     }
 
@@ -117,7 +117,11 @@ const SearchFilter = ({
         let bValue = getNestedValue(b, sortBy);
 
         // Special handling for dates
-        if (sortBy === "expiration" || sortBy === "date" || sortBy === "createdAt") {
+        if (
+          sortBy === "expiration" ||
+          sortBy === "date" ||
+          sortBy === "createdAt"
+        ) {
           aValue = aValue ? new Date(aValue) : new Date(0);
           bValue = bValue ? new Date(bValue) : new Date(0);
         }
@@ -153,7 +157,17 @@ const SearchFilter = ({
     }
 
     return result;
-  }, [data, searchTerm, filters, sortBy, sortOrder, searchFields, dateRange, enableDateFilter, dateField]);
+  }, [
+    data,
+    searchTerm,
+    filters,
+    sortBy,
+    sortOrder,
+    searchFields,
+    dateRange,
+    enableDateFilter,
+    dateField,
+  ]);
 
   // Use useEffect to call the callback after render
   useEffect(() => {
@@ -208,6 +222,23 @@ const SearchFilter = ({
     (sortBy ? 1 : 0) +
     (enableDateFilter && (dateRange.start || dateRange.end) ? 1 : 0);
 
+  // Build readable labels for active filters
+  const getFilterLabel = (key, value) => {
+    // Find matching filter config
+    const cfg = filterConfig.find((c) => c.key === key);
+    if (cfg && Array.isArray(cfg.options)) {
+      const opt = cfg.options.find(
+        (o) => o.value?.toString() === value?.toString(),
+      );
+      if (opt) return opt.label;
+    }
+    return value;
+  };
+
+  const activeFilterEntries = Object.entries(filters)
+    .filter(([k, v]) => v && v !== "all")
+    .map(([k, v]) => ({ key: k, label: getFilterLabel(k, v) }));
+
   return (
     <div className="mb-4 space-y-3">
       {/* Main Search and Controls Bar */}
@@ -221,8 +252,17 @@ const SearchFilter = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             data-no-uppercase="true"
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white text-sm"
+            className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white text-sm"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Controls */}
@@ -369,12 +409,25 @@ const SearchFilter = ({
             {sortOrder === "asc" ? "Ascending" : "Descending"})
           </span>
         )}
+        {activeFilterEntries.length > 0 && (
+          <span className="text-gray-400 ml-1.5">
+            • Filtered by: {activeFilterEntries.map((f) => f.label).join(", ")}
+          </span>
+        )}
         {enableDateFilter && (dateRange.start || dateRange.end) && (
           <span className="text-gray-400 ml-1.5">
             • Date:{" "}
-            {dateRange.start && new Date(dateRange.start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            {dateRange.start &&
+              new Date(dateRange.start).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
             {dateRange.start && dateRange.end && " - "}
-            {dateRange.end && new Date(dateRange.end).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            {dateRange.end &&
+              new Date(dateRange.end).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
           </span>
         )}
       </div>

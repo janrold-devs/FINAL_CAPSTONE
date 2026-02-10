@@ -12,7 +12,8 @@ import SearchFilter from "../../components/SearchFilter";
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
-  const [filteredSales, setFilteredSales] = useState([]);
+  const [searchFilteredSales, setSearchFilteredSales] = useState([]); // Results from SearchFilter
+  const [filteredSales, setFilteredSales] = useState([]); // Final results (search + time period)
   const [selectedSale, setSelectedSale] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showBestSellingModal, setShowBestSellingModal] = useState(false);
@@ -88,7 +89,8 @@ const Sales = () => {
       }
 
       setSales(salesData);
-      setFilteredSales(salesData);
+      setSearchFilteredSales(salesData); // Initialize search results with all sales
+      setFilteredSales(salesData); // Initialize display data
 
       // Calculate period totals from transactions
       calculatePeriodTotalsFromTransactions(transactions);
@@ -96,6 +98,7 @@ const Sales = () => {
       console.error("Fetch sales error:", err);
       toast.error("Failed to fetch sales data");
       setSales([]);
+      setSearchFilteredSales([]);
       setFilteredSales([]);
     } finally {
       setLoading(false);
@@ -110,29 +113,29 @@ const Sales = () => {
     const dailyStart = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate()
+      now.getDate(),
     );
     const dailyEnd = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate() + 1
+      now.getDate() + 1,
     );
 
     // Weekly (This week - Monday to Sunday)
     const currentDay = now.getDay();
     const currentMonday = new Date(now);
     currentMonday.setDate(
-      now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
+      now.getDate() - (currentDay === 0 ? 6 : currentDay - 1),
     );
     const weeklyStart = new Date(
       currentMonday.getFullYear(),
       currentMonday.getMonth(),
-      currentMonday.getDate()
+      currentMonday.getDate(),
     );
     const weeklyEnd = new Date(
       currentMonday.getFullYear(),
       currentMonday.getMonth(),
-      currentMonday.getDate() + 7
+      currentMonday.getDate() + 7,
     );
 
     // Monthly (This month)
@@ -158,15 +161,15 @@ const Sales = () => {
     // Calculate totals from transactions
     const dailyTotal = dailyTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
     const weeklyTotal = weeklyTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
     const monthlyTotal = monthlyTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
 
     setPeriodTotals({
@@ -209,58 +212,7 @@ const Sales = () => {
 
   // Filter sales by time period
   const filterByTimePeriod = (period) => {
-    if (!period) {
-      setFilteredSales(sales);
-      setTimePeriod(null);
-      return;
-    }
-
-    const now = new Date();
-    let startDate, endDate;
-
-    switch (period) {
-      case "daily":
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        endDate = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() + 1
-        );
-        break;
-      case "weekly":
-        const currentDay = now.getDay();
-        const currentMonday = new Date(now);
-        currentMonday.setDate(
-          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
-        );
-        startDate = new Date(
-          currentMonday.getFullYear(),
-          currentMonday.getMonth(),
-          currentMonday.getDate()
-        );
-        endDate = new Date(
-          currentMonday.getFullYear(),
-          currentMonday.getMonth(),
-          currentMonday.getDate() + 7
-        );
-        break;
-      case "monthly":
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        break;
-      default:
-        return;
-    }
-
-    console.log(`${period.toUpperCase()} filter:`, startDate, "to", endDate);
-
-    const filtered = sales.filter((sale) => {
-      const saleDate = new Date(sale.transactionDate);
-      return saleDate >= startDate && saleDate < endDate;
-    });
-
-    console.log(`Found ${filtered.length} sales batches for ${period}`);
-    setFilteredSales(filtered);
+    // Just update the time period state - useEffect will handle the filtering
     setTimePeriod(period);
   };
 
@@ -268,19 +220,80 @@ const Sales = () => {
   const handleTimePeriodClick = (period) => {
     if (timePeriod === period) {
       setTimePeriod(null);
-      setFilteredSales(sales);
     } else {
       setTimePeriod(period);
-      filterByTimePeriod(period);
     }
   };
+
+  // Apply time period filter to search results
+  useEffect(() => {
+    if (!timePeriod) {
+      // No time period filter, use search results as is
+      setFilteredSales(searchFilteredSales);
+      return;
+    }
+
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (timePeriod) {
+      case "daily":
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1,
+        );
+        break;
+      case "weekly":
+        const currentDay = now.getDay();
+        const currentMonday = new Date(now);
+        currentMonday.setDate(
+          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1),
+        );
+        startDate = new Date(
+          currentMonday.getFullYear(),
+          currentMonday.getMonth(),
+          currentMonday.getDate(),
+        );
+        endDate = new Date(
+          currentMonday.getFullYear(),
+          currentMonday.getMonth(),
+          currentMonday.getDate() + 7,
+        );
+        break;
+      case "monthly":
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        break;
+      default:
+        setFilteredSales(searchFilteredSales);
+        return;
+    }
+
+    console.log(
+      `${timePeriod.toUpperCase()} filter:`,
+      startDate,
+      "to",
+      endDate,
+    );
+
+    // Apply time period filter to search results
+    const filtered = searchFilteredSales.filter((sale) => {
+      const saleDate = new Date(sale.transactionDate);
+      return saleDate >= startDate && saleDate < endDate;
+    });
+
+    console.log(`Found ${filtered.length} sales batches for ${timePeriod}`);
+    setFilteredSales(filtered);
+  }, [searchFilteredSales, timePeriod]);
 
   // Function to fetch best selling products
   const fetchBestSellingProducts = async (period = "monthly") => {
     setBestSellingLoading(true);
     try {
       const res = await api.get(
-        `/sales/analytics/best-selling?period=${period}`
+        `/sales/analytics/best-selling?period=${period}`,
       );
       setBestSellingData(res.data);
       setShowBestSellingModal(true);
@@ -311,7 +324,7 @@ const Sales = () => {
       } else {
         // For regular batches, fetch from API
         const res = await api.get(
-          `/sales/date/${sale.batchNumber.replace("BATCH-", "")}`
+          `/sales/date/${sale.batchNumber.replace("BATCH-", "")}`,
         );
         setSelectedSale(res.data);
       }
@@ -535,9 +548,9 @@ const Sales = () => {
 
         {/* Search & Filter Section */}
         <SearchFilter
-          data={filteredSales}
-          onFilteredDataChange={setFilteredSales}
-          searchFields={["batchNumber", "totalSales"]}
+          data={sales}
+          onFilteredDataChange={setSearchFilteredSales}
+          searchFields={["batchNumber"]}
           filterConfig={salesFilterConfig}
           sortConfig={salesSortConfig}
           placeholder="Search by batch number..."
@@ -562,8 +575,8 @@ const Sales = () => {
               {sales.length === 0
                 ? "No sales data available."
                 : timePeriod !== null
-                ? `No sales data found for the current ${timePeriod} period`
-                : "Try adjusting your search or filters"}
+                  ? `No sales data found for the current ${timePeriod} period`
+                  : "Try adjusting your search or filters"}
             </p>
           </div>
         ) : (
@@ -609,7 +622,7 @@ const Sales = () => {
                                   year: "numeric",
                                   month: "2-digit",
                                   day: "2-digit",
-                                }
+                                },
                               )
                             : "N/A"}
                         </div>

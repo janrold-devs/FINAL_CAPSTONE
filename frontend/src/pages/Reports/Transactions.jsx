@@ -8,7 +8,10 @@ import SearchFilter from "../../components/SearchFilter";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [searchFilteredTransactions, setSearchFilteredTransactions] = useState(
+    [],
+  ); // results from SearchFilter
+  const [filteredTransactions, setFilteredTransactions] = useState([]); // final displayed results (search + time period)
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
   const [timePeriod, setTimePeriod] = useState("daily");
@@ -29,16 +32,16 @@ const Transactions = () => {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [customDateType, setCustomDateType] = useState("daily");
   const [currentSelectedDate, setCurrentSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
   const [previousSelectedDate, setPreviousSelectedDate] = useState(
-    new Date(Date.now() - 86400000).toISOString().split("T")[0]
+    new Date(Date.now() - 86400000).toISOString().split("T")[0],
   );
   const [currentSelectedMonth, setCurrentSelectedMonth] = useState(
-    new Date().toISOString().substring(0, 7)
+    new Date().toISOString().substring(0, 7),
   );
   const [previousSelectedMonth, setPreviousSelectedMonth] = useState(
-    new Date(Date.now() - 86400000 * 30).toISOString().substring(0, 7)
+    new Date(Date.now() - 86400000 * 30).toISOString().substring(0, 7),
   );
 
   // Fetch transactions - UPDATED for paginated response
@@ -50,10 +53,12 @@ const Transactions = () => {
         // Handle both paginated response and flat array
         const transactionsData = res.data.transactions || res.data;
         setTransactions(transactionsData);
+        setSearchFilteredTransactions(transactionsData);
         setFilteredTransactions(transactionsData);
       } catch (error) {
         console.error("Error fetching transactions:", error);
         setTransactions([]);
+        setSearchFilteredTransactions([]);
         setFilteredTransactions([]);
       } finally {
         setLoading(false);
@@ -64,10 +69,13 @@ const Transactions = () => {
 
   // Apply daily filter after transactions are loaded and timePeriod is set
   useEffect(() => {
-    if (transactions.length > 0 && timePeriod === "daily") {
+    if (
+      (searchFilteredTransactions.length > 0 || transactions.length > 0) &&
+      timePeriod === "daily"
+    ) {
       filterByTimePeriod("daily");
     }
-  }, [transactions, timePeriod]);
+  }, [transactions, timePeriod, searchFilteredTransactions]);
 
   // Format date for display with null checking
   const formatDateRange = (start, end) => {
@@ -92,8 +100,13 @@ const Transactions = () => {
 
   // Filter transactions by time period
   const filterByTimePeriod = (period) => {
+    const base =
+      searchFilteredTransactions && searchFilteredTransactions.length > 0
+        ? searchFilteredTransactions
+        : transactions;
+
     if (!period) {
-      setFilteredTransactions(transactions);
+      setFilteredTransactions(base);
       setComparisonData({
         current: [],
         previous: [],
@@ -124,7 +137,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
         currentEnd = new Date(
           now.getFullYear(),
@@ -133,7 +146,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
 
         // Yesterday - start at midnight
@@ -144,7 +157,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
         previousEnd = new Date(
           now.getFullYear(),
@@ -153,7 +166,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
         break;
 
@@ -162,7 +175,7 @@ const Transactions = () => {
         const currentDay = now.getDay();
         const currentMonday = new Date(now);
         currentMonday.setDate(
-          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)
+          now.getDate() - (currentDay === 0 ? 6 : currentDay - 1),
         );
         currentMonday.setHours(0, 0, 0, 0);
         currentStart = new Date(currentMonday);
@@ -187,7 +200,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
         currentEnd = new Date(
           now.getFullYear(),
@@ -196,7 +209,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
 
         // Last month - start at midnight
@@ -207,7 +220,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
         previousEnd = new Date(
           now.getFullYear(),
@@ -216,7 +229,7 @@ const Transactions = () => {
           0,
           0,
           0,
-          0
+          0,
         );
         break;
 
@@ -224,12 +237,12 @@ const Transactions = () => {
         return;
     }
 
-    const currentPeriodTransactions = transactions.filter((t) => {
+    const currentPeriodTransactions = base.filter((t) => {
       const transactionDate = new Date(t.transactionDate);
       return transactionDate >= currentStart && transactionDate < currentEnd;
     });
 
-    const previousPeriodTransactions = transactions.filter((t) => {
+    const previousPeriodTransactions = base.filter((t) => {
       const transactionDate = new Date(t.transactionDate);
       return transactionDate >= previousStart && transactionDate < previousEnd;
     });
@@ -238,11 +251,11 @@ const Transactions = () => {
     const previousCount = previousPeriodTransactions.length;
     const currentTotal = currentPeriodTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
     const previousTotal = previousPeriodTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
 
     setComparisonData({
@@ -267,6 +280,11 @@ const Transactions = () => {
   // Handle custom date selection with comparison
   const handleCustomDateApply = () => {
     let currentStart, currentEnd, previousStart, previousEnd;
+
+    const base =
+      searchFilteredTransactions && searchFilteredTransactions.length > 0
+        ? searchFilteredTransactions
+        : transactions;
 
     switch (customDateType) {
       case "daily":
@@ -335,12 +353,12 @@ const Transactions = () => {
         return;
     }
 
-    const currentPeriodTransactions = transactions.filter((t) => {
+    const currentPeriodTransactions = base.filter((t) => {
       const transactionDate = new Date(t.transactionDate);
       return transactionDate >= currentStart && transactionDate <= currentEnd;
     });
 
-    const previousPeriodTransactions = transactions.filter((t) => {
+    const previousPeriodTransactions = base.filter((t) => {
       const transactionDate = new Date(t.transactionDate);
       return transactionDate >= previousStart && transactionDate <= previousEnd;
     });
@@ -349,11 +367,11 @@ const Transactions = () => {
     const previousCount = previousPeriodTransactions.length;
     const currentTotal = currentPeriodTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
     const previousTotal = previousPeriodTransactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
-      0
+      0,
     );
 
     setComparisonData({
@@ -455,7 +473,7 @@ const Transactions = () => {
 
     // Remove duplicates
     return Array.from(
-      new Map(cashiers.map((item) => [item.value, item])).values()
+      new Map(cashiers.map((item) => [item.value, item])).values(),
     );
   };
 
@@ -521,9 +539,16 @@ const Transactions = () => {
     return "text-gray-600";
   };
 
-  // Handle filtered data change from SearchFilter
+  // Handle filtered data change from SearchFilter (search layer)
   const handleFilteredDataChange = (filteredData) => {
-    setFilteredTransactions(filteredData);
+    setSearchFilteredTransactions(filteredData);
+    // Re-apply the current time period filter so results update dynamically
+    if (!timePeriod) {
+      setFilteredTransactions(filteredData);
+    } else {
+      // apply same filter logic
+      filterByTimePeriod(timePeriod);
+    }
   };
 
   // Handle export data - use filtered transactions if available, otherwise all transactions
@@ -791,14 +816,14 @@ const Transactions = () => {
                     Current:{" "}
                     {formatDateRange(
                       dateRange.currentStart,
-                      dateRange.currentEnd
+                      dateRange.currentEnd,
                     )}
                   </span>
                   <span>
                     Previous:{" "}
                     {formatDateRange(
                       dateRange.previousStart,
-                      dateRange.previousEnd
+                      dateRange.previousEnd,
                     )}
                   </span>
                 </div>
@@ -867,24 +892,14 @@ const Transactions = () => {
 
         {/* Search & Filter Section */}
         <SearchFilter
-          data={
-            filteredTransactions.length > 0
-              ? filteredTransactions
-              : transactions
-          }
+          data={transactions}
           onFilteredDataChange={handleFilteredDataChange}
           searchFields={[
             "referenceNumber",
             "cashier.firstName",
             "cashier.lastName",
           ]}
-          filterConfig={[
-            {
-              key: "cashier._id",
-              label: "Cashier",
-              options: getUniqueCashiers(),
-            },
-          ]}
+          filterConfig={transactionFilterConfig}
           sortConfig={transactionSortConfig}
           placeholder="Search by reference or cashier..."
           dateField="transactionDate"
@@ -976,7 +991,7 @@ const Transactions = () => {
                         <td className="px-6 py-4">
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getPaymentColor(
-                              t.modeOfPayment
+                              t.modeOfPayment,
                             )}`}
                           >
                             {t.modeOfPayment}
@@ -996,7 +1011,7 @@ const Transactions = () => {
                         <td className="px-6 py-4">
                           <div
                             className={`text-lg font-bold ${getAmountColor(
-                              t.totalAmount
+                              t.totalAmount,
                             )}`}
                           >
                             ₱{t.totalAmount?.toFixed(2)}
