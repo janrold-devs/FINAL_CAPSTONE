@@ -2,6 +2,40 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Package, Calendar, CheckCircle } from "lucide-react";
 
+// Helper function to get compatible units for a base unit
+const getCompatibleUnits = (baseUnit) => {
+  const normalizedBase = baseUnit.toLowerCase();
+  const unitGroups = {
+    g: ['g', 'kg'],
+    kg: ['g', 'kg'],
+    ml: ['ml', 'l'],
+    l: ['ml', 'l'],
+    pcs: ['pcs'],
+    pc: ['pcs'],
+    piece: ['pcs'],
+    pieces: ['pcs']
+  };
+  return unitGroups[normalizedBase] || [baseUnit];
+};
+
+// Helper function to convert quantity for preview
+const convertQuantity = (value, fromUnit, toUnit) => {
+  const from = fromUnit.toLowerCase();
+  const to = toUnit.toLowerCase();
+
+  if (from === to) return value;
+
+  // Weight conversions
+  if (from === 'kg' && to === 'g') return value * 1000;
+  if (from === 'g' && to === 'kg') return value / 1000;
+
+  // Volume conversions
+  if (from === 'l' && to === 'ml') return value * 1000;
+  if (from === 'ml' && to === 'l') return value / 1000;
+
+  return value;
+};
+
 const StockInModal = ({
   show,
   onClose,
@@ -30,18 +64,18 @@ const StockInModal = ({
     if (preSelectedIngredient && show && !viewMode) {
       // Set the category based on the pre-selected ingredient
       setSelectedCategory(preSelectedIngredient.category);
-      
+
       // Pre-select the ingredient
-      const isPerishable = preSelectedIngredient.category === "Solid Ingredient" || 
-                          preSelectedIngredient.category === "Liquid Ingredient";
-      
+      const isPerishable = preSelectedIngredient.category === "Solid Ingredient" ||
+        preSelectedIngredient.category === "Liquid Ingredient";
+
       let expirationDate = null;
       if (isPerishable) {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         expirationDate = tomorrow.toISOString().split('T')[0];
       }
-      
+
       setForm({
         ...form,
         ingredients: [{
@@ -49,6 +83,7 @@ const StockInModal = ({
           name: preSelectedIngredient.name,
           quantity: 1,
           unit: preSelectedIngredient.unit.toLowerCase(),
+          inputUnit: preSelectedIngredient.unit.toLowerCase(), // User-selected unit for display
           expirationDate: expirationDate,
         }]
       });
@@ -113,16 +148,16 @@ const StockInModal = ({
     } else {
       // For perishable items, set default expiration date
       // For non-perishable items, leave expirationDate as null
-      const isPerishable = ingredient.category === "Solid Ingredient" || 
-                          ingredient.category === "Liquid Ingredient";
-      
+      const isPerishable = ingredient.category === "Solid Ingredient" ||
+        ingredient.category === "Liquid Ingredient";
+
       let expirationDate = null;
       if (isPerishable) {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         expirationDate = tomorrow.toISOString().split('T')[0];
       }
-      
+
       setForm({
         ...form,
         ingredients: [
@@ -132,6 +167,7 @@ const StockInModal = ({
             name: ingredient.name,
             quantity: 1,
             unit: ingredient.unit.toLowerCase(),
+            inputUnit: ingredient.unit.toLowerCase(), // User-selected unit for display
             expirationDate: expirationDate, // Can be null for non-perishable
           },
         ],
@@ -149,13 +185,23 @@ const StockInModal = ({
     });
   };
 
+  // Input unit change handler
+  const handleInputUnitChange = (id, newUnit) => {
+    setForm({
+      ...form,
+      ingredients: form.ingredients.map((i) =>
+        i.ingredient === id ? { ...i, inputUnit: newUnit } : i
+      ),
+    });
+  };
+
   // Expiration date change
   const handleExpirationChange = (id, value) => {
     setForm({
       ...form,
       ingredients: form.ingredients.map((i) =>
-        i.ingredient === id ? { 
-          ...i, 
+        i.ingredient === id ? {
+          ...i,
           expirationDate: value || null // Set to null if empty
         } : i
       ),
@@ -172,16 +218,16 @@ const StockInModal = ({
   const isIngredientPerishable = (ingredient) => {
     const ingredientData = ingredientsList.find(i => i._id === ingredient.ingredient);
     if (!ingredientData) return false;
-    
+
     // Perishable if it's Solid Ingredient or Liquid Ingredient
-    return ingredientData.category === "Solid Ingredient" || 
-           ingredientData.category === "Liquid Ingredient";
+    return ingredientData.category === "Solid Ingredient" ||
+      ingredientData.category === "Liquid Ingredient";
   };
 
   // Submit handler
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validate that perishable ingredients have expiration dates
     const missingExpiration = form.ingredients.find(i => {
       if (isIngredientPerishable(i) && !i.expirationDate) {
@@ -189,18 +235,18 @@ const StockInModal = ({
       }
       return false;
     });
-    
+
     if (missingExpiration) {
       alert(`${missingExpiration.name} requires an expiration date because it's a perishable ingredient.`);
       return;
     }
-    
+
     onSubmit({
       stockman: form.stockman,
       ingredients: form.ingredients.map((i) => ({
         ingredient: i.ingredient,
         quantity: Number(i.quantity),
-        unit: i.unit,
+        unit: i.inputUnit || i.unit, // Send user-selected unit for backend conversion
         expirationDate: i.expirationDate || null, // Send null if not provided
       })),
     });
@@ -307,7 +353,7 @@ const StockInModal = ({
                 {form.ingredients.map((item, index) => {
                   const hasExpiration = item.expirationDate;
                   const isExpired = hasExpiration && new Date(item.expirationDate) < new Date();
-                  const isExpiringSoon = hasExpiration && !isExpired && 
+                  const isExpiringSoon = hasExpiration && !isExpired &&
                     new Date(item.expirationDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
                   return (
@@ -330,37 +376,33 @@ const StockInModal = ({
 
                       {/* Expiration Info */}
                       {hasExpiration ? (
-                        <div className={`flex items-center gap-2 p-2 rounded-lg ${
-                          isExpired 
-                            ? 'bg-red-50 border border-red-200' 
-                            : isExpiringSoon 
+                        <div className={`flex items-center gap-2 p-2 rounded-lg ${isExpired
+                          ? 'bg-red-50 border border-red-200'
+                          : isExpiringSoon
                             ? 'bg-yellow-50 border border-yellow-200'
                             : 'bg-green-50 border border-green-200'
-                        }`}>
-                          <Calendar className={`w-4 h-4 ${
-                            isExpired 
-                              ? 'text-red-600' 
-                              : isExpiringSoon 
+                          }`}>
+                          <Calendar className={`w-4 h-4 ${isExpired
+                            ? 'text-red-600'
+                            : isExpiringSoon
                               ? 'text-yellow-600'
                               : 'text-green-600'
-                          }`} />
+                            }`} />
                           <div>
-                            <p className={`text-xs font-medium ${
-                              isExpired 
-                                ? 'text-red-900' 
-                                : isExpiringSoon 
+                            <p className={`text-xs font-medium ${isExpired
+                              ? 'text-red-900'
+                              : isExpiringSoon
                                 ? 'text-yellow-900'
                                 : 'text-green-900'
-                            }`}>
+                              }`}>
                               {isExpired ? 'Expired' : isExpiringSoon ? 'Expires Soon' : 'Fresh'}
                             </p>
-                            <p className={`text-xs ${
-                              isExpired 
-                                ? 'text-red-700' 
-                                : isExpiringSoon 
+                            <p className={`text-xs ${isExpired
+                              ? 'text-red-700'
+                              : isExpiringSoon
                                 ? 'text-yellow-700'
                                 : 'text-green-700'
-                            }`}>
+                              }`}>
                               {new Date(item.expirationDate).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
@@ -440,7 +482,7 @@ const StockInModal = ({
               <label className="block font-semibold text-sm mb-2">
                 Ingredients & Materials <span className="text-red-500">*</span>
               </label>
-              
+
               {/* Filter by Category */}
               <div className="mb-4">
                 <label className="block text-sm text-gray-600 mb-2">Filter by Category</label>
@@ -460,7 +502,7 @@ const StockInModal = ({
               {selectedCategory && (
                 <div className="mb-4">
                   <label className="block text-sm text-gray-600 mb-2">Select Ingredients/Materials</label>
-                  
+
                   {/* Ingredient Dropdown - Moved to top */}
                   <div className="mb-4 relative" ref={dropdownRef}>
                     {/*
@@ -477,8 +519,8 @@ const StockInModal = ({
                         {dropdownOpen
                           ? "Click to close"
                           : selectedCategory === "Material"
-                          ? "Click to add materials"
-                          : "Click to add ingredients"}
+                            ? "Click to add materials"
+                            : "Click to add ingredients"}
                       </span>
                     </div>
 
@@ -491,9 +533,8 @@ const StockInModal = ({
                               <div
                                 key={ingredient._id}
                                 onClick={() => toggleIngredient(ingredient)}
-                                className={`px-4 py-3 cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
-                                  isSelected ? 'bg-blue-100 text-blue-900' : ''
-                                }`}
+                                className={`px-4 py-3 cursor-pointer hover:bg-blue-50 flex items-center justify-between ${isSelected ? 'bg-blue-100 text-blue-900' : ''
+                                  }`}
                               >
                                 <span className="font-medium">{ingredient.name}</span>
                                 <span className="text-sm text-gray-500">
@@ -521,22 +562,22 @@ const StockInModal = ({
                             const ingredientData = ingredientsList.find(i => i._id === ing.ingredient);
                             return ingredientData && ingredientData.category === category;
                           });
-                          
+
                           if (categoryIngredients.length === 0) return null;
-                          
+
                           return (
                             <div key={category} className="space-y-2">
                               {/* Category Header */}
                               <h4 className="text-sm font-medium text-gray-700 border-b border-gray-300 pb-1">
                                 {category}
                               </h4>
-                              
+
                               {/* Ingredients in this category */}
                               <div className="flex flex-wrap gap-3">
                                 {categoryIngredients.map((ing) => {
-                                  const isPerishable = category === "Solid Ingredient" || 
-                                                      category === "Liquid Ingredient";
-                                  
+                                  const isPerishable = category === "Solid Ingredient" ||
+                                    category === "Liquid Ingredient";
+
                                   return (
                                     <div
                                       key={ing.ingredient}
@@ -554,7 +595,20 @@ const StockInModal = ({
                                           }
                                           className="w-16 text-sm border border-blue-300 rounded px-2 py-1 text-center"
                                         />
-                                        <span className="text-sm text-blue-700">{ing.unit}</span>
+                                        <select
+                                          value={ing.inputUnit || ing.unit}
+                                          onChange={(e) => handleInputUnitChange(ing.ingredient, e.target.value)}
+                                          className="text-sm border border-blue-300 rounded px-2 py-1 bg-white text-blue-700 font-medium"
+                                        >
+                                          {getCompatibleUnits(ing.unit).map(unit => (
+                                            <option key={unit} value={unit}>{unit}</option>
+                                          ))}
+                                        </select>
+                                        {ing.inputUnit && ing.inputUnit.toLowerCase() !== ing.unit.toLowerCase() && (
+                                          <span className="text-xs text-blue-600 italic">
+                                            = {convertQuantity(ing.quantity, ing.inputUnit, ing.unit).toFixed(2)} {ing.unit}
+                                          </span>
+                                        )}
                                         <button
                                           type="button"
                                           className="text-red-500 hover:text-red-700 ml-2"
@@ -563,7 +617,7 @@ const StockInModal = ({
                                           ×
                                         </button>
                                       </div>
-                                      
+
                                       {/* Expiration Date for Perishable Items */}
                                       {isPerishable && (
                                         <div className="flex items-center gap-2 ml-2 pl-2 border-l border-blue-300">

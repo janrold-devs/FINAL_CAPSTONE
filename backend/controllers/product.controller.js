@@ -17,10 +17,36 @@ export const createProduct = async (req, res) => {
     const { productName, sizes, category, status, ingredients, isAddon } =
       req.body;
 
+    // Check for duplicate product name
+    const existingProduct = await Product.findOne({ 
+      productName: productName.trim().toUpperCase() 
+    });
+    
+    if (existingProduct) {
+      // Delete uploaded file if product creation fails
+      if (req.file) {
+        await deleteCloudinaryImage(req.file.path);
+      }
+      return res.status(400).json({ 
+        message: `Product "${productName}" already exists. Please use a different name.` 
+      });
+    }
+
     // Parse ingredients if it's a string (from FormData)
     const parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
     const parsedIngredients =
       typeof ingredients === "string" ? JSON.parse(ingredients) : ingredients;
+
+    // Validate that ingredients are provided
+    if (!parsedIngredients || parsedIngredients.length === 0) {
+      // Delete uploaded file if validation fails
+      if (req.file) {
+        await deleteCloudinaryImage(req.file.path);
+      }
+      return res.status(400).json({ 
+        message: "At least one ingredient or material is required" 
+      });
+    }
 
     const data = {
       productName,
@@ -119,10 +145,37 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
+    // Check for duplicate product name (excluding current product)
+    const duplicateProduct = await Product.findOne({ 
+      productName: productName.trim().toUpperCase(),
+      _id: { $ne: req.params.id } // Exclude current product from check
+    });
+    
+    if (duplicateProduct) {
+      // Delete uploaded file if validation fails
+      if (req.file) {
+        await deleteCloudinaryImage(req.file.path);
+      }
+      return res.status(400).json({ 
+        message: `Product "${productName}" already exists. Please use a different name.` 
+      });
+    }
+
     // Parse sizes and ingredients
     const parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
     const parsedIngredients =
       typeof ingredients === "string" ? JSON.parse(ingredients) : ingredients;
+
+    // Validate that ingredients are provided
+    if (!parsedIngredients || parsedIngredients.length === 0) {
+      // Delete uploaded file if validation fails
+      if (req.file) {
+        await deleteCloudinaryImage(req.file.path);
+      }
+      return res.status(400).json({ 
+        message: "At least one ingredient or material is required" 
+      });
+    }
 
     const data = {
       productName,

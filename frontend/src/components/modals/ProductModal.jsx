@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import axios from "../../api/axios";
 
 const ProductModal = ({
   show,
@@ -9,15 +10,15 @@ const ProductModal = ({
 }) => {
   // Predefined categories (must match Product.jsx)
   const initialPredefinedCategories = [
-  "ICED LATTE",
-  "BUBBLE TEA",
-  "FRUIT TEA",
-  "AMERIKANO",
-  "NON CAFFEINE",
-  "FRAPPE",
-  "CHOCO SERIES",
-  "HOT DRINK",
-  "SHIRO SERIES",
+    "ICED LATTE",
+    "BUBBLE TEA",
+    "FRUIT TEA",
+    "AMERIKANO",
+    "NON CAFFEINE",
+    "FRAPPE",
+    "CHOCO SERIES",
+    "HOT DRINK",
+    "SHIRO SERIES",
   ];
 
   // Load saved custom categories from localStorage
@@ -57,6 +58,8 @@ const ProductModal = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [isDuplicateName, setIsDuplicateName] = useState(false);
+  const [allProducts, setAllProducts] = useState([]);
 
   // Get unique ingredient categories (include both ingredients and materials)
   const uniqueCategories = [
@@ -67,8 +70,8 @@ const ProductModal = ({
   const isMaterialCategory = () => {
     const selectedCat = form.ingredientCategory;
     if (!selectedCat) return false;
-    
-    const itemsInCategory = ingredientsList.filter(i => 
+
+    const itemsInCategory = ingredientsList.filter(i =>
       (i.category || "Uncategorized") === selectedCat
     );
     return itemsInCategory.some(item => item.unit === "pcs");
@@ -78,18 +81,18 @@ const ProductModal = ({
   useEffect(() => {
     if (editingProduct) {
       const category = editingProduct.category || "";
-      
+
       // Check if category exists in any category list
-      const categoryExistsInPredefined = initialPredefinedCategories.some(predefined => 
+      const categoryExistsInPredefined = initialPredefinedCategories.some(predefined =>
         predefined.toLowerCase() === category.toLowerCase()
       );
-      
-      const categoryExistsInSaved = savedCustomCategories.some(saved => 
+
+      const categoryExistsInSaved = savedCustomCategories.some(saved =>
         saved.toLowerCase() === category.toLowerCase()
       );
-      
+
       const categoryExists = categoryExistsInPredefined || categoryExistsInSaved;
-      
+
       setForm({
         image: editingProduct.image || "",
         productName: editingProduct.productName,
@@ -100,15 +103,15 @@ const ProductModal = ({
         sizes:
           editingProduct.sizes?.length > 0
             ? editingProduct.sizes.map((s) => ({
-                size: Number(s.size),
-                price: Number(s.price),
-              }))
+              size: Number(s.size),
+              price: Number(s.price),
+            }))
             : [
-                {
-                  size: Number(editingProduct.size || 16),
-                  price: Number(editingProduct.price || ""),
-                },
-              ],
+              {
+                size: Number(editingProduct.size || 16),
+                price: Number(editingProduct.price || ""),
+              },
+            ],
         ingredients:
           editingProduct.ingredients?.map((i) => ({
             ingredient: i.ingredient?._id || i.ingredient,
@@ -149,6 +152,39 @@ const ProductModal = ({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // Fetch all products for duplicate checking
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await axios.get("/products");
+        setAllProducts(res.data);
+      } catch (err) {
+        console.error("Failed to fetch products for duplicate check:", err);
+      }
+    };
+
+    if (show) {
+      fetchProducts();
+    }
+  }, [show]);
+
+  // Check for duplicate product name
+  useEffect(() => {
+    if (!form.productName.trim()) {
+      setIsDuplicateName(false);
+      return;
+    }
+
+    const normalizedName = form.productName.trim().toUpperCase();
+    const duplicate = allProducts.find(
+      (product) =>
+        product.productName.trim().toUpperCase() === normalizedName &&
+        product._id !== editingProduct?._id // Exclude current product when editing
+    );
+
+    setIsDuplicateName(!!duplicate);
+  }, [form.productName, allProducts, editingProduct]);
 
   // Save custom category to localStorage
   const saveCustomCategory = (newCat) => {
@@ -279,6 +315,12 @@ const ProductModal = ({
 
     if (!form.productName.trim()) return alert("Product name is required");
 
+    // Check for duplicate product name
+    if (isDuplicateName) {
+      alert("A product with this name already exists. Please use a different name.");
+      return;
+    }
+
     // Validate category
     if (form.selectedCategoryType === "custom") {
       if (!form.customCategory.trim()) {
@@ -294,6 +336,12 @@ const ProductModal = ({
       return;
     }
 
+    // Validate ingredients/materials are selected
+    if (!form.ingredients || form.ingredients.length === 0) {
+      alert("Please select at least one ingredient or material");
+      return;
+    }
+
     // Validate prices
     for (const s of form.sizes) {
       if (!s.price || Number(s.price) <= 0)
@@ -305,7 +353,7 @@ const ProductModal = ({
     if (imageFile) formData.append("image", imageFile);
     else if (form.image) formData.append("image", form.image);
 
-    formData.append("productName", form.productName);
+    formData.append("productName", form.productName.trim());
     // Always send category in UPPERCASE (custom or predefined)
     formData.append("category", (form.category || "").trim().toUpperCase());
     formData.append("status", form.status);
@@ -400,28 +448,26 @@ const ProductModal = ({
             <label className="block font-medium text-gray-700 text-sm mb-2">
               Product Category <span className="text-red-500">*</span>
             </label>
-            
+
             {/* Category Type Selection */}
             <div className="flex gap-3 mb-4">
               <button
                 type="button"
                 onClick={() => handleCategoryTypeChange("predefined")}
-                className={`flex-1 py-2.5 px-4 rounded-lg border transition-colors text-sm font-medium ${
-                  form.selectedCategoryType === "predefined"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 text-gray-700 hover:border-gray-400"
-                }`}
+                className={`flex-1 py-2.5 px-4 rounded-lg border transition-colors text-sm font-medium ${form.selectedCategoryType === "predefined"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-300 text-gray-700 hover:border-gray-400"
+                  }`}
               >
                 Predefined Categories
               </button>
               <button
                 type="button"
                 onClick={() => handleCategoryTypeChange("custom")}
-                className={`flex-1 py-2.5 px-4 rounded-lg border transition-colors text-sm font-medium ${
-                  form.selectedCategoryType === "custom"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 text-gray-700 hover:border-gray-400"
-                }`}
+                className={`flex-1 py-2.5 px-4 rounded-lg border transition-colors text-sm font-medium ${form.selectedCategoryType === "custom"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-300 text-gray-700 hover:border-gray-400"
+                  }`}
               >
                 Custom Category
               </button>
@@ -437,18 +483,18 @@ const ProductModal = ({
                   required
                 >
                   <option value="">Select Product Category</option>
-                  
+
                   {/* Original Predefined Categories */}
                   <optgroup label="Standard Categories">
                     {initialPredefinedCategories.map((category) => (
                       <option key={category} value={category}>
-                        {category.split(' ').map(word => 
+                        {category.split(' ').map(word =>
                           word.charAt(0).toUpperCase() + word.slice(1)
                         ).join(' ')}
                       </option>
                     ))}
                   </optgroup>
-                  
+
                   {/* Saved Custom Categories */}
                   {savedCustomCategories.length > 0 && (
                     <optgroup label="Custom Categories">
@@ -461,7 +507,7 @@ const ProductModal = ({
                   )}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {savedCustomCategories.length > 0 
+                  {savedCustomCategories.length > 0
                     ? "Includes both standard and previously saved custom categories"
                     : "Choose from our standard categories. Custom categories will appear here after saving."}
                 </p>
@@ -483,13 +529,13 @@ const ProductModal = ({
                   <p className="text-xs text-gray-500">
                     This category will be saved and available in the dropdown for future products
                   </p>
-                  {form.customCategory.trim() && !allCategories.some(cat => 
+                  {form.customCategory.trim() && !allCategories.some(cat =>
                     cat.toLowerCase() === form.customCategory.trim().toLowerCase()
                   ) && (
-                    <span className="text-xs text-green-600 font-medium">
-                      New category
-                    </span>
-                  )}
+                      <span className="text-xs text-green-600 font-medium">
+                        New category
+                      </span>
+                    )}
                 </div>
               </div>
             )}
@@ -501,14 +547,29 @@ const ProductModal = ({
               Product Name <span className="text-red-500">*</span>
             </label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              data-no-uppercase
+              className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${isDuplicateName
+                ? 'border-red-500 focus:ring-red-500'
+                : 'border-gray-300 focus:ring-blue-500'
+                }`}
               value={form.productName}
-              onChange={(e) =>
-                setForm({ ...form, productName: e.target.value })
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setForm({ ...form, productName: value.toUpperCase() });
+              }}
               placeholder="Enter product name"
               required
             />
+            {isDuplicateName && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-xs text-red-700 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  A product with this name already exists. Please use a different name.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* SIZES SECTION */}
@@ -606,6 +667,18 @@ const ProductModal = ({
               Ingredients & Materials <span className="text-red-500">*</span>
             </label>
 
+            {/* Show warning if no ingredients selected */}
+            {form.ingredients.length === 0 && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-700 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  At least one ingredient or material must be selected
+                </p>
+              </div>
+            )}
+
             {/* CATEGORY FILTER */}
             <div className="mb-4">
               <label className="block text-xs text-gray-600 mb-2">
@@ -685,8 +758,8 @@ const ProductModal = ({
                     </div>
                   ) : (
                     <span className="text-gray-400 text-sm">
-                      {isMaterialCategory() 
-                        ? "Click to select materials..." 
+                      {isMaterialCategory()
+                        ? "Click to select materials..."
                         : "Click to select ingredients..."}
                     </span>
                   )}

@@ -88,7 +88,9 @@ const Product = () => {
       setShowModal(false);
       setEditingProduct(null);
     } catch (err) {
-      toast.error("Failed to save product");
+      // Display specific error message from backend
+      const errorMessage = err.response?.data?.message || "Failed to save product";
+      toast.error(errorMessage);
     }
   };
 
