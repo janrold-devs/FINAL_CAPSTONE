@@ -409,10 +409,7 @@ export const createTransaction = async (req, res) => {
                 continue;
               }
 
-              let addonMultiplier = getSizeMultiplier(
-                addonProduct,
-                item.size,
-              );
+              let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
               if (addonIngredient.category === "Material") addonMultiplier = 1;
               const addonDeductQty =
                 addonRecipe.quantity *
