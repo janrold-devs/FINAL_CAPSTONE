@@ -27,6 +27,19 @@ const Settings = () => {
     hasSpecialChar: false,
   });
 
+  const [currentPasswordValidation, setCurrentPasswordValidation] = useState({
+    status: null, // null, 'validating', 'correct', 'incorrect'
+    message: "",
+  });
+
+  const [confirmPasswordValidation, setConfirmPasswordValidation] = useState({
+    status: null, // null, 'empty', 'mismatch', 'match'
+    message: "",
+  });
+
+  // Debounce timer for current password validation
+  const [debounceTimer, setDebounceTimer] = useState(null);
+
   // Password validation criteria
   const validatePassword = (password) => {
     const minLength = password.length >= 8;
@@ -70,6 +83,49 @@ const Settings = () => {
     }
   };
 
+  // Validate current password against the backend
+  const validateCurrentPassword = async (passwordValue) => {
+    if (!passwordValue) {
+      setCurrentPasswordValidation({
+        status: null,
+        message: "",
+      });
+      return;
+    }
+
+    try {
+      setCurrentPasswordValidation({
+        status: "validating",
+        message: "Verifying...",
+      });
+
+      const token = localStorage.getItem("token");
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+
+      // Call backend to verify current password
+      const response = await api.post(`/users/verify-password/${decoded.id}`, {
+        password: passwordValue,
+      });
+
+      if (response.data.isCorrect) {
+        setCurrentPasswordValidation({
+          status: "correct",
+          message: "Current password is correct",
+        });
+      } else {
+        setCurrentPasswordValidation({
+          status: "incorrect",
+          message: "Current password is incorrect",
+        });
+      }
+    } catch (err) {
+      setCurrentPasswordValidation({
+        status: "incorrect",
+        message: "Current password is incorrect",
+      });
+    }
+  };
+
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
     setPasswordData((prev) => ({
@@ -80,6 +136,62 @@ const Settings = () => {
     // Validate password as user types (only for new password)
     if (name === "newPassword") {
       validatePassword(value);
+    }
+
+    // Validate confirm password in real-time
+    if (name === "confirmPassword") {
+      if (!value) {
+        setConfirmPasswordValidation({
+          status: "empty",
+          message: "Confirm password is required",
+        });
+      } else if (value === passwordData.newPassword) {
+        setConfirmPasswordValidation({
+          status: "match",
+          message: "Passwords match",
+        });
+      } else {
+        setConfirmPasswordValidation({
+          status: "mismatch",
+          message: "Passwords do not match",
+        });
+      }
+    }
+
+    // Also validate confirm password when new password changes
+    if (name === "newPassword" && passwordData.confirmPassword) {
+      if (value === passwordData.confirmPassword) {
+        setConfirmPasswordValidation({
+          status: "match",
+          message: "Passwords match",
+        });
+      } else {
+        setConfirmPasswordValidation({
+          status: "mismatch",
+          message: "Passwords do not match",
+        });
+      }
+    }
+
+    // Debounced validation for current password
+    if (name === "currentPassword") {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+
+      if (!value) {
+        setCurrentPasswordValidation({
+          status: null,
+          message: "",
+        });
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        validateCurrentPassword(value);
+      }, 500); // 500ms debounce delay
+
+      setDebounceTimer(timer);
     }
   };
 
@@ -92,6 +204,24 @@ const Settings = () => {
 
   const handleChangePassword = async () => {
     try {
+      // Validate that current password is provided
+      if (!passwordData.currentPassword) {
+        toast.error("Please enter your current password", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      // Validate that current password has been verified as correct
+      if (currentPasswordValidation.status !== "correct") {
+        toast.error("Please verify that your current password is correct", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
+
       // Validate new password meets all requirements
       if (!isPasswordValid) {
         toast.error("Password must meet all requirements", {
@@ -113,6 +243,7 @@ const Settings = () => {
       const decoded = JSON.parse(atob(token.split(".")[1]));
 
       await api.put(`/users/${decoded.id}`, {
+        currentPassword: passwordData.currentPassword,
         password: passwordData.newPassword,
       });
 
@@ -120,6 +251,16 @@ const Settings = () => {
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
+      });
+
+      setCurrentPasswordValidation({
+        status: null,
+        message: "",
+      });
+
+      setConfirmPasswordValidation({
+        status: null,
+        message: "",
       });
 
       setPasswordValidation({
@@ -147,8 +288,25 @@ const Settings = () => {
         newPassword: "",
         confirmPassword: "",
       });
+      setCurrentPasswordValidation({
+        status: null,
+        message: "",
+      });
+      setConfirmPasswordValidation({
+        status: null,
+        message: "",
+      });
     }
   };
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, [debounceTimer]);
 
   if (loading) {
     return (
@@ -303,7 +461,16 @@ const Settings = () => {
                           value={passwordData.currentPassword}
                           onChange={handlePasswordChange}
                           data-no-uppercase
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-all"
+                          className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                            currentPasswordValidation.status === "correct"
+                              ? "border-green-300 focus:ring-green-400"
+                              : currentPasswordValidation.status === "incorrect"
+                                ? "border-red-300 focus:ring-red-400"
+                                : currentPasswordValidation.status ===
+                                    "validating"
+                                  ? "border-yellow-300 focus:ring-yellow-400"
+                                  : "border-gray-300 focus:ring-[#E89271]"
+                          }`}
                           placeholder="Enter current password"
                         />
                         <button
@@ -311,7 +478,7 @@ const Settings = () => {
                           onClick={() =>
                             togglePasswordVisibility("currentPassword")
                           }
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                           {showPasswords.currentPassword ? (
                             <EyeOff className="w-5 h-5" />
@@ -319,7 +486,41 @@ const Settings = () => {
                             <Eye className="w-5 h-5" />
                           )}
                         </button>
+                        {currentPasswordValidation.status && (
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            {currentPasswordValidation.status === "correct" && (
+                              <Check className="w-5 h-5 text-green-600" />
+                            )}
+                            {currentPasswordValidation.status ===
+                              "incorrect" && (
+                              <X className="w-5 h-5 text-red-600" />
+                            )}
+                            {currentPasswordValidation.status ===
+                              "validating" && (
+                              <div className="w-5 h-5 border-2 border-yellow-400 border-t-yellow-600 rounded-full animate-spin" />
+                            )}
+                          </div>
+                        )}
                       </div>
+                      {currentPasswordValidation.message && (
+                        <div
+                          className={`mt-2 text-sm flex items-center gap-2 ${
+                            currentPasswordValidation.status === "correct"
+                              ? "text-green-700"
+                              : currentPasswordValidation.status === "incorrect"
+                                ? "text-red-700"
+                                : "text-yellow-700"
+                          }`}
+                        >
+                          {currentPasswordValidation.status === "correct" && (
+                            <Check className="w-4 h-4" />
+                          )}
+                          {currentPasswordValidation.status === "incorrect" && (
+                            <X className="w-4 h-4" />
+                          )}
+                          {currentPasswordValidation.message}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -360,24 +561,18 @@ const Settings = () => {
 
                           <div className="space-y-2">
                             {/* Minimum Length Requirement */}
-                            <div
-                              className={`flex items-center gap-2 p-2.5 rounded-lg ${
-                                passwordValidation.minLength
-                                  ? "bg-green-50 border border-green-200"
-                                  : "bg-red-50 border border-red-200"
-                              }`}
-                            >
+                            <div className="flex items-center gap-2 text-sm">
                               {passwordValidation.minLength ? (
                                 <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
                               ) : (
                                 <X className="w-4 h-4 text-red-600 flex-shrink-0" />
                               )}
                               <span
-                                className={`text-sm ${
+                                className={
                                   passwordValidation.minLength
                                     ? "text-green-700 font-medium"
                                     : "text-red-700"
-                                }`}
+                                }
                               >
                                 At least 8 characters (
                                 {passwordData.newPassword.length}/8)
@@ -385,50 +580,38 @@ const Settings = () => {
                             </div>
 
                             {/* Numbers Requirement */}
-                            <div
-                              className={`flex items-center gap-2 p-2.5 rounded-lg ${
-                                passwordValidation.hasNumbers
-                                  ? "bg-green-50 border border-green-200"
-                                  : "bg-red-50 border border-red-200"
-                              }`}
-                            >
+                            <div className="flex items-center gap-2 text-sm">
                               {passwordValidation.hasNumbers ? (
                                 <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
                               ) : (
                                 <X className="w-4 h-4 text-red-600 flex-shrink-0" />
                               )}
                               <span
-                                className={`text-sm ${
+                                className={
                                   passwordValidation.hasNumbers
                                     ? "text-green-700 font-medium"
                                     : "text-red-700"
-                                }`}
+                                }
                               >
-                                Includes at least one number (0-9)
+                                Includes at least one number (0–9)
                               </span>
                             </div>
 
                             {/* Special Characters Requirement */}
-                            <div
-                              className={`flex items-center gap-2 p-2.5 rounded-lg ${
-                                passwordValidation.hasSpecialChar
-                                  ? "bg-green-50 border border-green-200"
-                                  : "bg-red-50 border border-red-200"
-                              }`}
-                            >
+                            <div className="flex items-center gap-2 text-sm">
                               {passwordValidation.hasSpecialChar ? (
                                 <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
                               ) : (
                                 <X className="w-4 h-4 text-red-600 flex-shrink-0" />
                               )}
                               <span
-                                className={`text-sm ${
+                                className={
                                   passwordValidation.hasSpecialChar
                                     ? "text-green-700 font-medium"
                                     : "text-red-700"
-                                }`}
+                                }
                               >
-                                Includes special character (!@#$%^&* etc.)
+                                Includes special character (!@#$%^&*)
                               </span>
                             </div>
                           </div>
@@ -449,7 +632,15 @@ const Settings = () => {
                           value={passwordData.confirmPassword}
                           onChange={handlePasswordChange}
                           data-no-uppercase
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E89271] focus:border-transparent transition-all"
+                          className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                            confirmPasswordValidation.status === "match"
+                              ? "border-green-300 focus:ring-green-400"
+                              : confirmPasswordValidation.status ===
+                                    "mismatch" ||
+                                  confirmPasswordValidation.status === "empty"
+                                ? "border-red-300 focus:ring-red-400"
+                                : "border-gray-300 focus:ring-[#E89271]"
+                          }`}
                           placeholder="Confirm new password"
                         />
                         <button
@@ -457,7 +648,7 @@ const Settings = () => {
                           onClick={() =>
                             togglePasswordVisibility("confirmPassword")
                           }
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                           {showPasswords.confirmPassword ? (
                             <EyeOff className="w-5 h-5" />
@@ -465,7 +656,36 @@ const Settings = () => {
                             <Eye className="w-5 h-5" />
                           )}
                         </button>
+                        {confirmPasswordValidation.status && (
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            {confirmPasswordValidation.status === "match" && (
+                              <Check className="w-5 h-5 text-green-600" />
+                            )}
+                            {(confirmPasswordValidation.status === "mismatch" ||
+                              confirmPasswordValidation.status === "empty") && (
+                              <X className="w-5 h-5 text-red-600" />
+                            )}
+                          </div>
+                        )}
                       </div>
+                      {confirmPasswordValidation.message && (
+                        <div
+                          className={`mt-2 text-sm flex items-center gap-2 ${
+                            confirmPasswordValidation.status === "match"
+                              ? "text-green-700"
+                              : "text-red-700"
+                          }`}
+                        >
+                          {confirmPasswordValidation.status === "match" && (
+                            <Check className="w-4 h-4" />
+                          )}
+                          {(confirmPasswordValidation.status === "mismatch" ||
+                            confirmPasswordValidation.status === "empty") && (
+                            <X className="w-4 h-4" />
+                          )}
+                          {confirmPasswordValidation.message}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
@@ -478,14 +698,16 @@ const Settings = () => {
                       <button
                         onClick={handleChangePassword}
                         disabled={
+                          !passwordData.currentPassword ||
+                          currentPasswordValidation.status !== "correct" ||
                           !isPasswordValid ||
-                          passwordData.newPassword !==
-                            passwordData.confirmPassword
+                          confirmPasswordValidation.status !== "match"
                         }
                         className={`px-6 py-2.5 font-medium rounded-lg shadow-sm transition-colors ${
+                          passwordData.currentPassword &&
+                          currentPasswordValidation.status === "correct" &&
                           isPasswordValid &&
-                          passwordData.newPassword ===
-                            passwordData.confirmPassword
+                          confirmPasswordValidation.status === "match"
                             ? "bg-[#E89271] text-white hover:bg-[#ed9e7f] cursor-pointer"
                             : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         }`}

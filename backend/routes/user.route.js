@@ -5,7 +5,8 @@ import {
   getUser,
   updateUser,
   createUser,
-  getCurrentUser
+  getCurrentUser,
+  verifyPassword,
 } from "../controllers/user.controller.js";
 
 import auth from "../middleware/auth.middleware.js";
@@ -16,6 +17,9 @@ const router = express.Router();
 
 // GET /api/users/me - Get current user profile (CRITICAL for session validation)
 router.get("/me", auth, getCurrentUser);
+
+// POST /api/users/verify-password/:id - Verify password for real-time validation
+router.post("/verify-password/:id", auth, selfOrAdmin, verifyPassword);
 
 // POST /api/users
 router.post("/", auth, role("admin"), createUser);

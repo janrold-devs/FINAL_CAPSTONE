@@ -179,29 +179,13 @@ const SalesModal = ({ show, onClose, salesData }) => {
                         <h3 className="font-bold text-lg">
                           Transaction #{tIndex + 1}
                         </h3>
-                        <div className="text-sm text-blue-100 mt-1 space-y-0.5">
-                          <div>
-                            Cashier:{" "}
-                            <span className="font-medium">
-                              {transaction.cashier?.firstName
-                                ? `${transaction.cashier.firstName} ${transaction.cashier.lastName}`
-                                : "Unknown Cashier"}
-                            </span>
-                          </div>
-                          <div>
-                            Time:{" "}
-                            <span className="font-medium">
-                              {new Date(
-                                transaction.transactionDate,
-                              ).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <div>
-                            Payment:{" "}
-                            <span className="font-medium">
-                              {transaction.modeOfPayment || "Cash"}
-                            </span>
-                          </div>
+                        <div className="text-sm text-blue-100 mt-1">
+                          Cashier:{" "}
+                          <span className="font-medium">
+                            {transaction.cashier?.firstName
+                              ? `${transaction.cashier.firstName} ${transaction.cashier.lastName}`
+                              : "Unknown Cashier"}
+                          </span>
                         </div>
                       </div>
                       <div className="text-right">
