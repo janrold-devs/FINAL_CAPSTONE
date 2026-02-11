@@ -24,7 +24,7 @@ const ExportButtons = ({
     if (!obj || !keyPath) return "";
     return keyPath.split(".").reduce((acc, k) => {
       if (acc && typeof acc === "object") {
-        return acc[k];
+        return acc[k] !== undefined ? acc[k] : "";
       }
       return acc;
     }, obj);
@@ -36,7 +36,7 @@ const ExportButtons = ({
 
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString; // Return original if invalid date
+      if (isNaN(date.getTime())) return dateString;
 
       return date.toLocaleDateString("en-US", {
         year: "numeric",
@@ -44,31 +44,23 @@ const ExportButtons = ({
         day: "numeric",
       });
     } catch (error) {
-      return dateString; // Return original if parsing fails
+      return dateString;
     }
   };
 
   // 🧠 Helper: Format ingredient objects to readable string
   const formatIngredient = (ingredientObj) => {
     if (!ingredientObj) return "—";
-
-    // If it's already a string, return as is
     if (typeof ingredientObj === "string") return ingredientObj;
-
-    // If it's an array of ingredients
     if (Array.isArray(ingredientObj)) {
       return ingredientObj
         .map((ing) => formatIngredient(ing))
         .filter((ing) => ing !== "—")
         .join(", ");
     }
-
-    // Handle null or invalid ingredient objects
     if (!ingredientObj || typeof ingredientObj !== "object") {
       return "—";
     }
-
-    // If ingredient is null but has quantity and unit
     if (
       ingredientObj.ingredient === null &&
       (ingredientObj.quantity || ingredientObj.unit)
@@ -77,49 +69,94 @@ const ExportButtons = ({
       const unit = ingredientObj.unit || "";
       return `Unknown Ingredient (${qty}${unit})`;
     }
-
-    // If it's a single ingredient object with nested structure
     if (
       ingredientObj.ingredient &&
       typeof ingredientObj.ingredient === "object"
     ) {
       const ing = ingredientObj.ingredient;
-      // Check if the nested ingredient object has valid data
       if (ing && ing.name) {
         const qty = ingredientObj.quantity || "";
         const unit = ingredientObj.unit || ing.unit || "";
         return `${ing.name} (${qty}${unit})`;
       } else {
-        // If nested ingredient is invalid, use quantity and unit from main object
         const qty = ingredientObj.quantity || "";
         const unit = ingredientObj.unit || "";
         return `Unknown Ingredient (${qty}${unit})`;
       }
     }
-
-    // If it's a direct ingredient object with name
     if (ingredientObj.name) {
       const qty = ingredientObj.quantity || "";
       const unit = ingredientObj.unit || "";
       return `${ingredientObj.name} (${qty}${unit})`;
     }
-
-    // If it has quantity and unit but no name
     if (ingredientObj.quantity || ingredientObj.unit) {
       const qty = ingredientObj.quantity || "";
       const unit = ingredientObj.unit || "";
       return `Ingredient (${qty}${unit})`;
     }
+    return "—";
+  };
 
-    // If we can't format it, return dash
+  // 🧠 Helper: Format person in charge name from user object
+  const formatPersonInCharge = (spoilage) => {
+    if (!spoilage) return "—";
+    
+    // Check if it has recordedBy with nested user info
+    if (spoilage.recordedBy && typeof spoilage.recordedBy === 'object') {
+      const user = spoilage.recordedBy;
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      } else if (user.name) {
+        return user.name;
+      } else if (user.firstName) {
+        return user.firstName;
+      } else if (user.email) {
+        return user.email.split('@')[0];
+      }
+    }
+    
+    // Check if it has createdBy field
+    if (spoilage.createdBy && typeof spoilage.createdBy === 'object') {
+      const user = spoilage.createdBy;
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      } else if (user.name) {
+        return user.name;
+      } else if (user.firstName) {
+        return user.firstName;
+      }
+    }
+    
+    // Check if it has personInCharge field
+    if (spoilage.personInCharge) {
+      if (typeof spoilage.personInCharge === 'object') {
+        const person = spoilage.personInCharge;
+        if (person.firstName && person.lastName) {
+          return `${person.firstName} ${person.lastName}`;
+        } else if (person.name) {
+          return person.name;
+        }
+      } else {
+        return spoilage.personInCharge;
+      }
+    }
+    
     return "—";
   };
 
   // 🧠 Helper: Clean any value for display
-  const cleanValue = (value) => {
+  const cleanValue = (value, item = null, columnKey = null) => {
+    // Special handling for person in charge in spoilage
+    if (columnKey === 'recordedBy' || columnKey === 'createdBy' || columnKey === 'personInCharge' || 
+        (item && (columnKey === 'recordedBy' || columnKey === 'createdBy' || columnKey === 'personInCharge'))) {
+      if (item) {
+        return formatPersonInCharge(item);
+      }
+      return formatPersonInCharge(value);
+    }
+
     if (value === null || value === undefined || value === "") return "—";
 
-    // Check if value is an ISO date string
     if (
       typeof value === "string" &&
       ((value.includes("T") && (value.endsWith("Z") || value.includes(":"))) ||
@@ -128,7 +165,6 @@ const ExportButtons = ({
       return formatISODate(value);
     }
 
-    // Check if value is an array (like ingredients array)
     if (Array.isArray(value)) {
       const formattedArray = value
         .map((item) => formatIngredient(item))
@@ -136,7 +172,6 @@ const ExportButtons = ({
       return formattedArray.length > 0 ? formattedArray.join(", ") : "—";
     }
 
-    // Check if value is an ingredient object
     if (
       value &&
       typeof value === "object" &&
@@ -147,11 +182,13 @@ const ExportButtons = ({
       return formatIngredient(value);
     }
 
-    // Handle other objects
     if (typeof value === "object" && value !== null) {
-      // For other objects, try to create a readable string
       if (value.name) {
         return value.name;
+      } else if (value.firstName && value.lastName) {
+        return `${value.firstName} ${value.lastName}`;
+      } else if (value.firstName) {
+        return value.firstName;
       } else if (value.toString && value.toString() !== "[object Object]") {
         return value.toString();
       } else {
@@ -159,30 +196,23 @@ const ExportButtons = ({
       }
     }
 
-    // Handle Date objects
     if (value instanceof Date) {
       return formatISODate(value.toISOString());
     }
 
-    // Handle strings, numbers, booleans
     return value ?? "—";
   };
 
-  // 🧠 Helper: Format price with ₱ sign (like in your table)
+  // 🧠 Helper: Format price with ₱ sign
   const formatPrice = (price) => {
     if (price === null || price === undefined || price === "") return "—";
-    
-    // If it's already a string with ₱ sign, return as is
     if (typeof price === "string" && price.includes("₱")) return price;
-    
-    // Convert to number and format
     const numPrice = parseFloat(price);
     if (isNaN(numPrice)) return "—";
-    
     return `₱${numPrice.toFixed(2)}`;
   };
 
-  // 🧠 Helper: Format category like in your table
+  // 🧠 Helper: Format category
   const formatCategory = (category) => {
     if (!category) return "—";
     
@@ -196,72 +226,108 @@ const ExportButtons = ({
     );
 
     if (isPredefined) {
-      // Capitalize each word
       return category
         .split(" ")
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
     }
 
-    // For custom categories, just capitalize first letter
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
 
   // 🧠 Auto-detect columns if not passed
-  const effectiveColumns =
-    columns.length > 0
-      ? columns
-      : Object.keys(displayData[0])
-          .filter((key) => !excludedKeys.includes(key))
-          .map((key) => ({
-            key,
-            label: key.charAt(0).toUpperCase() + key.slice(1),
-          }));
+  const effectiveColumns = () => {
+    if (columns.length > 0) {
+      return columns;
+    }
 
-  // 🧠 Transform data for Excel (keep original format)
+    const firstItem = displayData[0];
+    if (!firstItem) return [];
+
+    // Get all keys from the object including nested ones we want to display
+    const keys = [];
+    
+    // Add standard fields
+    Object.keys(firstItem).forEach((key) => {
+      if (!excludedKeys.includes(key)) {
+        keys.push(key);
+      }
+    });
+
+    // Special handling for spoilage data
+    if (fileName.toLowerCase().includes('spoilage')) {
+      // Ensure person in charge fields are included
+      if (firstItem.recordedBy && !keys.includes('recordedBy')) {
+        keys.push('recordedBy');
+      }
+      if (firstItem.createdBy && !keys.includes('createdBy')) {
+        keys.push('createdBy');
+      }
+      if (firstItem.personInCharge && !keys.includes('personInCharge')) {
+        keys.push('personInCharge');
+      }
+    }
+
+    return keys.map((key) => {
+      let label = key.charAt(0).toUpperCase() + key.slice(1);
+      
+      // Better label formatting for person in charge
+      if (key === 'recordedBy' || key === 'createdBy' || key === 'personInCharge') {
+        label = 'Person In Charge';
+      } else if (key === 'spoiledQuantity') {
+        label = 'Spoiled Qty';
+      } else if (key === 'spoiledUnit') {
+        label = 'Unit';
+      } else if (key === 'spoilageReason') {
+        label = 'Reason';
+      } else if (key === 'spoilageDate') {
+        label = 'Date';
+      }
+      
+      return { key, label };
+    });
+  };
+
+  const getEffectiveColumns = effectiveColumns();
+
+  // 🧠 Transform data for Excel
   const transformedDataExcel = displayData.map((item) => {
     const flattened = {};
-    effectiveColumns.forEach(({ key }) => {
+    getEffectiveColumns.forEach(({ key }) => {
       const value = getNestedValue(item, key);
-      flattened[key] = cleanValue(value);
+      flattened[key] = cleanValue(value, item, key);
     });
     return flattened;
   });
 
-  // 🧠 Transform data for PDF (special handling for multi-size products)
+  // 🧠 Transform data for PDF
   const transformedDataPDF = [];
   
   displayData.forEach((item) => {
-    // Check if product has multiple sizes
+    // Check if it's a product with multiple sizes
     if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 1) {
-      // Create separate rows for each size
       item.sizes.forEach((sizeObj, index) => {
         const flattened = {};
-        effectiveColumns.forEach(({ key }) => {
+        getEffectiveColumns.forEach(({ key }) => {
           if (key === 'productName') {
-            // Show product name only on first row
             flattened[key] = index === 0 ? (item.productName || "—") : "";
           }
           else if (key === 'size') {
             flattened[key] = sizeObj.size ? `${sizeObj.size} oz` : "—";
           }
           else if (key === 'price') {
-            // FIX: Use formatPrice to add ₱ sign
             flattened[key] = sizeObj.price ? formatPrice(sizeObj.price) : "—";
           }
           else if (key === 'category') {
-            // Show category only on first row
             flattened[key] = index === 0 ? formatCategory(item.category) : "";
           }
           else if (key === 'ingredients.length') {
-            // Show ingredients count only on first row
             flattened[key] = index === 0 ? (item.ingredients?.length || 0) : "";
           }
           else {
-            // For other columns, show value only on first row
             if (index === 0) {
               const value = getNestedValue(item, key);
-              flattened[key] = cleanValue(value);
+              flattened[key] = cleanValue(value, item, key);
             } else {
               flattened[key] = "";
             }
@@ -270,11 +336,10 @@ const ExportButtons = ({
         transformedDataPDF.push(flattened);
       });
     } else {
-      // Single size product
+      // Single size product or non-product data (like spoilage)
       const flattened = {};
-      effectiveColumns.forEach(({ key }) => {
+      getEffectiveColumns.forEach(({ key }) => {
         if (key === 'size') {
-          // Handle single size
           if (item.sizes && item.sizes.length === 1) {
             flattened[key] = item.sizes[0].size ? `${item.sizes[0].size} oz` : "—";
           } else {
@@ -282,7 +347,6 @@ const ExportButtons = ({
           }
         }
         else if (key === 'price') {
-          // FIX: Use formatPrice to add ₱ sign for single size
           if (item.sizes && item.sizes.length === 1) {
             flattened[key] = item.sizes[0].price ? formatPrice(item.sizes[0].price) : "—";
           } else {
@@ -290,28 +354,27 @@ const ExportButtons = ({
           }
         }
         else if (key === 'category') {
-          // Format category like in the table
           flattened[key] = formatCategory(item.category);
         }
         else {
           const value = getNestedValue(item, key);
-          flattened[key] = cleanValue(value);
+          flattened[key] = cleanValue(value, item, key);
         }
       });
       transformedDataPDF.push(flattened);
     }
   });
 
-  const headers = effectiveColumns.map((col) => col.label);
+  const headers = getEffectiveColumns.map((col) => col.label);
   const rowsExcel = transformedDataExcel.map((item) =>
-    effectiveColumns.map((col) => item[col.key])
+    getEffectiveColumns.map((col) => item[col.key])
   );
   
   const rowsPDF = transformedDataPDF.map((item) =>
-    effectiveColumns.map((col) => item[col.key])
+    getEffectiveColumns.map((col) => item[col.key])
   );
 
-  // Format current date for display (Dec 6, 2025 format)
+  // Format current date
   const formatCurrentDate = () => {
     return new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -320,42 +383,36 @@ const ExportButtons = ({
     });
   };
 
-  // ✅ Enhanced Export to PDF with Centered KKOPI.TEA only
+  // ✅ Export to PDF
   const handleExportPDF = () => {
     try {
       const doc = new jsPDF();
 
       // 🎨 Add header with logo
-      doc.setFillColor(250, 250, 250); // Light gray background
+      doc.setFillColor(250, 250, 250);
       doc.rect(0, 0, 210, 40, "F");
 
-      // Create a circular background - ORANGE color
-      doc.setFillColor(255, 140, 0); // Orange color
+      doc.setFillColor(255, 140, 0);
       doc.circle(25, 20, 12, "F");
 
-      // Add "KKOPI.TEA" text centered in the circle - Single line only
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8); // Larger font for single line
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.text("KKOPI.TEA", 25, 22, { align: "center" });
 
-      // Add company name next to logo - Orange color
       doc.setTextColor(255, 140, 0);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("KKOPI.Tea", 45, 22);
 
-      // Add address
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
       doc.text("- Congressional ave Dasmariñas Cavite", 45, 27);
 
-      // Separator line - Orange color
       doc.setDrawColor(255, 140, 0);
       doc.line(14, 35, 196, 35);
 
-      // Report title and date
       doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
       doc.setFont("helvetica", "bold");
@@ -365,7 +422,7 @@ const ExportButtons = ({
       doc.setFont("helvetica", "normal");
       doc.text(`Generated on: ${formatCurrentDate()}`, 14, 50);
 
-      // 🎨 Table with orange styling - USING PDF DATA
+      // 🎨 Table with orange styling
       autoTable(doc, {
         head: [headers],
         body: rowsPDF,
@@ -379,14 +436,14 @@ const ExportButtons = ({
           lineWidth: 0.1,
         },
         headStyles: {
-          fillColor: [255, 140, 0], // Orange color matching logo
+          fillColor: [255, 140, 0],
           textColor: 255,
           fontStyle: "bold",
           lineWidth: 0.1,
           fontSize: 9,
         },
         alternateRowStyles: {
-          fillColor: [255, 248, 225], // Light orange for alternate rows
+          fillColor: [255, 248, 225],
         },
         tableLineColor: [200, 200, 200],
         tableLineWidth: 0.1,
@@ -399,8 +456,6 @@ const ExportButtons = ({
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
-
-        // Footer line - Orange color
         doc.setDrawColor(255, 140, 0);
         doc.line(
           14,
@@ -408,16 +463,12 @@ const ExportButtons = ({
           196,
           doc.internal.pageSize.getHeight() - 20
         );
-
-        // Footer text
         doc.text(
           `KKOPI.Tea - ${fileName} - Page ${i} of ${pageCount}`,
           doc.internal.pageSize.getWidth() / 2,
           doc.internal.pageSize.getHeight() - 15,
           { align: "center" }
         );
-
-        // Confidential notice
         doc.text(
           "Confidential Business Document",
           doc.internal.pageSize.getWidth() / 2,
@@ -433,7 +484,7 @@ const ExportButtons = ({
     }
   };
 
-  // ✅ Print function with both KKOPI.TEA and Japanese text - uses filtered data
+  // ✅ Print function
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");
     const tableHTML = `
@@ -640,7 +691,7 @@ const ExportButtons = ({
             <tbody>
               ${rowsPDF
                 .map(
-                  (r, index) => `
+                  (r) => `
                   <tr>
                     ${r.map((v) => `<td>${v}</td>`).join("")}
                   </tr>
@@ -676,9 +727,8 @@ const ExportButtons = ({
     printWindow.document.close();
   };
 
-  // ✅ Export to Excel with proper data formatting - uses filtered data
+  // ✅ Export to Excel
   const handleExportExcel = () => {
-    // Use the Excel transformed data (original format)
     const worksheet = XLSX.utils.json_to_sheet(transformedDataExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
