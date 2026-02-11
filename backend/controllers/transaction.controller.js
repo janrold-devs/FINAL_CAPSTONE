@@ -89,7 +89,9 @@ export const checkStockAvailability = async (req, res) => {
           continue;
         }
 
-        const sizeMultiplier = getSizeMultiplier(product, item.size);
+        let sizeMultiplier = getSizeMultiplier(product, item.size);
+        // Materials should not be scaled by size
+        if (ingredient.category === "Material") sizeMultiplier = 1;
         const requiredQuantity =
           recipe.quantity * sizeMultiplier * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
@@ -128,7 +130,8 @@ export const checkStockAvailability = async (req, res) => {
               continue;
             }
 
-            const addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+            let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+            if (addonIngredient.category === "Material") addonMultiplier = 1;
             const addonRequiredQuantity =
               addonRecipe.quantity *
               addonMultiplier *
@@ -266,7 +269,8 @@ export const createTransaction = async (req, res) => {
           continue;
         }
 
-        const sizeMultiplier = getSizeMultiplier(product, item.size);
+        let sizeMultiplier = getSizeMultiplier(product, item.size);
+        if (ingredient.category === "Material") sizeMultiplier = 1;
         const requiredQuantity =
           recipe.quantity * sizeMultiplier * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
@@ -306,7 +310,8 @@ export const createTransaction = async (req, res) => {
               continue;
             }
 
-            const addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+            let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+            if (addonIngredient.category === "Material") addonMultiplier = 1;
             const addonRequiredQuantity =
               addonRecipe.quantity *
               addonMultiplier *
@@ -370,7 +375,8 @@ export const createTransaction = async (req, res) => {
             continue;
           }
 
-          const sizeMultiplier = getSizeMultiplier(product, item.size);
+          let sizeMultiplier = getSizeMultiplier(product, item.size);
+          if (ingredient.category === "Material") sizeMultiplier = 1;
           const deductQty = recipe.quantity * sizeMultiplier * item.quantity;
           ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
           await ingredient.save();
@@ -403,10 +409,11 @@ export const createTransaction = async (req, res) => {
                 continue;
               }
 
-              const addonMultiplier = getSizeMultiplier(
+              let addonMultiplier = getSizeMultiplier(
                 addonProduct,
                 item.size,
               );
+              if (addonIngredient.category === "Material") addonMultiplier = 1;
               const addonDeductQty =
                 addonRecipe.quantity *
                 addonMultiplier *
@@ -600,7 +607,8 @@ export const deleteTransaction = async (req, res) => {
           continue;
         }
 
-        const sizeMultiplier = getSizeMultiplier(product, item.size);
+        let sizeMultiplier = getSizeMultiplier(product, item.size);
+        if (ingredient.category === "Material") sizeMultiplier = 1;
         const restoreQty = recipe.quantity * sizeMultiplier * item.quantity;
         ingredient.quantity += restoreQty;
         await ingredient.save();
@@ -630,7 +638,8 @@ export const deleteTransaction = async (req, res) => {
               continue;
             }
 
-            const addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+            let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+            if (addonIngredient.category === "Material") addonMultiplier = 1;
             const addonRestoreQty =
               addonRecipe.quantity *
               addonMultiplier *
