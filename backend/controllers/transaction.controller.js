@@ -6,12 +6,22 @@ import Sales from "../models/Sales.js";
 import { logActivity } from "../middleware/activitylogger.middleware.js";
 
 // Helper function to determine if an ingredient should be deducted based on selected size
-const shouldDeductIngredient = (ingredientName, selectedSize) => {
+// Only apply size-based matching when the product has multiple sizes.
+// If the product has a single fixed size, always deduct the ingredient.
+const shouldDeductIngredient = (ingredientName, selectedSize, product) => {
   if (!ingredientName) return true;
+
+  // If product is not provided or product has single size, always deduct
+  const hasMultipleSizes = !!(
+    product &&
+    product.sizes &&
+    product.sizes.length > 1
+  );
+  if (!hasMultipleSizes) return true;
 
   const ingredientNameUpper = ingredientName.toUpperCase();
 
-  // Check if this is a cup ingredient
+  // Check if this is a cup ingredient and only then match by size
   if (ingredientNameUpper.includes("CUP")) {
     // Extract size number from ingredient name (e.g., "16" from "PLASTIC CUPS (16 OZ)")
     const sizeMatch = ingredientNameUpper.match(/\((\d+)\s*OZ\)/);
@@ -23,8 +33,20 @@ const shouldDeductIngredient = (ingredientName, selectedSize) => {
     }
   }
 
-  // For non-cup ingredients, always deduct
+  // For non-cup ingredients, deduct (when product has multiple sizes we don't skip)
   return true;
+};
+
+// Get multiplier for ingredient quantities based on product sizes.
+// If product has a single size, returns 1 (no scaling).
+const getSizeMultiplier = (product, selectedSize) => {
+  if (!product || !product.sizes || product.sizes.length <= 1) return 1;
+  const availableSizes = product.sizes.map((s) => s.size).filter(Boolean);
+  if (!availableSizes.length) return 1;
+  const baseSize = Math.min(...availableSizes);
+  if (!selectedSize) return 1;
+  // Return ratio of selected size to base size (e.g., 22/16 = 1.375)
+  return Number(selectedSize) / Number(baseSize);
 };
 
 const updateSalesBatchCalculation = async (salesBatch) => {
@@ -63,11 +85,13 @@ export const checkStockAvailability = async (req, res) => {
         if (!ingredient) continue;
 
         // Skip this ingredient if it doesn't match the selected size
-        if (!shouldDeductIngredient(ingredient.name, item.size)) {
+        if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
           continue;
         }
 
-        const requiredQuantity = recipe.quantity * item.quantity;
+        const sizeMultiplier = getSizeMultiplier(product, item.size);
+        const requiredQuantity =
+          recipe.quantity * sizeMultiplier * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
           outOfStock.push({
             productName: product.productName,
@@ -94,12 +118,22 @@ export const checkStockAvailability = async (req, res) => {
             if (!addonIngredient) continue;
 
             // Skip this addon ingredient if it doesn't match the selected size
-            if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+            if (
+              !shouldDeductIngredient(
+                addonIngredient.name,
+                item.size,
+                addonProduct,
+              )
+            ) {
               continue;
             }
 
+            const addonMultiplier = getSizeMultiplier(addonProduct, item.size);
             const addonRequiredQuantity =
-              addonRecipe.quantity * addon.quantity * item.quantity;
+              addonRecipe.quantity *
+              addonMultiplier *
+              addon.quantity *
+              item.quantity;
             if (addonIngredient.quantity < addonRequiredQuantity) {
               outOfStock.push({
                 productName: `${product.productName} + ${addonProduct.productName}`,
@@ -228,11 +262,13 @@ export const createTransaction = async (req, res) => {
         if (!ingredient) continue;
 
         // Skip this ingredient if it doesn't match the selected size
-        if (!shouldDeductIngredient(ingredient.name, item.size)) {
+        if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
           continue;
         }
 
-        const requiredQuantity = recipe.quantity * item.quantity;
+        const sizeMultiplier = getSizeMultiplier(product, item.size);
+        const requiredQuantity =
+          recipe.quantity * sizeMultiplier * item.quantity;
         if (ingredient.quantity < requiredQuantity) {
           outOfStock.push({
             productName: product.productName,
@@ -260,12 +296,22 @@ export const createTransaction = async (req, res) => {
             if (!addonIngredient) continue;
 
             // Skip this addon ingredient if it doesn't match the selected size
-            if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+            if (
+              !shouldDeductIngredient(
+                addonIngredient.name,
+                item.size,
+                addonProduct,
+              )
+            ) {
               continue;
             }
 
+            const addonMultiplier = getSizeMultiplier(addonProduct, item.size);
             const addonRequiredQuantity =
-              addonRecipe.quantity * addon.quantity * item.quantity;
+              addonRecipe.quantity *
+              addonMultiplier *
+              addon.quantity *
+              item.quantity;
             if (addonIngredient.quantity < addonRequiredQuantity) {
               outOfStock.push({
                 productName: `${product.productName} + ${addonProduct.productName}`,
@@ -320,11 +366,12 @@ export const createTransaction = async (req, res) => {
           if (!ingredient) continue;
 
           // Skip this ingredient if it doesn't match the selected size
-          if (!shouldDeductIngredient(ingredient.name, item.size)) {
+          if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
             continue;
           }
 
-          const deductQty = recipe.quantity * item.quantity;
+          const sizeMultiplier = getSizeMultiplier(product, item.size);
+          const deductQty = recipe.quantity * sizeMultiplier * item.quantity;
           ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
           await ingredient.save();
         }
@@ -346,12 +393,25 @@ export const createTransaction = async (req, res) => {
               if (!addonIngredient) continue;
 
               // Skip this addon ingredient if it doesn't match the selected size
-              if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+              if (
+                !shouldDeductIngredient(
+                  addonIngredient.name,
+                  item.size,
+                  addonProduct,
+                )
+              ) {
                 continue;
               }
 
+              const addonMultiplier = getSizeMultiplier(
+                addonProduct,
+                item.size,
+              );
               const addonDeductQty =
-                addonRecipe.quantity * addon.quantity * item.quantity;
+                addonRecipe.quantity *
+                addonMultiplier *
+                addon.quantity *
+                item.quantity;
               addonIngredient.quantity = Math.max(
                 0,
                 addonIngredient.quantity - addonDeductQty,
@@ -536,11 +596,12 @@ export const deleteTransaction = async (req, res) => {
         if (!ingredient) continue;
 
         // Skip this ingredient if it doesn't match the selected size
-        if (!shouldDeductIngredient(ingredient.name, item.size)) {
+        if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
           continue;
         }
 
-        const restoreQty = recipe.quantity * item.quantity;
+        const sizeMultiplier = getSizeMultiplier(product, item.size);
+        const restoreQty = recipe.quantity * sizeMultiplier * item.quantity;
         ingredient.quantity += restoreQty;
         await ingredient.save();
       }
@@ -559,12 +620,22 @@ export const deleteTransaction = async (req, res) => {
             if (!addonIngredient) continue;
 
             // Skip this addon ingredient if it doesn't match the selected size
-            if (!shouldDeductIngredient(addonIngredient.name, item.size)) {
+            if (
+              !shouldDeductIngredient(
+                addonIngredient.name,
+                item.size,
+                addonProduct,
+              )
+            ) {
               continue;
             }
 
+            const addonMultiplier = getSizeMultiplier(addonProduct, item.size);
             const addonRestoreQty =
-              addonRecipe.quantity * addon.quantity * item.quantity;
+              addonRecipe.quantity *
+              addonMultiplier *
+              addon.quantity *
+              item.quantity;
             addonIngredient.quantity += addonRestoreQty;
             await addonIngredient.save();
           }
