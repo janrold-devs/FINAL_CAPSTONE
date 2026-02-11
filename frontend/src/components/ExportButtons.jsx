@@ -168,6 +168,45 @@ const ExportButtons = ({
     return value ?? "—";
   };
 
+  // 🧠 Helper: Format price with ₱ sign (like in your table)
+  const formatPrice = (price) => {
+    if (price === null || price === undefined || price === "") return "—";
+    
+    // If it's already a string with ₱ sign, return as is
+    if (typeof price === "string" && price.includes("₱")) return price;
+    
+    // Convert to number and format
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice)) return "—";
+    
+    return `₱${numPrice.toFixed(2)}`;
+  };
+
+  // 🧠 Helper: Format category like in your table
+  const formatCategory = (category) => {
+    if (!category) return "—";
+    
+    const predefinedCategories = [
+      "iced latte", "bubble tea", "fruit tea", "amerikano", 
+      "non caffeine", "frappe", "choco Series", "hot drink", "shiro Series"
+    ];
+    
+    const isPredefined = predefinedCategories.some(
+      (predefined) => predefined.toLowerCase() === category.toLowerCase()
+    );
+
+    if (isPredefined) {
+      // Capitalize each word
+      return category
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
+
+    // For custom categories, just capitalize first letter
+    return category.charAt(0).toUpperCase() + category.slice(1);
+  };
+
   // 🧠 Auto-detect columns if not passed
   const effectiveColumns =
     columns.length > 0
@@ -179,8 +218,8 @@ const ExportButtons = ({
             label: key.charAt(0).toUpperCase() + key.slice(1),
           }));
 
-  // 🧠 Transform data (handle all data types properly)
-  const transformedData = displayData.map((item) => {
+  // 🧠 Transform data for Excel (keep original format)
+  const transformedDataExcel = displayData.map((item) => {
     const flattened = {};
     effectiveColumns.forEach(({ key }) => {
       const value = getNestedValue(item, key);
@@ -189,8 +228,86 @@ const ExportButtons = ({
     return flattened;
   });
 
+  // 🧠 Transform data for PDF (special handling for multi-size products)
+  const transformedDataPDF = [];
+  
+  displayData.forEach((item) => {
+    // Check if product has multiple sizes
+    if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 1) {
+      // Create separate rows for each size
+      item.sizes.forEach((sizeObj, index) => {
+        const flattened = {};
+        effectiveColumns.forEach(({ key }) => {
+          if (key === 'productName') {
+            // Show product name only on first row
+            flattened[key] = index === 0 ? (item.productName || "—") : "";
+          }
+          else if (key === 'size') {
+            flattened[key] = sizeObj.size ? `${sizeObj.size} oz` : "—";
+          }
+          else if (key === 'price') {
+            // FIX: Use formatPrice to add ₱ sign
+            flattened[key] = sizeObj.price ? formatPrice(sizeObj.price) : "—";
+          }
+          else if (key === 'category') {
+            // Show category only on first row
+            flattened[key] = index === 0 ? formatCategory(item.category) : "";
+          }
+          else if (key === 'ingredients.length') {
+            // Show ingredients count only on first row
+            flattened[key] = index === 0 ? (item.ingredients?.length || 0) : "";
+          }
+          else {
+            // For other columns, show value only on first row
+            if (index === 0) {
+              const value = getNestedValue(item, key);
+              flattened[key] = cleanValue(value);
+            } else {
+              flattened[key] = "";
+            }
+          }
+        });
+        transformedDataPDF.push(flattened);
+      });
+    } else {
+      // Single size product
+      const flattened = {};
+      effectiveColumns.forEach(({ key }) => {
+        if (key === 'size') {
+          // Handle single size
+          if (item.sizes && item.sizes.length === 1) {
+            flattened[key] = item.sizes[0].size ? `${item.sizes[0].size} oz` : "—";
+          } else {
+            flattened[key] = item.size ? `${item.size} oz` : "—";
+          }
+        }
+        else if (key === 'price') {
+          // FIX: Use formatPrice to add ₱ sign for single size
+          if (item.sizes && item.sizes.length === 1) {
+            flattened[key] = item.sizes[0].price ? formatPrice(item.sizes[0].price) : "—";
+          } else {
+            flattened[key] = item.price ? formatPrice(item.price) : "—";
+          }
+        }
+        else if (key === 'category') {
+          // Format category like in the table
+          flattened[key] = formatCategory(item.category);
+        }
+        else {
+          const value = getNestedValue(item, key);
+          flattened[key] = cleanValue(value);
+        }
+      });
+      transformedDataPDF.push(flattened);
+    }
+  });
+
   const headers = effectiveColumns.map((col) => col.label);
-  const rows = transformedData.map((item) =>
+  const rowsExcel = transformedDataExcel.map((item) =>
+    effectiveColumns.map((col) => item[col.key])
+  );
+  
+  const rowsPDF = transformedDataPDF.map((item) =>
     effectiveColumns.map((col) => item[col.key])
   );
 
@@ -248,10 +365,10 @@ const ExportButtons = ({
       doc.setFont("helvetica", "normal");
       doc.text(`Generated on: ${formatCurrentDate()}`, 14, 50);
 
-      // 🎨 Table with orange styling
+      // 🎨 Table with orange styling - USING PDF DATA
       autoTable(doc, {
         head: [headers],
-        body: rows,
+        body: rowsPDF,
         startY: 55,
         theme: "grid",
         styles: {
@@ -521,7 +638,7 @@ const ExportButtons = ({
               <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>
             </thead>
             <tbody>
-              ${rows
+              ${rowsPDF
                 .map(
                   (r, index) => `
                   <tr>
@@ -535,7 +652,7 @@ const ExportButtons = ({
           
           <div class="print-footer">
             <strong>KKOPI.Tea</strong> - ${fileName} Report • Total Records: ${
-      rows.length
+      rowsPDF.length
     } • Confidential Business Document
           </div>
         </div>
@@ -561,8 +678,8 @@ const ExportButtons = ({
 
   // ✅ Export to Excel with proper data formatting - uses filtered data
   const handleExportExcel = () => {
-    // Use the same transformed data for consistency
-    const worksheet = XLSX.utils.json_to_sheet(transformedData);
+    // Use the Excel transformed data (original format)
+    const worksheet = XLSX.utils.json_to_sheet(transformedDataExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
