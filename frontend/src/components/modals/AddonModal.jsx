@@ -227,9 +227,8 @@ const AddonModal = ({
             </label>
             <input
               type="text"
-              className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? "border-red-500" : "border-gray-300"
-              }`}
+              className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? "border-red-500" : "border-gray-300"
+                }`}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Enter add-on name (e.g., Extra Pearl, Cheese Foam)"
@@ -245,9 +244,8 @@ const AddonModal = ({
               Ingredient <span className="text-red-500">*</span>
             </label>
             <select
-              className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.ingredient ? "border-red-500" : "border-gray-300"
-              }`}
+              className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.ingredient ? "border-red-500" : "border-gray-300"
+                }`}
               value={form.ingredient}
               onChange={(e) => setForm({ ...form, ingredient: e.target.value })}
             >
@@ -273,9 +271,8 @@ const AddonModal = ({
                 type="number"
                 step="0.01"
                 min="0"
-                className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.quantity ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.quantity ? "border-red-500" : "border-gray-300"
+                  }`}
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 placeholder="0.00"
@@ -345,9 +342,8 @@ const AddonModal = ({
                 type="number"
                 step="0.01"
                 min="0"
-                className={`w-full border rounded-lg pl-8 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.price ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full border rounded-lg pl-8 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.price ? "border-red-500" : "border-gray-300"
+                  }`}
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
                 placeholder="0.00"

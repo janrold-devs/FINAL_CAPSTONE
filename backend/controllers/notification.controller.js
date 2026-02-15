@@ -7,14 +7,14 @@ import User from "../models/User.js";
 export const getNotifications = async (req, res) => {
   try {
     const userId = req.user._id;
-    
+
     const notifications = await Notification.find({
       user: userId,
       isCleared: false
     })
-    .populate("ingredientId", "name unit quantity expiration alertLevel")
-    .sort({ createdAt: -1 })
-    .limit(100);
+      .populate("ingredientId", "name unit quantity expiration alertLevel")
+      .sort({ createdAt: -1 })
+      .limit(100);
 
     res.json(notifications);
   } catch (err) {
@@ -70,18 +70,18 @@ export const generateAndSaveNotifications = async () => {
     const expiringSoonThreshold = 3; // days
 
     // Get all ingredients (not filtered by user)
-    const ingredients = await Ingredient.find({ 
+    const ingredients = await Ingredient.find({
       deleted: { $ne: true }
     });
-    
+
     // Get all admin and staff users
     const users = await User.find({
       status: 'approved', // Fixed: Users have 'approved' status, not 'active'
       $or: [{ role: 'admin' }, { role: 'staff' }]
     });
-    
+
     console.log(`🔍 Generating notifications for ${ingredients.length} ingredients and ${users.length} users`);
-    
+
     const notifications = [];
 
     for (const user of users) {
@@ -104,8 +104,8 @@ export const generateAndSaveNotifications = async () => {
               user: user._id,
               type: "low_stock",
               priority: Number(ing.quantity) <= 5 ? "high" : "medium",
-              title: "Low Stock Alert",
-              message: `${ing.name} is running low (${ing.quantity} ${ing.unit || 'units'} left). Alert level: ${threshold}`,
+              title: "Low Stock",
+              message: `${ing.name} remaining stocks (${ing.quantity} ${ing.unit || 'units'} left).`,
               ingredientId: ing._id
             });
             notifications.push(notification);
@@ -117,9 +117,9 @@ export const generateAndSaveNotifications = async () => {
           if (!existingNotification || existingNotification.type !== 'out_of_stock') {
             const notification = await Notification.create({
               user: user._id,
-              type: "out_of_stock", 
+              type: "out_of_stock",
               priority: "critical",
-              title: "Out of Stock!",
+              title: "Out of Stock",
               message: `${ing.name} is completely out of stock!`,
               ingredientId: ing._id
             });
@@ -138,7 +138,7 @@ export const generateAndSaveNotifications = async () => {
         for (const batch of activeBatches) {
           const expirationDate = new Date(batch.expirationDate);
           const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
-          
+
           // Check if notification already exists for this specific batch
           const existingBatchNotification = await Notification.findOne({
             user: user._id,
@@ -163,7 +163,7 @@ export const generateAndSaveNotifications = async () => {
               notifications.push(notification);
             }
           }
-          
+
           // Already expired
           if (daysLeft < 0) {
             if (!existingBatchNotification || !existingBatchNotification.message.includes('expired')) {
@@ -176,7 +176,7 @@ export const generateAndSaveNotifications = async () => {
                 ingredientId: ing._id
               });
               notifications.push(notification);
-              
+
               // Auto-update batch status to expired
               batch.status = 'expired';
               await batch.save();
@@ -199,10 +199,10 @@ export const triggerNotificationGeneration = async (req, res) => {
   try {
     const newNotifications = await generateAndSaveNotifications();
 
-    res.json({ 
-      message: "Notifications generated successfully", 
+    res.json({
+      message: "Notifications generated successfully",
       generated: newNotifications.length,
-      notifications: newNotifications 
+      notifications: newNotifications
     });
   } catch (err) {
     console.error("Error triggering notification generation:", err);
@@ -214,13 +214,13 @@ export const triggerNotificationGeneration = async (req, res) => {
 export const getNotificationStats = async (req, res) => {
   try {
     const userId = req.user._id;
-    
+
     const stats = await Notification.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           user: userId,
-          isCleared: false 
-        } 
+          isCleared: false
+        }
       },
       {
         $group: {
@@ -253,29 +253,29 @@ export const getExpiringBatches = async (req, res) => {
   try {
     const today = new Date();
     const expiringSoonThreshold = 3; // days
-    
+
     const expiringBatches = await IngredientBatch.find({
       status: 'active',
       currentQuantity: { $gt: 0 },
-      expirationDate: { 
+      expirationDate: {
         $exists: true,
         $gte: today,
         $lte: new Date(today.getTime() + expiringSoonThreshold * 24 * 60 * 60 * 1000)
       }
     })
-    .populate('ingredient', 'name unit')
-    .sort({ expirationDate: 1 });
+      .populate('ingredient', 'name unit')
+      .sort({ expirationDate: 1 });
 
     const expiredBatches = await IngredientBatch.find({
       status: 'active',
       currentQuantity: { $gt: 0 },
-      expirationDate: { 
+      expirationDate: {
         $exists: true,
         $lt: today
       }
     })
-    .populate('ingredient', 'name unit')
-    .sort({ expirationDate: 1 });
+      .populate('ingredient', 'name unit')
+      .sort({ expirationDate: 1 });
 
     res.json({
       expiringSoon: expiringBatches.map(batch => ({

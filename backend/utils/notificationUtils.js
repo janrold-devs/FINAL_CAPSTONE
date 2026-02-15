@@ -5,13 +5,13 @@ import User from "../models/User.js";
 export const checkIngredientNotifications = async (ingredient) => {
   try {
     console.log(`🔔 Checking notifications for ingredient: ${ingredient.name}, Quantity: ${ingredient.quantity}`);
-    
+
     const today = new Date();
     const expiringSoonThreshold = 3;
     const threshold = Number(ingredient.alertLevel) || Number(ingredient.alert) || 10;
-    
+
     console.log(`📊 Alert threshold: ${threshold}, Current quantity: ${ingredient.quantity}`);
-    
+
     // **FIXED: Use correct status field and include isActive**
     const users = await User.find({
       status: 'approved', // Changed from 'active' to 'approved'
@@ -32,7 +32,7 @@ export const checkIngredientNotifications = async (ingredient) => {
       console.log('📋 All users in system:', allUsers);
       return []; // Return early if no users
     }
-    
+
     let totalCreatedNotifications = [];
 
     for (const user of users) {
@@ -54,10 +54,10 @@ export const checkIngredientNotifications = async (ingredient) => {
       const currentQuantity = Number(ingredient.quantity);
       const shouldHaveOutOfStock = currentQuantity <= 0;
       const shouldHaveLowStock = currentQuantity > 0 && currentQuantity <= threshold;
-      
+
       let shouldHaveExpiring = false;
       let shouldHaveExpired = false;
-      
+
       if (ingredient.expiration) {
         const expirationDate = new Date(ingredient.expiration);
         const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
@@ -70,7 +70,7 @@ export const checkIngredientNotifications = async (ingredient) => {
       // Clear notifications that shouldn't exist anymore
       for (const existingNotif of existingNotifications) {
         let shouldClear = false;
-        
+
         switch (existingNotif.type) {
           case 'out_of_stock':
             shouldClear = !shouldHaveOutOfStock;
@@ -102,7 +102,7 @@ export const checkIngredientNotifications = async (ingredient) => {
             type: "out_of_stock",
             priority: "critical",
             title: "Out of Stock!",
-            message: `${ingredient.name} is completely out of stock!`,
+            message: `${ingredient.name} out of stock!`,
             ingredientId: ingredient._id
           });
           createdNotifications.push(notification);
@@ -117,8 +117,8 @@ export const checkIngredientNotifications = async (ingredient) => {
             user: currentUserId,
             type: "low_stock",
             priority: priority,
-            title: "Low Stock Alert",
-            message: `${ingredient.name} is running low (${currentQuantity} ${ingredient.unit || 'units'} left). Alert level: ${threshold}`,
+            title: "Remaining Stocks",
+            message: `${ingredient.name} remaining stocks (${currentQuantity} ${ingredient.unit || 'units'} left).`,
             ingredientId: ingredient._id
           });
           createdNotifications.push(notification);
@@ -133,7 +133,7 @@ export const checkIngredientNotifications = async (ingredient) => {
           const expirationDate = new Date(ingredient.expiration);
           const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
           const priority = daysLeft <= 1 ? "critical" : daysLeft <= 3 ? "high" : "medium";
-          
+
           console.log(`⏰ Creating EXPIRING notification for ${ingredient.name} (${daysLeft} days left)`);
           const notification = await Notification.create({
             user: currentUserId,
@@ -153,7 +153,7 @@ export const checkIngredientNotifications = async (ingredient) => {
         if (!exists) {
           const expirationDate = new Date(ingredient.expiration);
           const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
-          
+
           console.log(`❌ Creating EXPIRED notification for ${ingredient.name} (expired ${Math.abs(daysLeft)} days ago)`);
           const notification = await Notification.create({
             user: currentUserId,
