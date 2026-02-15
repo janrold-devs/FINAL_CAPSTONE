@@ -5,6 +5,7 @@ import TransactionModal from "../../components/modals/TransactionModal";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
+import Pagination from "../../components/Pagination";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -14,6 +15,8 @@ const Transactions = () => {
   const [filteredTransactions, setFilteredTransactions] = useState([]); // final displayed results (search + time period)
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [timePeriod, setTimePeriod] = useState("daily");
   const [comparisonData, setComparisonData] = useState({
     current: [],
@@ -553,11 +556,19 @@ const Transactions = () => {
 
   // Handle export data - use filtered transactions if available, otherwise all transactions
   const getExportData = () => {
-    if (filteredTransactions.length > 0) {
-      return filteredTransactions;
-    }
     return transactions;
   };
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when filtering
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredTransactions.length]);
 
   return (
     <DashboardLayout>
@@ -583,8 +594,8 @@ const Transactions = () => {
               <button
                 onClick={() => handleTimePeriodClick("daily")}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "daily"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Daily
@@ -592,8 +603,8 @@ const Transactions = () => {
               <button
                 onClick={() => handleTimePeriodClick("weekly")}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "weekly"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Weekly
@@ -601,8 +612,8 @@ const Transactions = () => {
               <button
                 onClick={() => handleTimePeriodClick("monthly")}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "monthly"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Monthly
@@ -610,8 +621,8 @@ const Transactions = () => {
               <button
                 onClick={handleCustomDateClick}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "custom"
-                    ? "bg-purple-100 text-purple-700 border-purple-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-purple-100 text-purple-700 border-purple-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Custom Date
@@ -628,8 +639,8 @@ const Transactions = () => {
                   <button
                     onClick={() => handleCustomDateTypeChange("daily")}
                     className={`px-3 py-1 rounded-lg border text-sm font-medium ${customDateType === "daily"
-                        ? "bg-blue-100 text-blue-700 border-blue-300"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                       }`}
                   >
                     Single Day
@@ -637,8 +648,8 @@ const Transactions = () => {
                   <button
                     onClick={() => handleCustomDateTypeChange("weekly")}
                     className={`px-3 py-1 rounded-lg border text-sm font-medium ${customDateType === "weekly"
-                        ? "bg-blue-100 text-blue-700 border-blue-300"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                       }`}
                   >
                     7-Day Range
@@ -646,8 +657,8 @@ const Transactions = () => {
                   <button
                     onClick={() => handleCustomDateTypeChange("monthly")}
                     className={`px-3 py-1 rounded-lg border text-sm font-medium ${customDateType === "monthly"
-                        ? "bg-blue-100 text-blue-700 border-blue-300"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                       }`}
                   >
                     Monthly
@@ -946,8 +957,8 @@ const Transactions = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredTransactions && filteredTransactions.length > 0 ? (
-                    filteredTransactions.map((t) => (
+                  {paginatedTransactions && paginatedTransactions.length > 0 ? (
+                    paginatedTransactions.map((t) => (
                       <tr
                         key={t._id}
                         className="hover:bg-gray-50 transition-colors duration-150"
@@ -1049,6 +1060,17 @@ const Transactions = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Pagination Section */}
+        {filteredTransactions.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredTransactions.length}
+          />
         )}
 
         {/* Transaction Details Modal */}

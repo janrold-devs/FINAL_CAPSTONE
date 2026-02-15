@@ -7,6 +7,7 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import { Eye, Plus } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
+import Pagination from "../../components/Pagination";
 
 const Spoilage = () => {
   const [spoilages, setSpoilages] = useState([]);
@@ -17,6 +18,8 @@ const Spoilage = () => {
   const [viewMode, setViewMode] = useState(false);
   const [selectedSpoilage, setSelectedSpoilage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Fetch spoilages
   const fetchSpoilages = async () => {
@@ -173,6 +176,17 @@ const Spoilage = () => {
     { key: "createdAt", label: "Date Created" },
   ];
 
+  const totalPages = Math.ceil(filteredSpoilages.length / itemsPerPage);
+  const paginatedSpoilages = filteredSpoilages.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when filtering
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredSpoilages.length]);
+
   const formatDate = (date) =>
     new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
@@ -282,8 +296,8 @@ const Spoilage = () => {
                 </thead>
 
                 <tbody className="divide-y divide-gray-200">
-                  {filteredSpoilages.length > 0 ? (
-                    filteredSpoilages.map((s) => (
+                  {paginatedSpoilages.length > 0 ? (
+                    paginatedSpoilages.map((s) => (
                       <tr key={s._id} className="hover:bg-gray-50">
                         {/* PERSONNEL */}
                         <td className="px-6 py-4">
@@ -383,6 +397,17 @@ const Spoilage = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Pagination Section */}
+        {!loading && filteredSpoilages.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredSpoilages.length}
+          />
         )}
 
         {/* Spoilage Modal */}

@@ -7,6 +7,7 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import { Eye, Plus, Package } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
+import Pagination from "../../components/Pagination";
 
 const StockIn = () => {
   const [stockIns, setStockIns] = useState([]);
@@ -16,6 +17,8 @@ const StockIn = () => {
   const [showModal, setShowModal] = useState(false);
   const [viewMode, setViewMode] = useState(false);
   const [selectedStockIn, setSelectedStockIn] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Fetch StockIns
   const fetchStockIns = async () => {
@@ -124,6 +127,17 @@ const StockIn = () => {
     { key: "stockman.firstName", label: "Stockman" },
   ];
 
+  const totalPages = Math.ceil(filteredStockIns.length / itemsPerPage);
+  const paginatedStockIns = filteredStockIns.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when filtering
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredStockIns.length]);
+
   // Format date for display
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -215,8 +229,8 @@ const StockIn = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredStockIns && filteredStockIns.length > 0 ? (
-                  filteredStockIns.map((item) => (
+                {paginatedStockIns && paginatedStockIns.length > 0 ? (
+                  paginatedStockIns.map((item) => (
                     <tr
                       key={item._id}
                       className="hover:bg-gray-50 transition-colors duration-150"
@@ -323,6 +337,17 @@ const StockIn = () => {
             </table>
           </div>
         </div>
+
+        {/* Pagination Section */}
+        {filteredStockIns.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredStockIns.length}
+          />
+        )}
 
         {showModal && (
           <StockInModal

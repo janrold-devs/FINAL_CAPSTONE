@@ -8,6 +8,7 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
+import Pagination from "../../components/Pagination";
 
 const Product = () => {
   const [products, setProducts] = useState([]);
@@ -18,6 +19,8 @@ const Product = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAlert, setShowAlert] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Predefined categories list (must match ProductModal)
   const predefinedCategories = [
@@ -149,6 +152,17 @@ const Product = () => {
     { key: "category", label: "Category" },
   ];
 
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when filtering
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredProducts.length]);
+
   // Format category for display
   const formatCategory = (category) => {
     if (!category) return "";
@@ -264,8 +278,8 @@ const Product = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredProducts && filteredProducts.length > 0 ? (
-                    filteredProducts.map((p) => (
+                  {paginatedProducts && paginatedProducts.length > 0 ? (
+                    paginatedProducts.map((p) => (
                       <tr
                         key={p._id}
                         className="hover:bg-gray-50 transition-colors duration-150"
@@ -465,6 +479,17 @@ const Product = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Pagination Section */}
+        {!loading && filteredProducts.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredProducts.length}
+          />
         )}
 
         {/* Product Modal */}

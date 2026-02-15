@@ -276,18 +276,17 @@ const Logs = () => {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex items-center gap-1 font-medium ${
-                            log.action.includes("CREATE") ||
+                          className={`inline-flex items-center gap-1 font-medium ${log.action.includes("CREATE") ||
                             log.action.includes("ADD")
-                              ? "text-green-600"
-                              : log.action.includes("DELETE") ||
-                                log.action.includes("REMOVE")
+                            ? "text-green-600"
+                            : log.action.includes("DELETE") ||
+                              log.action.includes("REMOVE")
                               ? "text-red-600"
                               : log.action.includes("UPDATE") ||
                                 log.action.includes("EDIT")
-                              ? "text-yellow-600"
-                              : "text-blue-600"
-                          }`}
+                                ? "text-yellow-600"
+                                : "text-blue-600"
+                            }`}
                         >
                           {log.action.replace("_", " ")}
                         </span>
@@ -304,11 +303,6 @@ const Logs = () => {
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex justify-end items-center mt-4 text-sm text-gray-600">
-          <span>Page 1 of 1</span>
         </div>
       </div>
     </DashboardLayout>

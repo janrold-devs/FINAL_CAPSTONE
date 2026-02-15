@@ -9,6 +9,7 @@ import SalesModal from "../../components/modals/SalesModal";
 import BestSellingModal from "../../components/modals/BestSellingModal";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
+import Pagination from "../../components/Pagination";
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
@@ -21,6 +22,8 @@ const Sales = () => {
   const [bestSellingLoading, setBestSellingLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [timePeriod, setTimePeriod] = useState(null);
   const [periodTotals, setPeriodTotals] = useState({
     daily: { total: 0, transactions: 0 },
@@ -347,6 +350,17 @@ const Sales = () => {
     fetchSales();
   }, []);
 
+  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
+  const paginatedSales = filteredSales.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when filtering
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredSales.length]);
+
   // Filter configuration for sales
   const salesFilterConfig = [
     {
@@ -501,8 +515,8 @@ const Sales = () => {
               <button
                 onClick={() => handleTimePeriodClick("daily")}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "daily"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Daily
@@ -510,8 +524,8 @@ const Sales = () => {
               <button
                 onClick={() => handleTimePeriodClick("weekly")}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "weekly"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Weekly
@@ -519,8 +533,8 @@ const Sales = () => {
               <button
                 onClick={() => handleTimePeriodClick("monthly")}
                 className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "monthly"
-                    ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
               >
                 Monthly
@@ -599,7 +613,7 @@ const Sales = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredSales.map((s) => (
+                  {paginatedSales.map((s) => (
                     <tr
                       key={s._id}
                       className="hover:bg-gray-50 transition-colors duration-150"
@@ -649,6 +663,17 @@ const Sales = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Pagination Section */}
+        {filteredSales.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredSales.length}
+          />
         )}
 
         {/* Best Selling Products Modal */}

@@ -2,10 +2,13 @@ import React, { useState, useEffect } from "react";
 import axios from "../../api/axios";
 import { toast } from "react-toastify";
 import { RotateCcw, Trash2, Archive, X } from "lucide-react";
+import Pagination from "../Pagination";
 
 const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
   const [archivedIngredients, setArchivedIngredients] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5; // Smaller page size for modal
 
   const fetchArchivedIngredients = async () => {
     try {
@@ -38,7 +41,7 @@ const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
 
   const handlePermanentDelete = async (ingredient) => {
     const hasRecords = ingredient.historicalRecords?.total > 0;
-    
+
     if (hasRecords) {
       toast.error(`Cannot delete "${ingredient.name}" - it has ${ingredient.historicalRecords.total} historical records`);
       return;
@@ -47,7 +50,7 @@ const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
     if (!window.confirm(`Are you sure you want to permanently delete "${ingredient.name}"? This action cannot be undone.`)) {
       return;
     }
-    
+
     try {
       await axios.delete(`/ingredients/archive/${ingredient._id}/permanent`);
       toast.success(`Ingredient "${ingredient.name}" permanently deleted`);
@@ -67,6 +70,17 @@ const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
       fetchArchivedIngredients();
     }
   }, [show]);
+
+  const totalPages = Math.ceil(archivedIngredients.length / itemsPerPage);
+  const paginatedArchived = archivedIngredients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to first page when data changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [archivedIngredients.length]);
 
   if (!show) return null;
 
@@ -117,7 +131,7 @@ const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {archivedIngredients.map((ingredient) => (
+                    {paginatedArchived.map((ingredient) => (
                       <tr key={ingredient._id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">
                           {ingredient.name}
@@ -162,11 +176,10 @@ const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
                             <button
                               onClick={() => handlePermanentDelete(ingredient)}
                               disabled={ingredient.historicalRecords?.total > 0}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                                ingredient.historicalRecords?.total > 0
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-red-100 text-red-700 hover:bg-red-200"
-                              }`}
+                              className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${ingredient.historicalRecords?.total > 0
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-red-100 text-red-700 hover:bg-red-200"
+                                }`}
                               title={
                                 ingredient.historicalRecords?.total > 0
                                   ? "Cannot delete - has historical records"
@@ -184,6 +197,17 @@ const ArchiveModal = ({ show, onClose, onRefreshIngredients }) => {
                 </table>
               </div>
             </div>
+          )}
+
+          {/* Pagination Section */}
+          {archivedIngredients.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={archivedIngredients.length}
+            />
           )}
 
           {/* Info Section */}

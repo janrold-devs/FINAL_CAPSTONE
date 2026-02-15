@@ -10,6 +10,7 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import { Pencil, Trash2, Plus, Archive, Package } from "lucide-react";
 import ExportButtons from "../../components/ExportButtons";
 import SearchFilter from "../../components/SearchFilter";
+import Pagination from "../../components/Pagination";
 
 const Ingredient = () => {
   const [ingredients, setIngredients] = useState([]);
@@ -31,6 +32,8 @@ const Ingredient = () => {
   const [showArchiveModal, setShowArchiveModal] = useState(false); // NEW: For archive management
   const [showBatchModal, setShowBatchModal] = useState(false); // NEW: For batch view
   const [selectedIngredient, setSelectedIngredient] = useState(null); // NEW: For batch view
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const fetchIngredients = async () => {
     try {
@@ -232,7 +235,14 @@ const Ingredient = () => {
 
   useEffect(() => {
     setFilteredIngredients(ingredients);
+    setCurrentPage(1); // Reset to first page when data changes
   }, [ingredients]);
+
+  const totalPages = Math.ceil(filteredIngredients.length / itemsPerPage);
+  const paginatedIngredients = filteredIngredients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Simplified filter configuration (removed "Name Starts With")
   const ingredientFilterConfig = [
@@ -366,8 +376,8 @@ const Ingredient = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredIngredients && filteredIngredients.length > 0 ? (
-                    filteredIngredients.map((i) => (
+                  {paginatedIngredients && paginatedIngredients.length > 0 ? (
+                    paginatedIngredients.map((i) => (
                       <tr key={i._id} className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{i.name}</td>
                         <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{i.category}</td>
@@ -439,6 +449,17 @@ const Ingredient = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Pagination Section */}
+        {!loading && filteredIngredients.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredIngredients.length}
+          />
         )}
 
         {/* Add/Edit Modal */}
