@@ -79,6 +79,14 @@ export const updateUser = async (req, res) => {
   try {
     const updates = { ...req.body };
 
+    // Prevent modifying other admins
+    if (req.user.role === 'admin' && req.params.id !== req.user._id.toString()) {
+      const targetUser = await User.findById(req.params.id);
+      if (targetUser && targetUser.role === 'admin') {
+        return res.status(403).json({ message: "Admins cannot modify other admin accounts." });
+      }
+    }
+
     // If password update is requested, validate current password first
     if (updates.password) {
       // Current password must be provided when updating password

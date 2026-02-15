@@ -45,10 +45,14 @@ const UserManagement = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Filter out the current logged-in user from the list
-      const filteredUsersList = currentUser?._id 
-        ? res.data.filter(user => user._id !== currentUser._id)
-        : res.data;
+      // Filter out the current logged-in user and other admins from the list
+      const filteredUsersList = res.data.filter(user => {
+        // Hide current user
+        if (currentUser?._id && user._id === currentUser._id) return false;
+        // Hide other admins
+        if (user.role === 'admin') return false;
+        return true;
+      });
 
       // Sort users: active users first, then deactivated users
       const sortedUsers = filteredUsersList.sort((a, b) => {
@@ -351,7 +355,7 @@ const UserManagement = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -380,22 +384,6 @@ const UserManagement = () => {
               </div>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center">
                 <UserCheck className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">
-                  Admins
-                </p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
-                  {filteredUsers.filter((user) => user.role === "admin").length}
-                </p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               </div>
             </div>
           </div>
@@ -485,30 +473,26 @@ const UserManagement = () => {
                     return (
                       <tr
                         key={user._id}
-                        className={`hover:bg-gray-50 transition-colors duration-150 ${
-                          !isActive ? "bg-gray-50 opacity-75" : ""
-                        }`}
+                        className={`hover:bg-gray-50 transition-colors duration-150 ${!isActive ? "bg-gray-50 opacity-75" : ""
+                          }`}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center">
                             <div
-                              className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mr-2 sm:mr-3 ${
-                                !isActive ? "bg-gray-200" : "bg-blue-100"
-                              }`}
+                              className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mr-2 sm:mr-3 ${!isActive ? "bg-gray-200" : "bg-blue-100"
+                                }`}
                             >
                               <span
-                                className={`text-xs sm:text-sm font-medium ${
-                                  !isActive ? "text-gray-500" : "text-blue-600"
-                                }`}
+                                className={`text-xs sm:text-sm font-medium ${!isActive ? "text-gray-500" : "text-blue-600"
+                                  }`}
                               >
                                 {getUserInitials(user)}
                               </span>
                             </div>
                             <div className="min-w-0">
                               <div
-                                className={`text-xs sm:text-sm font-medium truncate max-w-[100px] sm:max-w-[150px] ${
-                                  !isActive ? "text-gray-500" : "text-gray-900"
-                                }`}
+                                className={`text-xs sm:text-sm font-medium truncate max-w-[100px] sm:max-w-[150px] ${!isActive ? "text-gray-500" : "text-gray-900"
+                                  }`}
                                 title={getFullName(user)}
                               >
                                 {getFullName(user)}
@@ -524,9 +508,8 @@ const UserManagement = () => {
                         </td>
                         <td className="px-4 py-3 text-xs sm:text-sm hidden lg:table-cell">
                           <div
-                            className={`truncate max-w-[100px] ${
-                              !isActive ? "text-gray-500" : "text-gray-700"
-                            }`}
+                            className={`truncate max-w-[100px] ${!isActive ? "text-gray-500" : "text-gray-700"
+                              }`}
                             title={user.username}
                           >
                             {user.username}
@@ -534,9 +517,8 @@ const UserManagement = () => {
                         </td>
                         <td className="px-4 py-3 text-xs sm:text-sm hidden xl:table-cell">
                           <div
-                            className={`truncate max-w-[150px] ${
-                              !isActive ? "text-gray-500" : "text-gray-700"
-                            }`}
+                            className={`truncate max-w-[150px] ${!isActive ? "text-gray-500" : "text-gray-700"
+                              }`}
                             title={user.email || "N/A"}
                           >
                             {user.email || "N/A"}
@@ -562,16 +544,15 @@ const UserManagement = () => {
                         </td>
                         <td className="px-4 py-3 text-xs sm:text-sm hidden xl:table-cell">
                           <div
-                            className={`${
-                              !isActive ? "text-gray-500" : "text-gray-700"
-                            }`}
+                            className={`${!isActive ? "text-gray-500" : "text-gray-700"
+                              }`}
                           >
                             {user.createdAt
                               ? new Date(user.createdAt).toLocaleDateString("en-US", {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })
                               : "N/A"}
                           </div>
                         </td>
@@ -592,15 +573,14 @@ const UserManagement = () => {
                                   toast.error("Cannot deactivate your own account");
                                   return;
                                 }
-                                
+
                                 setSelectedUser(user);
                                 setShowDeactivate(true);
                               }}
-                              className={`inline-flex items-center gap-1 sm:gap-2 p-1 sm:p-2 rounded-lg transition-colors duration-200 text-xs sm:text-sm ${
-                                !isActive
+                              className={`inline-flex items-center gap-1 sm:gap-2 p-1 sm:p-2 rounded-lg transition-colors duration-200 text-xs sm:text-sm ${!isActive
                                   ? "text-green-600 hover:text-green-800 hover:bg-green-50"
                                   : "text-amber-600 hover:text-amber-800 hover:bg-amber-50"
-                              }`}
+                                }`}
                               title={!isActive ? "Reactivate User" : "Deactivate User"}
                             >
                               <UserX className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -639,13 +619,11 @@ const UserManagement = () => {
           }
           message={
             selectedUser
-              ? `Are you sure you want to ${
-                  !isUserActive(selectedUser) ? "reactivate" : "deactivate"
-                } ${getFullName(selectedUser)}? ${
-                  !isUserActive(selectedUser)
-                    ? "The user will be able to access the system again."
-                    : "The user will no longer be able to access the system."
-                }`
+              ? `Are you sure you want to ${!isUserActive(selectedUser) ? "reactivate" : "deactivate"
+              } ${getFullName(selectedUser)}? ${!isUserActive(selectedUser)
+                ? "The user will be able to access the system again."
+                : "The user will no longer be able to access the system."
+              }`
               : ""
           }
           onCancel={() => setShowDeactivate(false)}
