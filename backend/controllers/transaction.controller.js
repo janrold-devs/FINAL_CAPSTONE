@@ -84,17 +84,24 @@ export const checkStockAvailability = async (req, res) => {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
 
-        // Skip this ingredient if it doesn't match the selected size
-        if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
-          continue;
+        let requiredQuantity = 0;
+        const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+        if (sizeQty) {
+          requiredQuantity = sizeQty.quantity * item.quantity;
+        } else {
+          // Legacy Fallback
+          if (!shouldDeductIngredient(ingredient.name, item.size, product)) continue;
+
+          let sizeMultiplier = getSizeMultiplier(product, item.size);
+          if (ingredient.category === "Material") sizeMultiplier = 1;
+          requiredQuantity = recipe.quantity * sizeMultiplier * item.quantity;
         }
 
-        let sizeMultiplier = getSizeMultiplier(product, item.size);
-        // Materials should not be scaled by size
-        if (ingredient.category === "Material") sizeMultiplier = 1;
-        const requiredQuantity =
-          recipe.quantity * sizeMultiplier * item.quantity;
-        if (ingredient.quantity < requiredQuantity) {
+        // Relaxed Check: Critical Items (Ingredients or Cups)
+        const isCritical = ingredient.category !== "Material" || /cup/i.test(ingredient.name);
+
+        if (isCritical && ingredient.quantity < requiredQuantity) {
           outOfStock.push({
             productName: product.productName,
             ingredientName: ingredient.name,
@@ -119,29 +126,28 @@ export const checkStockAvailability = async (req, res) => {
             );
             if (!addonIngredient) continue;
 
-            // Skip this addon ingredient if it doesn't match the selected size
-            if (
-              !shouldDeductIngredient(
-                addonIngredient.name,
-                item.size,
-                addonProduct,
-              )
-            ) {
-              continue;
+            let requiredQuantity = 0;
+            const sizeQty = addonRecipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+            if (sizeQty) {
+              requiredQuantity = sizeQty.quantity * addon.quantity * item.quantity;
+            } else {
+              // Legacy Fallback
+              if (!shouldDeductIngredient(addonIngredient.name, item.size, addonProduct)) continue;
+
+              let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+              if (addonIngredient.category === "Material") addonMultiplier = 1;
+              requiredQuantity = addonRecipe.quantity * addonMultiplier * addon.quantity * item.quantity;
             }
 
-            let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
-            if (addonIngredient.category === "Material") addonMultiplier = 1;
-            const addonRequiredQuantity =
-              addonRecipe.quantity *
-              addonMultiplier *
-              addon.quantity *
-              item.quantity;
-            if (addonIngredient.quantity < addonRequiredQuantity) {
+            // Relaxed Check: Critical Items (Ingredients or Cups)
+            const isCritical = addonIngredient.category !== "Material" || /cup/i.test(addonIngredient.name);
+
+            if (isCritical && addonIngredient.quantity < requiredQuantity) {
               outOfStock.push({
                 productName: `${product.productName} + ${addonProduct.productName}`,
                 ingredientName: addonIngredient.name,
-                requiredQuantity: addonRequiredQuantity,
+                requiredQuantity,
                 availableQuantity: addonIngredient.quantity,
               });
             }
@@ -264,16 +270,24 @@ export const createTransaction = async (req, res) => {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
 
-        // Skip this ingredient if it doesn't match the selected size
-        if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
-          continue;
+        let requiredQuantity = 0;
+        const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+        if (sizeQty) {
+          requiredQuantity = sizeQty.quantity * item.quantity;
+        } else {
+          // Legacy Fallback
+          if (!shouldDeductIngredient(ingredient.name, item.size, product)) continue;
+
+          let sizeMultiplier = getSizeMultiplier(product, item.size);
+          if (ingredient.category === "Material") sizeMultiplier = 1;
+          requiredQuantity = recipe.quantity * sizeMultiplier * item.quantity;
         }
 
-        let sizeMultiplier = getSizeMultiplier(product, item.size);
-        if (ingredient.category === "Material") sizeMultiplier = 1;
-        const requiredQuantity =
-          recipe.quantity * sizeMultiplier * item.quantity;
-        if (ingredient.quantity < requiredQuantity) {
+        // Relaxed Check: Critical Items (Ingredients or Cups)
+        const isCritical = ingredient.category !== "Material" || /cup/i.test(ingredient.name);
+
+        if (isCritical && ingredient.quantity < requiredQuantity) {
           outOfStock.push({
             productName: product.productName,
             ingredientName: ingredient.name,
@@ -299,29 +313,28 @@ export const createTransaction = async (req, res) => {
             );
             if (!addonIngredient) continue;
 
-            // Skip this addon ingredient if it doesn't match the selected size
-            if (
-              !shouldDeductIngredient(
-                addonIngredient.name,
-                item.size,
-                addonProduct,
-              )
-            ) {
-              continue;
+            let requiredQuantity = 0;
+            const sizeQty = addonRecipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+            if (sizeQty) {
+              requiredQuantity = sizeQty.quantity * addon.quantity * item.quantity;
+            } else {
+              // Legacy Fallback
+              if (!shouldDeductIngredient(addonIngredient.name, item.size, addonProduct)) continue;
+
+              let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+              if (addonIngredient.category === "Material") addonMultiplier = 1;
+              requiredQuantity = addonRecipe.quantity * addonMultiplier * addon.quantity * item.quantity;
             }
 
-            let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
-            if (addonIngredient.category === "Material") addonMultiplier = 1;
-            const addonRequiredQuantity =
-              addonRecipe.quantity *
-              addonMultiplier *
-              addon.quantity *
-              item.quantity;
-            if (addonIngredient.quantity < addonRequiredQuantity) {
+            // Relaxed Check: Critical Items (Ingredients or Cups)
+            const isCritical = addonIngredient.category !== "Material" || /cup/i.test(addonIngredient.name);
+
+            if (isCritical && addonIngredient.quantity < requiredQuantity) {
               outOfStock.push({
                 productName: `${product.productName} + ${addonProduct.productName}`,
                 ingredientName: addonIngredient.name,
-                requiredQuantity: addonRequiredQuantity,
+                requiredQuantity,
                 availableQuantity: addonIngredient.quantity,
               });
             }
@@ -370,14 +383,20 @@ export const createTransaction = async (req, res) => {
           const ingredient = await Ingredient.findById(recipe.ingredient._id);
           if (!ingredient) continue;
 
-          // Skip this ingredient if it doesn't match the selected size
-          if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
-            continue;
+          let deductQty = 0;
+          const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+          if (sizeQty) {
+            deductQty = sizeQty.quantity * item.quantity;
+          } else {
+            // Legacy Fallback
+            if (!shouldDeductIngredient(ingredient.name, item.size, product)) continue;
+
+            let sizeMultiplier = getSizeMultiplier(product, item.size);
+            if (ingredient.category === "Material") sizeMultiplier = 1;
+            deductQty = recipe.quantity * sizeMultiplier * item.quantity;
           }
 
-          let sizeMultiplier = getSizeMultiplier(product, item.size);
-          if (ingredient.category === "Material") sizeMultiplier = 1;
-          const deductQty = recipe.quantity * sizeMultiplier * item.quantity;
           ingredient.quantity = Math.max(0, ingredient.quantity - deductQty);
           await ingredient.save();
         }
@@ -398,28 +417,21 @@ export const createTransaction = async (req, res) => {
               );
               if (!addonIngredient) continue;
 
-              // Skip this addon ingredient if it doesn't match the selected size
-              if (
-                !shouldDeductIngredient(
-                  addonIngredient.name,
-                  item.size,
-                  addonProduct,
-                )
-              ) {
-                continue;
+              let deductQty = 0;
+              const sizeQty = addonRecipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+              if (sizeQty) {
+                deductQty = sizeQty.quantity * addon.quantity * item.quantity;
+              } else {
+                // Legacy Fallback
+                if (!shouldDeductIngredient(addonIngredient.name, item.size, addonProduct)) continue;
+
+                let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+                if (addonIngredient.category === "Material") addonMultiplier = 1;
+                deductQty = addonRecipe.quantity * addonMultiplier * addon.quantity * item.quantity;
               }
 
-              let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
-              if (addonIngredient.category === "Material") addonMultiplier = 1;
-              const addonDeductQty =
-                addonRecipe.quantity *
-                addonMultiplier *
-                addon.quantity *
-                item.quantity;
-              addonIngredient.quantity = Math.max(
-                0,
-                addonIngredient.quantity - addonDeductQty,
-              );
+              addonIngredient.quantity = Math.max(0, addonIngredient.quantity - deductQty);
               await addonIngredient.save();
             }
           }
@@ -599,14 +611,20 @@ export const deleteTransaction = async (req, res) => {
         const ingredient = await Ingredient.findById(recipe.ingredient._id);
         if (!ingredient) continue;
 
-        // Skip this ingredient if it doesn't match the selected size
-        if (!shouldDeductIngredient(ingredient.name, item.size, product)) {
-          continue;
+        let restoreQty = 0;
+        const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+        if (sizeQty) {
+          restoreQty = sizeQty.quantity * item.quantity;
+        } else {
+          // Legacy Fallback
+          if (!shouldDeductIngredient(ingredient.name, item.size, product)) continue;
+
+          let sizeMultiplier = getSizeMultiplier(product, item.size);
+          if (ingredient.category === "Material") sizeMultiplier = 1;
+          restoreQty = recipe.quantity * sizeMultiplier * item.quantity;
         }
 
-        let sizeMultiplier = getSizeMultiplier(product, item.size);
-        if (ingredient.category === "Material") sizeMultiplier = 1;
-        const restoreQty = recipe.quantity * sizeMultiplier * item.quantity;
         ingredient.quantity += restoreQty;
         await ingredient.save();
       }
@@ -624,25 +642,21 @@ export const deleteTransaction = async (req, res) => {
             );
             if (!addonIngredient) continue;
 
-            // Skip this addon ingredient if it doesn't match the selected size
-            if (
-              !shouldDeductIngredient(
-                addonIngredient.name,
-                item.size,
-                addonProduct,
-              )
-            ) {
-              continue;
+            let restoreQty = 0;
+            const sizeQty = addonRecipe.quantities?.find(q => Number(q.size) === Number(item.size));
+
+            if (sizeQty) {
+              restoreQty = sizeQty.quantity * addon.quantity * item.quantity;
+            } else {
+              // Legacy Fallback
+              if (!shouldDeductIngredient(addonIngredient.name, item.size, addonProduct)) continue;
+
+              let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
+              if (addonIngredient.category === "Material") addonMultiplier = 1;
+              restoreQty = addonRecipe.quantity * addonMultiplier * addon.quantity * item.quantity;
             }
 
-            let addonMultiplier = getSizeMultiplier(addonProduct, item.size);
-            if (addonIngredient.category === "Material") addonMultiplier = 1;
-            const addonRestoreQty =
-              addonRecipe.quantity *
-              addonMultiplier *
-              addon.quantity *
-              item.quantity;
-            addonIngredient.quantity += addonRestoreQty;
+            addonIngredient.quantity += restoreQty;
             await addonIngredient.save();
           }
         }

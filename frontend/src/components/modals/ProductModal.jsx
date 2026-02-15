@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "../../api/axios";
+import { Plus, Trash2 } from "lucide-react";
 
 const ProductModal = ({
   show,
@@ -61,6 +62,10 @@ const ProductModal = ({
   const [isDuplicateName, setIsDuplicateName] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
 
+  // Size-specific inventory UI state
+  const [activeSizeDropdown, setActiveSizeDropdown] = useState(null);
+  const [filterType, setFilterType] = useState("ingredient"); // 'ingredient' | 'material'
+
   // Get unique ingredient categories (include both ingredients and materials)
   const uniqueCategories = [
     ...new Set(ingredientsList.map((i) => i.category || "Uncategorized")),
@@ -113,13 +118,23 @@ const ProductModal = ({
               },
             ],
         ingredients:
-          editingProduct.ingredients?.map((i) => ({
-            ingredient: i.ingredient?._id || i.ingredient,
-            name: i.ingredient?.name || i.name,
-            quantity: i.quantity || 1,
-            category: i.ingredient?.category || "",
-            unit: (i.ingredient?.unit || i.unit || "").toLowerCase(),
-          })) || [],
+          editingProduct.ingredients?.map((i) => {
+            const defaultQuantities = editingProduct.sizes?.map(s => ({
+              size: Number(s.size),
+              quantity: (i.ingredient?.category === 'Material' && i.ingredient?.unit === 'pcs')
+                ? 1
+                : (i.quantity || 1)
+            })) || [];
+
+            return {
+              ingredient: i.ingredient?._id || i.ingredient,
+              name: i.ingredient?.name || i.name,
+              quantity: i.quantity || 1,
+              category: i.ingredient?.category || "",
+              unit: (i.ingredient?.unit || i.unit || "").toLowerCase(),
+              quantities: (i.quantities && i.quantities.length > 0) ? i.quantities : defaultQuantities
+            };
+          }) || [],
         ingredientCategory: "",
       });
 
@@ -271,42 +286,65 @@ const ProductModal = ({
   };
 
   // INGREDIENT/MATERIAL SELECTION
-  const toggleIngredient = (ingredient) => {
-    const exists = form.ingredients.find(
-      (i) => i.ingredient === ingredient._id
-    );
+  const addIngredientToSize = (ingredient, size) => {
+    let newIngredients = [...form.ingredients];
+    const ingId = String(ingredient._id);
+    let existingIngIndex = newIngredients.findIndex(i => String(i.ingredient) === ingId);
 
-    if (exists) {
-      setForm({
-        ...form,
-        ingredients: form.ingredients.filter(
-          (i) => i.ingredient !== ingredient._id
-        ),
-      });
+    if (existingIngIndex >= 0) {
+      let existingIng = { ...newIngredients[existingIngIndex] };
+      let newQuantities = existingIng.quantities ? [...existingIng.quantities] : [];
+
+      let existingQtyIndex = newQuantities.findIndex(q => Number(q.size) === Number(size));
+
+      if (existingQtyIndex === -1) {
+        newQuantities.push({ size: Number(size), quantity: 1 });
+        existingIng.quantities = newQuantities;
+        newIngredients[existingIngIndex] = existingIng;
+      }
     } else {
-      setForm({
-        ...form,
-        ingredients: [
-          ...form.ingredients,
-          {
-            ingredient: ingredient._id,
-            name: ingredient.name,
-            quantity: 1,
-            category: ingredient.category,
-            unit: (ingredient.unit || "").toLowerCase(),
-          },
-        ],
+      newIngredients.push({
+        ingredient: ingId,
+        name: ingredient.name,
+        quantity: 0,
+        category: ingredient.category,
+        unit: (ingredient.unit || "").toLowerCase(),
+        quantities: [{ size: Number(size), quantity: 1 }]
       });
     }
+    setForm({ ...form, ingredients: newIngredients });
   };
 
-  const handleQuantityChange = (id, value) => {
-    setForm({
-      ...form,
-      ingredients: form.ingredients.map((i) =>
-        i.ingredient === id ? { ...i, quantity: value } : i
-      ),
-    });
+  const removeIngredientFromSize = (ingredientId, size) => {
+    const ingId = String(ingredientId);
+    let newIngredients = form.ingredients.map(ing => {
+      if (String(ing.ingredient) !== ingId) return ing;
+      const newQuantities = (ing.quantities || []).filter(q => Number(q.size) !== Number(size));
+      return { ...ing, quantities: newQuantities };
+    }).filter(ing => (ing.quantities && ing.quantities.length > 0));
+
+    setForm({ ...form, ingredients: newIngredients });
+  };
+
+  const handleIngredientSizeQuantityChange = (ingId, size, value) => {
+    const targetIngId = String(ingId);
+    setForm(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.map(ing => {
+        if (String(ing.ingredient) !== targetIngId) return ing;
+
+        const existingQtyIndex = ing.quantities ? ing.quantities.findIndex(q => Number(q.size) === Number(size)) : -1;
+        let newQuantities = ing.quantities ? [...ing.quantities] : [];
+
+        if (existingQtyIndex >= 0) {
+          newQuantities[existingQtyIndex] = { ...newQuantities[existingQtyIndex], quantity: Number(value) };
+        } else {
+          newQuantities.push({ size: Number(size), quantity: Number(value) });
+        }
+
+        return { ...ing, quantities: newQuantities };
+      })
+    }));
   };
 
   // SUBMIT
@@ -365,6 +403,7 @@ const ProductModal = ({
           ingredient: i.ingredient,
           quantity: Number(i.quantity),
           unit: i.unit,
+          quantities: i.quantities || []
         }))
       )
     );
@@ -595,7 +634,7 @@ const ProductModal = ({
               {form.sizes.map((s, i) => (
                 <div
                   key={i}
-                  className="bg-white border border-gray-200 rounded-lg p-4"
+                  className="bg-white border border-gray-200 rounded-lg p-4 relative"
                 >
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-medium text-gray-700 text-sm">
@@ -656,152 +695,137 @@ const ProductModal = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Size-Specific Ingredients */}
+                  <div className="mt-4 border-t pt-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="block text-xs font-medium text-gray-700">
+                        Ingredients & Materials
+                        <span className="text-gray-400 font-normal ml-1">(Specific to this size)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveSizeDropdown(activeSizeDropdown === i ? null : i);
+                          setFilterType('ingredient');
+                        }}
+                        className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        <Plus size={14} /> Add Item
+                      </button>
+                    </div>
+
+                    {/* Added Ingredients List for this Size */}
+                    <div className="space-y-2 mb-3">
+                      {form.ingredients
+                        .filter(ing => ing.quantities && ing.quantities.some(q => Number(q.size) === Number(s.size)))
+                        .map((ing, idx) => {
+                          const qtyObj = ing.quantities.find(q => Number(q.size) === Number(s.size));
+                          return (
+                            <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm border border-gray-100">
+                              <div>
+                                <span className="font-medium text-gray-700">{ing.name}</span>
+                                <span className="text-[10px] text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded ml-2 uppercase font-bold">{ing.category}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center bg-white border border-gray-300 rounded overflow-hidden shadow-sm">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.1"
+                                    className="w-16 px-2 py-1 text-right outline-none text-sm font-medium"
+                                    value={qtyObj.quantity}
+                                    onChange={(e) => handleIngredientSizeQuantityChange(ing.ingredient, s.size, e.target.value)}
+                                  />
+                                  <span className="bg-gray-100 px-2 py-1 text-[10px] text-gray-500 border-l font-black uppercase">
+                                    {ing.unit}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeIngredientFromSize(ing.ingredient, s.size)}
+                                  className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {(!form.ingredients.some(ing => ing.quantities && ing.quantities.some(q => Number(q.size) === Number(s.size)))) && (
+                        <div className="text-center py-3 bg-gray-50/50 border border-dashed border-gray-200 rounded-lg">
+                          <p className="text-xs text-gray-400 italic">No recipe items defined for this size</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dropdown for Adding Items */}
+                    {activeSizeDropdown === i && (
+                      <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-3 absolute z-20 left-4 right-4 animate-in fade-in slide-in-from-top-2 ring-1 ring-black/5">
+                        {/* Tabs */}
+                        <div className="flex border-b mb-3 bg-gray-50 rounded-t-lg overflow-hidden">
+                          <button
+                            type="button"
+                            className={`flex-1 py-2.5 text-xs font-black text-center transition-all ${filterType === 'ingredient' ? 'text-blue-600 border-b-2 border-blue-600 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setFilterType('ingredient')}
+                          >
+                            INGREDIENTS
+                          </button>
+                          <button
+                            type="button"
+                            className={`flex-1 py-2.5 text-xs font-black text-center transition-all ${filterType === 'material' ? 'text-blue-600 border-b-2 border-blue-600 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setFilterType('material')}
+                          >
+                            MATERIALS
+                          </button>
+                        </div>
+
+                        {/* Search/Filter List */}
+                        <div className="max-h-56 overflow-y-auto space-y-1 custom-scrollbar pr-1">
+                          {ingredientsList
+                            .filter(item => {
+                              const unit = (item.unit || "").toLowerCase();
+                              if (filterType === 'material') {
+                                return unit === 'pcs' || item.category === 'Material';
+                              } else {
+                                return unit !== 'pcs' && item.category !== 'Material';
+                              }
+                            })
+                            .map((item) => {
+                              const isAdded = form.ingredients.some(
+                                ing => String(ing.ingredient) === String(item._id) &&
+                                  ing.quantities?.some(q => Number(q.size) === Number(s.size))
+                              );
+                              return (
+                                <button
+                                  key={item._id}
+                                  type="button"
+                                  onClick={() => addIngredientToSize(item, s.size)}
+                                  disabled={isAdded}
+                                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs flex justify-between items-center transition-all group ${isAdded ? 'bg-green-50 text-green-700 cursor-default opacity-50' : 'hover:bg-blue-50 text-gray-700 hover:text-blue-700'
+                                    }`}
+                                >
+                                  <span className="font-semibold">{item.name}</span>
+                                  {isAdded ? (
+                                    <span className="text-[9px] font-black uppercase tracking-wider bg-green-100 text-green-700 px-1.5 py-0.5 rounded ring-1 ring-green-600/20">ADDED</span>
+                                  ) : (
+                                    <div className="w-5 h-5 flex items-center justify-center bg-gray-100 rounded text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                      <Plus size={12} />
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* INGREDIENTS/MATERIALS SECTION */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <label className="block font-medium text-gray-700 text-sm mb-2">
-              Ingredients & Materials <span className="text-red-500">*</span>
-            </label>
 
-            {/* Show warning if no ingredients selected */}
-            {form.ingredients.length === 0 && (
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs text-amber-700 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  At least one ingredient or material must be selected
-                </p>
-              </div>
-            )}
-
-            {/* CATEGORY FILTER */}
-            <div className="mb-4">
-              <label className="block text-xs text-gray-600 mb-2">
-                Filter by Category
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={form.ingredientCategory}
-                onChange={(e) => {
-                  setForm({
-                    ...form,
-                    ingredientCategory: e.target.value,
-                  });
-                  setDropdownOpen(false);
-                }}
-              >
-                <option value="">-- Select Category --</option>
-                {uniqueCategories.map((cat, idx) => (
-                  <option key={idx} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Ingredient/Material Selection */}
-            {form.ingredientCategory ? (
-              <div className="relative" ref={dropdownRef}>
-                <label className="block text-xs text-gray-600 mb-2">
-                  {isMaterialCategory() ? "Select Materials" : "Select Ingredients"}
-                </label>
-                <div
-                  className="border border-gray-300 rounded-lg px-4 py-3 bg-white cursor-pointer min-h-[44px] hover:border-gray-400 transition-colors"
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                >
-                  {form.ingredients.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {form.ingredients.map((ing) => (
-                        <div
-                          key={ing.ingredient}
-                          className="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs gap-2 border border-blue-200"
-                        >
-                          <span className="font-medium">{ing.name}</span>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="1"
-                              className="w-12 border border-blue-300 rounded px-2 py-1 text-xs bg-white"
-                              value={ing.quantity}
-                              onChange={(e) =>
-                                handleQuantityChange(
-                                  ing.ingredient,
-                                  e.target.value
-                                )
-                              }
-                            />
-                            {ing.unit && (
-                              <span className="text-xs text-gray-600">
-                                {ing.unit.toLowerCase()}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            className="text-red-500 hover:text-red-700 transition-colors text-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleIngredient({
-                                _id: ing.ingredient,
-                              });
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 text-sm">
-                      {isMaterialCategory()
-                        ? "Click to select materials..."
-                        : "Click to select ingredients..."}
-                    </span>
-                  )}
-                </div>
-
-                {dropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 z-10">
-                    {ingredientsList
-                      .filter(
-                        (i) =>
-                          (i.category || "Uncategorized") === form.ingredientCategory &&
-                          !form.ingredients.some(
-                            (x) => x.ingredient === i._id
-                          )
-                      )
-                      .map((ingredient) => (
-                        <div
-                          key={ingredient._id}
-                          className="px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
-                          onClick={() => toggleIngredient(ingredient)}
-                        >
-                          <div className="flex justify-between items-center">
-                            <span>{ingredient.name}</span>
-                            {ingredient.unit && (
-                              <span className="text-xs text-gray-600">
-                                {ingredient.unit.toLowerCase()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-500 text-sm">
-                  Please select a category first to add items
-                </p>
-              </div>
-            )}
-          </div>
 
           {/* BUTTONS */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">

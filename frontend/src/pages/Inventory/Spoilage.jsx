@@ -82,7 +82,7 @@ const Spoilage = () => {
   const handleCreateSpoilage = async (formData) => {
     try {
 
-      
+
       const response = await axios.post("/spoilages", {
         personInCharge: formData.personInCharge,
         ingredients: formData.ingredients.map((i) => ({
@@ -99,14 +99,14 @@ const Spoilage = () => {
       // Handle new response structure
       if (response.data.success) {
         const newSpoilage = response.data.data;
-        
+
         // Update the state immediately with the new spoilage
         setSpoilages(prev => [newSpoilage, ...prev]);
         setFilteredSpoilages(prev => [newSpoilage, ...prev]);
-        
+
         setShowModal(false);
         toast.success(response.data.message || "Spoilage record created successfully!");
-        
+
         // Optionally refetch to ensure data is in sync
         setTimeout(() => {
           fetchSpoilages();
@@ -116,12 +116,12 @@ const Spoilage = () => {
       }
     } catch (err) {
       console.error("Error creating spoilage:", err);
-      const errorMessage = err.response?.data?.message || 
-                          err.response?.data?.error || 
-                          err.message || 
-                          "Failed to record spoilage";
+      const errorMessage = err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to record spoilage";
       toast.error(errorMessage);
-      
+
       // If it's a unit conversion error, show more details
       if (err.response?.data?.code === "UNIT_CONVERSION_ERROR") {
         console.warn("Unit conversion issue:", err.response.data);
@@ -189,7 +189,7 @@ const Spoilage = () => {
   // Format ingredients for export
   const formatIngredientsForExport = (ingredients) => {
     if (!ingredients || ingredients.length === 0) return "";
-    return ingredients.map(i => 
+    return ingredients.map(i =>
       `${i.ingredient?.name || 'Unknown'}: ${i.quantity} ${i.unit}`
     ).join('; ');
   };
@@ -218,27 +218,27 @@ const Spoilage = () => {
           data={filteredSpoilages}
           fileName="Spoilages"
           columns={[
-            { 
-              key: "personInCharge", 
+            {
+              key: "personInCharge",
               label: "Person In Charge",
               format: (value) => value ? `${value.firstName} ${value.lastName}` : "Unknown"
             },
-            { 
-              key: "createdAt", 
+            {
+              key: "createdAt",
               label: "Date",
               format: formatDate
             },
-            { 
-              key: "ingredients", 
+            {
+              key: "ingredients",
               label: "Ingredients",
               format: formatIngredientsForExport
             },
-            { 
-              key: "totalWaste", 
-              label: "Total Waste" 
+            {
+              key: "totalWaste",
+              label: "Total Waste"
             },
-            { 
-              key: "remarks", 
+            {
+              key: "remarks",
               label: "Remarks",
               format: (value) => value || "No remarks"
             },

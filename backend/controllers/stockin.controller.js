@@ -29,31 +29,31 @@ function convertToBaseUnit(value, fromUnit, toUnit) {
   // Normalize units to lowercase for comparison but preserve original for lookup
   const from = fromUnit.toLowerCase();
   const to = toUnit.toLowerCase();
-  
+
   // If units are the same (case-insensitive), return original value
   if (from === to) return value;
-  
+
   // Create normalized unit keys that exist in our map
   const normalizedFrom = fromUnit; // Keep original for lookup
   const normalizedTo = toUnit; // Keep original for lookup
-  
+
   // Check if conversion is available (try multiple variations)
   if (unitConversion[normalizedTo] && unitConversion[normalizedTo][normalizedFrom]) {
     return value * unitConversion[normalizedTo][normalizedFrom];
   }
-  
+
   // Try lowercase versions
   if (unitConversion[to] && unitConversion[to][from]) {
     return value * unitConversion[to][from];
   }
-  
+
   // Try uppercase versions
   const fromUpper = fromUnit.toUpperCase();
   const toUpper = toUnit.toUpperCase();
   if (unitConversion[toUpper] && unitConversion[toUpper][fromUpper]) {
     return value * unitConversion[toUpper][fromUpper];
   }
-  
+
   // If we still can't convert, throw an error
   throw new Error(`Unit conversion not supported: ${fromUnit} → ${toUnit}`);
 }
@@ -70,7 +70,7 @@ export const createStockIn = async (req, res) => {
         message: "Stockman is required."
       });
     }
-    
+
     if (!ingredients || ingredients.length === 0) {
       return res.status(400).json({
         code: "MISSING_FIELDS",
@@ -98,7 +98,7 @@ export const createStockIn = async (req, res) => {
           message: "Unit is required for all ingredients."
         });
       }
-      
+
       // If expiration date is provided, validate it's in the future
       if (item.expirationDate) {
         const expDate = new Date(item.expirationDate);
@@ -113,7 +113,7 @@ export const createStockIn = async (req, res) => {
 
     // Prepare ingredients with snapshot data and auto-caps names
     const processedIngredients = [];
-    
+
     for (const item of ingredients) {
       const ingredient = await Ingredient.findById(item.ingredient);
       if (!ingredient) {
@@ -122,10 +122,10 @@ export const createStockIn = async (req, res) => {
           message: `Ingredient with ID ${item.ingredient} not found.`
         });
       }
-      
+
       // Set expiration date to null if not provided
       const expirationDate = item.expirationDate ? new Date(item.expirationDate) : null;
-      
+
       processedIngredients.push({
         ingredient: item.ingredient,
         ingredientSnapshot: {
@@ -144,15 +144,15 @@ export const createStockIn = async (req, res) => {
     const batchNumber = await StockIn.generateBatchNumber();
 
     // Save stock-in document with snapshot data and generated batch number
-    const doc = await StockIn.create({ 
-      stockman, 
+    const doc = await StockIn.create({
+      stockman,
       ingredients: processedIngredients,
       batchNumber: batchNumber
     });
 
     // Import batch service
     const { createBatchesFromStockIn } = await import("../services/batchService.js");
-    
+
     // Create ingredient batches for FIFO tracking (only for items with expiration dates)
     const createdBatches = await createBatchesFromStockIn(doc, doc._id);
 
@@ -210,21 +210,21 @@ export const createStockIn = async (req, res) => {
     });
   } catch (err) {
     console.error("Error creating stockin:", err);
-    
+
     // Handle duplicate batch number (retry with next sequence number)
     if (err.code === 11000) {
       try {
         // Generate a new batch number (should get next sequence)
         const retryBatchNumber = await StockIn.generateBatchNumber();
-        
+
         // Retry with new batch number
         const { stockman, ingredients } = req.body;
         const processedIngredients = [];
-        
+
         for (const item of ingredients) {
           const ingredient = await Ingredient.findById(item.ingredient);
           const expirationDate = item.expirationDate ? new Date(item.expirationDate) : null;
-          
+
           processedIngredients.push({
             ingredient: item.ingredient,
             ingredientSnapshot: {
@@ -238,23 +238,23 @@ export const createStockIn = async (req, res) => {
             expirationDate: expirationDate
           });
         }
-        
+
         // Create with new sequential batch number
         const doc = await StockIn.create({
           stockman,
           ingredients: processedIngredients,
           batchNumber: retryBatchNumber
         });
-        
+
         // Continue with batch creation and logging...
         const { createBatchesFromStockIn } = await import("../services/batchService.js");
         const createdBatches = await createBatchesFromStockIn(doc, doc._id);
-        
+
         // Update ingredient quantities...
         for (const item of ingredients) {
           const ingredient = await Ingredient.findById(item.ingredient);
           if (!ingredient) continue;
-          
+
           let qtyToAdd = item.quantity;
           if (item.unit.toLowerCase() !== ingredient.unit.toLowerCase()) {
             qtyToAdd = convertToBaseUnit(item.quantity, item.unit, ingredient.unit);
@@ -262,16 +262,16 @@ export const createStockIn = async (req, res) => {
           ingredient.quantity += qtyToAdd;
           await ingredient.save();
         }
-        
+
         await doc.save();
-        
+
         await logActivity(
           req,
           "CREATE_STOCKIN",
           `Stock In: Batch ${doc.batchNumber} with ${createdBatches.length} ingredient batches`,
           doc._id
         );
-        
+
         return res.status(201).json({
           success: true,
           message: "Stock-in record created successfully with sequential batch number",
@@ -281,7 +281,7 @@ export const createStockIn = async (req, res) => {
             batchNumbers: createdBatches.map(b => b.batchNumber)
           }
         });
-        
+
       } catch (retryErr) {
         console.error("Retry failed:", retryErr);
         return res.status(400).json({
@@ -290,7 +290,7 @@ export const createStockIn = async (req, res) => {
         });
       }
     }
-    
+
     // Handle validation errors
     if (err.name === 'ValidationError') {
       return res.status(400).json({
@@ -298,7 +298,7 @@ export const createStockIn = async (req, res) => {
         message: err.message
       });
     }
-    
+
     res.status(500).json({
       code: "SERVER_ERROR",
       message: "Failed to create stock-in record"

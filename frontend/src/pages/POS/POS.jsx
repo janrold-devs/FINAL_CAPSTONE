@@ -42,11 +42,10 @@ const ProductCard = React.memo(
 
     return (
       <div
-        className={`border-2 rounded-xl p-4 flex flex-col items-center transition-all ${
-          isOutOfStock
-            ? "border-gray-300 bg-gray-100 opacity-50"
-            : "border-gray-200 hover:shadow-xl hover:border-[#E89271]"
-        }`}
+        className={`border-2 rounded-xl p-4 flex flex-col items-center transition-all ${isOutOfStock
+          ? "border-gray-300 bg-gray-100 opacity-50"
+          : "border-gray-200 hover:shadow-xl hover:border-[#E89271]"
+          }`}
       >
         {product.image ? (
           <img
@@ -148,7 +147,7 @@ const CartItem = React.memo(
         setManualQuantity("");
         return;
       }
-      
+
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue >= 1 && numValue <= 999) {
         setManualQuantity(numValue);
@@ -178,18 +177,18 @@ const CartItem = React.memo(
               "Non Caffeine",
               "Amerikano",
             ].includes(item.product.category) && (
-              <select
-                value={item.size}
-                onChange={(e) => handleSizeChange(index, e.target.value)}
-                className="border rounded px-2 py-1 text-xs mt-1"
-              >
-                <option value={16}>16 oz</option>
-                <option value={22}>22 oz</option>
-                {item.product.category === "Amerikano" && (
-                  <option value={12}>12 oz (Hotdrinks)</option>
-                )}
-              </select>
-            )}
+                <select
+                  value={item.size}
+                  onChange={(e) => handleSizeChange(index, e.target.value)}
+                  className="border rounded px-2 py-1 text-xs mt-1"
+                >
+                  <option value={16}>16 oz</option>
+                  <option value={22}>22 oz</option>
+                  {item.product.category === "Amerikano" && (
+                    <option value={12}>12 oz (Hotdrinks)</option>
+                  )}
+                </select>
+              )}
 
             {item.product.category === "Frappe" && (
               <select
@@ -387,33 +386,62 @@ const POS = () => {
     }
 
     let maxAvailable = Infinity;
-    const getSizeMultiplier = (size) => {
-      if (size === 22) return 1.375;
-      if (size === 12) return 0.75;
-      return 1;
-    };
+    let hasCriticalConstraint = false;
 
-    const sizeMultiplier = getSizeMultiplier(size);
+    product.ingredients.forEach((recipe) => {
+      // Use the freshest ingredient data if it exists in ingredientsList
+      const baseIngredient = recipe.ingredient;
+      if (!baseIngredient) return;
 
-    product.ingredients.forEach((ingredientItem) => {
-      const ingredient = ingredientItem.ingredient;
-      if (!ingredient) return;
+      const ingredient = ingredientsList.find(ing => ing._id === (baseIngredient._id || baseIngredient)) || baseIngredient;
+      if (typeof ingredient.quantity === 'undefined') return;
 
-      const requiredQuantity = ingredientItem.quantity || 0;
-      const adjustedRequiredQuantity = requiredQuantity * sizeMultiplier;
+      const ingredientName = (ingredient.name || "").toUpperCase();
+      const isCritical = (ingredient.category || "").toLowerCase() !== "material" || ingredientName.includes("CUP");
 
-      if (ingredient.quantity > 0) {
-        const availableForIngredient = Math.floor(
-          ingredient.quantity / adjustedRequiredQuantity
-        );
-        maxAvailable = Math.min(maxAvailable, availableForIngredient);
+      if (!isCritical) return;
+
+      let requiredPerUnit = 0;
+      const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(size));
+
+      if (sizeQty) {
+        requiredPerUnit = sizeQty.quantity;
       } else {
-        maxAvailable = 0;
+        // Legacy Fallback
+        const productCategory = (product.category || "").toUpperCase();
+
+        const shouldDeduct = (name, s, cat) => {
+          if (name.includes("CUP")) {
+            // Handle both "16OZ" and "16 OZ"
+            const sizePattern = new RegExp(s + "\\s*OZ", "i");
+            return sizePattern.test(name);
+          }
+          if (name.includes("STRAW")) return true;
+          if (name.includes("LID")) {
+            if (cat === "HOT DRINK") return name.includes("HOT");
+            return name.includes("95MM");
+          }
+          return true;
+        };
+
+        if (!shouldDeduct(ingredientName, size, productCategory)) return;
+
+        const getMultiplier = (s) => (s === 22 ? 1.375 : s === 12 ? 0.75 : 1);
+        let multiplier = getMultiplier(size);
+        if (ingredient.category === "Material") multiplier = 1;
+        requiredPerUnit = (recipe.quantity || 0) * multiplier;
       }
+
+      if (requiredPerUnit <= 0) return;
+
+      hasCriticalConstraint = true;
+      const availableForThis = Math.floor(ingredient.quantity / requiredPerUnit);
+      maxAvailable = Math.min(maxAvailable, availableForThis);
     });
 
+    if (!hasCriticalConstraint) return 999;
     return maxAvailable === Infinity ? 0 : maxAvailable;
-  }, []);
+  }, [ingredientsList]);
 
   const getProductPrice = useCallback(
     (product, size, subcategory, addonItems = []) => {
@@ -659,49 +687,46 @@ const POS = () => {
         <div class="divider"></div>
         
         <div class="items">
-          ${
-            items.length > 0
-              ? items
-                  .map((item) => {
-                    const productName =
-                      item.productName ||
-                      item.snapshot?.productName ||
-                      "Product";
-                    const size = item.size ? `${item.size}oz` : "";
-                    const quantity = item.quantity || 1;
-                    const price = item.price || item.totalCost / quantity || 0;
-                    const itemTotal = (price * quantity).toFixed(2);
+          ${items.length > 0
+          ? items
+            .map((item) => {
+              const productName =
+                item.productName ||
+                item.snapshot?.productName ||
+                "Product";
+              const size = item.size ? `${item.size}oz` : "";
+              const quantity = item.quantity || 1;
+              const price = item.price || item.totalCost / quantity || 0;
+              const itemTotal = (price * quantity).toFixed(2);
 
-                    return `
+              return `
                     <div class="item">
                       <div class="item-line">
                         <span class="item-name">${productName} ${size} x${quantity}</span>
                         <span class="item-price">₱${itemTotal}</span>
                       </div>
-                      ${
-                        item.addons && item.addons.length > 0
-                          ? item.addons
-                              .map(
-                                (addon) => `
+                      ${item.addons && item.addons.length > 0
+                  ? item.addons
+                    .map(
+                      (addon) => `
                           <div class="addon">
-                            <span>+ ${addon.addonName || "Add-on"} x${
-                                  addon.quantity || 1
-                                }</span>
+                            <span>+ ${addon.addonName || "Add-on"} x${addon.quantity || 1
+                        }</span>
                             <span>₱${(
-                              (addon.price || 0) * (addon.quantity || 1)
-                            ).toFixed(2)}</span>
+                          (addon.price || 0) * (addon.quantity || 1)
+                        ).toFixed(2)}</span>
                           </div>
                         `
-                              )
-                              .join("")
-                          : ""
-                      }
+                    )
+                    .join("")
+                  : ""
+                }
                     </div>
                   `;
-                  })
-                  .join("")
-              : "<div class='item-line'><span>No items</span></div>"
-          }
+            })
+            .join("")
+          : "<div class='item-line'><span>No items</span></div>"
+        }
         </div>
         
         <div class="divider"></div>
@@ -716,9 +741,8 @@ const POS = () => {
             <span>Payment Method:</span>
             <span><strong>${modeOfPayment}</strong></span>
           </div>
-          ${
-            modeOfPayment === "GCash" && referenceNumber
-              ? `
+          ${modeOfPayment === "GCash" && referenceNumber
+          ? `
             <div class="gcash-info">
               <div class="payment-line">
                 <span>Reference Number:</span>
@@ -726,11 +750,10 @@ const POS = () => {
               </div>
             </div>
           `
-              : ""
-          }
-          ${
-            modeOfPayment === "Cash" && cashReceived > 0
-              ? `
+          : ""
+        }
+          ${modeOfPayment === "Cash" && cashReceived > 0
+          ? `
             <div class="cash-info">
               <div class="cash-line">
                 <span>Cash Received:</span>
@@ -742,8 +765,8 @@ const POS = () => {
               </div>
             </div>
           `
-              : ""
-          }
+          : ""
+        }
         </div>
         
         <div class="thank-you">
@@ -809,7 +832,7 @@ const POS = () => {
         const change =
           modeOfPayment === "Cash"
             ? receiptData.change ||
-              (cashReceived >= totalAmount ? cashReceived - totalAmount : 0)
+            (cashReceived >= totalAmount ? cashReceived - totalAmount : 0)
             : 0;
 
         const transactionDate = receiptData.transactionDate
@@ -1039,9 +1062,9 @@ const POS = () => {
     setCart((prev) =>
       prev.map((cartItem) =>
         cartItem.product._id === item.product._id &&
-        cartItem.size === item.size &&
-        cartItem.subcategory === item.subcategory &&
-        JSON.stringify(cartItem.addons || []) ===
+          cartItem.size === item.size &&
+          cartItem.subcategory === item.subcategory &&
+          JSON.stringify(cartItem.addons || []) ===
           JSON.stringify(item.addons || [])
           ? { ...cartItem, quantity: Math.max(1, cartItem.quantity + change) }
           : cartItem
@@ -1064,9 +1087,9 @@ const POS = () => {
     setCart((prev) =>
       prev.map((cartItem) =>
         cartItem.product._id === item.product._id &&
-        cartItem.size === item.size &&
-        cartItem.subcategory === item.subcategory &&
-        JSON.stringify(cartItem.addons || []) ===
+          cartItem.size === item.size &&
+          cartItem.subcategory === item.subcategory &&
+          JSON.stringify(cartItem.addons || []) ===
           JSON.stringify(item.addons || [])
           ? { ...cartItem, quantity: newQuantity }
           : cartItem
@@ -1085,7 +1108,7 @@ const POS = () => {
             cartItem.size === item.size &&
             cartItem.subcategory === item.subcategory &&
             JSON.stringify(cartItem.addons || []) ===
-              JSON.stringify(item.addons || [])
+            JSON.stringify(item.addons || [])
           )
       )
     );
@@ -1495,18 +1518,18 @@ const POS = () => {
       prev.map((item, i) =>
         i === editIdx
           ? {
-              ...item,
-              addons: editAddons.map((addon) => ({
-                value: addon.value,
-                quantity: addon.quantity || 1,
-              })),
-              price: getProductPrice(
-                item.product,
-                item.size,
-                item.subcategory,
-                editAddons
-              ),
-            }
+            ...item,
+            addons: editAddons.map((addon) => ({
+              value: addon.value,
+              quantity: addon.quantity || 1,
+            })),
+            price: getProductPrice(
+              item.product,
+              item.size,
+              item.subcategory,
+              editAddons
+            ),
+          }
           : item
       )
     );
@@ -1596,31 +1619,57 @@ const POS = () => {
 
               <div className="space-y-3 mb-4">
                 {addons.map((addon) => {
-                  const calculateAddonAvailability = (addonProduct) => {
+                  const calculateAddonAvailability = (addonProduct, currentSize) => {
                     if (
                       !addonProduct.ingredients ||
                       addonProduct.ingredients.length === 0
                     )
                       return Infinity;
                     let maxAvailable = Infinity;
-                    addonProduct.ingredients.forEach((ingredientItem) => {
-                      const ingredient = ingredientItem.ingredient;
-                      if (!ingredient) return;
-                      const requiredQuantity = ingredientItem.quantity || 0;
-                      if (ingredient.quantity > 0) {
-                        const availableForIngredient = Math.floor(
-                          ingredient.quantity / requiredQuantity
-                        );
-                        maxAvailable = Math.min(
-                          maxAvailable,
-                          availableForIngredient
-                        );
-                      } else maxAvailable = 0;
+                    let hasCriticalConstraint = false;
+
+                    addonProduct.ingredients.forEach((recipe) => {
+                      const baseIngredient = recipe.ingredient;
+                      if (!baseIngredient) return;
+
+                      const ingredient = ingredientsList.find(ing => ing._id === (baseIngredient._id || baseIngredient)) || baseIngredient;
+                      if (typeof ingredient.quantity === 'undefined') return;
+
+                      const ingredientName = (ingredient.name || "").toUpperCase();
+                      const isCritical = (ingredient.category || "").toLowerCase() !== "material" || ingredientName.includes("CUP");
+
+                      if (!isCritical) return;
+
+                      let requiredPerUnit = 0;
+                      const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(currentSize));
+
+                      if (sizeQty) {
+                        requiredPerUnit = sizeQty.quantity;
+                      } else {
+                        // Legacy Fallback
+                        const getMultiplier = (s) => (s === 22 ? 1.375 : s === 12 ? 0.75 : 1);
+                        let multiplier = getMultiplier(currentSize);
+                        if (ingredient.category === "Material") multiplier = 1;
+                        requiredPerUnit = (recipe.quantity || 0) * multiplier;
+                      }
+
+                      if (requiredPerUnit <= 0) return;
+
+                      hasCriticalConstraint = true;
+                      const availableForIngredient = Math.floor(
+                        ingredient.quantity / requiredPerUnit
+                      );
+                      maxAvailable = Math.min(
+                        maxAvailable,
+                        availableForIngredient
+                      );
                     });
+
+                    if (!hasCriticalConstraint) return 999;
                     return maxAvailable === Infinity ? 0 : maxAvailable;
                   };
 
-                  const availableQuantity = calculateAddonAvailability(addon);
+                  const availableQuantity = calculateAddonAvailability(addon, cart[editIdx].size);
                   const isOutOfStock = availableQuantity <= 0;
                   const isLowStock =
                     availableQuantity > 0 && availableQuantity <= 10;
@@ -1634,11 +1683,10 @@ const POS = () => {
                   return (
                     <div
                       key={addon._id}
-                      className={`border rounded-lg p-3 transition-all ${
-                        isChecked
-                          ? "ring-2 ring-blue-500 border-blue-300"
-                          : "border-gray-200"
-                      } ${isOutOfStock ? "opacity-60" : ""}`}
+                      className={`border rounded-lg p-3 transition-all ${isChecked
+                        ? "ring-2 ring-blue-500 border-blue-300"
+                        : "border-gray-200"
+                        } ${isOutOfStock ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <label className="flex items-start gap-2 flex-1 cursor-pointer">
@@ -1682,11 +1730,10 @@ const POS = () => {
                                 ₱{addon.sizes?.[0]?.price?.toFixed(2)} each
                               </div>
                               <div
-                                className={`text-xs ${
-                                  isOutOfStock
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }`}
+                                className={`text-xs ${isOutOfStock
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                                  }`}
                               >
                                 {isOutOfStock
                                   ? "Not available"
@@ -1734,9 +1781,9 @@ const POS = () => {
                                       editAddons.map((a) =>
                                         a.value === addon._id
                                           ? {
-                                              ...a,
-                                              quantity: (a.quantity || 1) + 1,
-                                            }
+                                            ...a,
+                                            quantity: (a.quantity || 1) + 1,
+                                          }
                                           : a
                                       )
                                     );
@@ -1814,7 +1861,7 @@ const POS = () => {
                           return (
                             sum +
                             (addonProduct?.sizes?.[0]?.price || 0) *
-                              (addonItem.quantity || 1)
+                            (addonItem.quantity || 1)
                           );
                         }, 0)
                         .toFixed(2)}
@@ -1879,11 +1926,10 @@ const POS = () => {
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                        selectedCategory === category
-                          ? "bg-[#E89271] text-white shadow-md"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
+                      className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedCategory === category
+                        ? "bg-[#E89271] text-white shadow-md"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
                     >
                       {category}
                     </button>
@@ -2022,11 +2068,10 @@ const POS = () => {
                   ) : (
                     cart.map((item, idx) => (
                       <CartItem
-                        key={`${item.product._id}-${item.size}-${
-                          item.subcategory
-                        }-${item.addons
-                          ?.map((a) => `${a.value}-${a.quantity}`)
-                          .join(",")}`}
+                        key={`${item.product._id}-${item.size}-${item.subcategory
+                          }-${item.addons
+                            ?.map((a) => `${a.value}-${a.quantity}`)
+                            .join(",")}`}
                         item={item}
                         index={idx}
                         updateQuantity={updateCartQuantity}

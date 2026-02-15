@@ -36,13 +36,13 @@ const Ingredient = () => {
     try {
       setLoading(true);
       const res = await axios.get("/ingredients");
-      
+
       // Normalize units in the data
       const normalizedData = res.data.map(ingredient => ({
         ...ingredient,
         unit: ingredient.unit?.toLowerCase().replace('ml', 'ml') || ingredient.unit
       }));
-      
+
       setIngredients(normalizedData);
     } catch (err) {
       console.error("Error fetching ingredients:", err);
@@ -55,17 +55,17 @@ const Ingredient = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormErrors({}); // Clear previous errors
-    
+
     try {
       // Prepare data with trimmed name
       const payload = {
         ...form,
         name: (form.name || "").trim().toUpperCase()
       };
-      
+
       // Normalize unit to lowercase before sending
       if (payload.unit) payload.unit = payload.unit.toLowerCase();
-      
+
       if (editingId) {
         await axios.put(`/ingredients/${editingId}`, payload);
       } else {
@@ -77,23 +77,23 @@ const Ingredient = () => {
       fetchIngredients();
     } catch (err) {
       console.error("Error saving ingredient:", err);
-      
+
       // NEW: Handle archive conflict (409)
       if (err.response?.status === 409 && err.response?.data?.code === "ARCHIVED_EXISTS") {
         setArchiveConflict(err.response.data);
         return; // Don't show other errors, let user handle archive conflict
       }
-      
+
       // Handle duplicate error specifically
       if (err.response?.status === 400) {
         const errorMessage = err.response.data.message;
-        
+
         if (errorMessage.includes("already exists")) {
           // Extract the existing ingredient ID from the error message
           const match = errorMessage.match(/ID: (\w+)/);
           if (match) {
-            setFormErrors({ 
-              name: `Ingredient already exists (ID: ${match[1]}). Please use a different name or edit the existing ingredient.` 
+            setFormErrors({
+              name: `Ingredient already exists (ID: ${match[1]}). Please use a different name or edit the existing ingredient.`
             });
           } else {
             setFormErrors({ name: "Ingredient with this name already exists. Please use a different name." });
@@ -145,7 +145,7 @@ const Ingredient = () => {
   // NEW: Archive management functions
   const handleRestoreArchived = async () => {
     if (!archiveConflict?.archivedIngredient?._id) return;
-    
+
     try {
       await axios.post(`/ingredients/archive/${archiveConflict.archivedIngredient._id}/restore`);
       toast.success(`Ingredient "${archiveConflict.archivedIngredient.name}" restored successfully!`);
@@ -178,7 +178,7 @@ const Ingredient = () => {
     if (!window.confirm(`Are you sure you want to permanently delete "${ingredientName}"? This action cannot be undone.`)) {
       return;
     }
-    
+
     try {
       await axios.delete(`/ingredients/archive/${ingredientId}/permanent`);
       toast.success(`Ingredient "${ingredientName}" permanently deleted`);
@@ -390,10 +390,10 @@ const Ingredient = () => {
                         <td className="px-6 py-4 text-sm text-gray-700">
                           {i.nextExpiration
                             ? new Date(i.nextExpiration).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
                             : "—"}
                         </td>
                         <td className="px-6 py-4 text-center">

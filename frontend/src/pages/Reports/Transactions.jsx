@@ -582,41 +582,37 @@ const Transactions = () => {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleTimePeriodClick("daily")}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "daily"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "daily"
                     ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Daily
               </button>
               <button
                 onClick={() => handleTimePeriodClick("weekly")}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "weekly"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "weekly"
                     ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Weekly
               </button>
               <button
                 onClick={() => handleTimePeriodClick("monthly")}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "monthly"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "monthly"
                     ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Monthly
               </button>
               <button
                 onClick={handleCustomDateClick}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "custom"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "custom"
                     ? "bg-purple-100 text-purple-700 border-purple-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Custom Date
               </button>
@@ -631,31 +627,28 @@ const Transactions = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => handleCustomDateTypeChange("daily")}
-                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${
-                      customDateType === "daily"
+                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${customDateType === "daily"
                         ? "bg-blue-100 text-blue-700 border-blue-300"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     Single Day
                   </button>
                   <button
                     onClick={() => handleCustomDateTypeChange("weekly")}
-                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${
-                      customDateType === "weekly"
+                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${customDateType === "weekly"
                         ? "bg-blue-100 text-blue-700 border-blue-300"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     7-Day Range
                   </button>
                   <button
                     onClick={() => handleCustomDateTypeChange("monthly")}
-                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${
-                      customDateType === "monthly"
+                    className={`px-3 py-1 rounded-lg border text-sm font-medium ${customDateType === "monthly"
                         ? "bg-blue-100 text-blue-700 border-blue-300"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     Monthly
                   </button>

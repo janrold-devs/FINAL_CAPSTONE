@@ -44,7 +44,7 @@ export const getSalesSummary = async (req, res) => {
     console.log(
       `✅ Sales calculated from transactions: ${salesBatches.length} batches (${process.env.NODE_ENV})`
     );
-    
+
     // Convert dates to Philippine time for display
     const PH_OFFSET = 8 * 60 * 60 * 1000;
     const adjustedBatches = salesBatches.map(batch => ({
@@ -67,14 +67,14 @@ export const getSalesByDate = async (req, res) => {
 
     // Parse the date - USE PHILIPPINE TIMEZONE LOGIC
     const [year, month, day] = date.split("-").map(Number);
-    
+
     // Use Philippine timezone offset
     const PH_OFFSET = 8 * 60 * 60 * 1000;
-    
+
     // Create dates in Philippine time
     const startDatePH = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     const endDatePH = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-    
+
     // Convert to UTC for database query
     const startDate = new Date(startDatePH.getTime() - PH_OFFSET);
     const endDate = new Date(endDatePH.getTime() - PH_OFFSET);
@@ -132,7 +132,7 @@ export const getSalesByDate = async (req, res) => {
       // Update the batch with current transactions
       salesBatch.transactions = transactions.map((t) => t._id);
       await salesBatch.save();
-      
+
       // Re-populate
       salesBatch = await Sales.findById(salesBatch._id).populate({
         path: "transactions",
@@ -156,7 +156,7 @@ export const getSalesByDate = async (req, res) => {
     console.log(
       `✅ Sales batch ${batchNumber}: ₱${totalSales} from ${transactions.length} transactions`
     );
-    
+
     // Verify accuracy
     if (salesBatch.totalSales !== totalSales) {
       console.log(`⚠️ Discrepancy detected: Stored: ₱${salesBatch.totalSales}, Calculated: ₱${totalSales}`);
@@ -177,11 +177,11 @@ export const getBestSellingProducts = async (req, res) => {
 
     // IMPORTANT: Use the SAME timezone logic as dashboard.controller.js
     const now = new Date();
-    
+
     // Apply Philippine timezone offset (UTC+8)
     const PH_OFFSET = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
     const nowPH = new Date(now.getTime() + PH_OFFSET);
-    
+
     console.log(`🌐 Server UTC Time: ${now.toISOString()}`);
     console.log(`🌐 Philippine Time: ${nowPH.toISOString()}`);
 
@@ -208,17 +208,17 @@ export const getBestSellingProducts = async (req, res) => {
           currentDayPH + 1,
           0, 0, 0, 0
         ));
-        
+
         // Convert to UTC for database query
         startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
         endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
         break;
-        
+
       case "weekly":
         // This week in Philippine time (Monday to Sunday)
         const currentDayOfWeek = nowPH.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
         const mondayOffsetPH = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-        
+
         startDatePH = new Date(Date.UTC(
           currentYearPH,
           currentMonthPH,
@@ -228,12 +228,12 @@ export const getBestSellingProducts = async (req, res) => {
         endDatePH = new Date(startDatePH.getTime());
         endDatePH.setUTCDate(startDatePH.getUTCDate() + 7);
         endDatePH.setUTCHours(0, 0, 0, 0);
-        
+
         // Convert to UTC for database query
         startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
         endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
         break;
-        
+
       case "monthly":
         // This month in Philippine time
         startDatePH = new Date(Date.UTC(
@@ -248,12 +248,12 @@ export const getBestSellingProducts = async (req, res) => {
           1,
           0, 0, 0, 0
         ));
-        
+
         // Convert to UTC for database query
         startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
         endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
         break;
-        
+
       default:
         // Default to this month
         startDatePH = new Date(Date.UTC(
@@ -268,7 +268,7 @@ export const getBestSellingProducts = async (req, res) => {
           1,
           0, 0, 0, 0
         ));
-        
+
         // Convert to UTC for database query
         startDateUTC = new Date(startDatePH.getTime() - PH_OFFSET);
         endDateUTC = new Date(endDatePH.getTime() - PH_OFFSET);
@@ -276,7 +276,7 @@ export const getBestSellingProducts = async (req, res) => {
 
     console.log(`📅 Philippine Date Range: ${startDatePH.toISOString()} to ${endDatePH.toISOString()}`);
     console.log(`📅 UTC Query Range: ${startDateUTC.toISOString()} to ${endDateUTC.toISOString()}`);
-    console.log(`🌐 Timezone offset applied: ${PH_OFFSET/1000/60/60} hours (UTC+8)`);
+    console.log(`🌐 Timezone offset applied: ${PH_OFFSET / 1000 / 60 / 60} hours (UTC+8)`);
 
     // Get best selling products from Transaction aggregation using UTC dates
     const bestSelling = await Transaction.aggregate([
@@ -369,7 +369,7 @@ export const getBestSellingProducts = async (req, res) => {
         $lt: endDateUTC,
       },
     });
-    
+
     const totalSales = transactions.reduce(
       (sum, t) => sum + (t.totalAmount || 0),
       0
@@ -378,7 +378,7 @@ export const getBestSellingProducts = async (req, res) => {
     // Log debug info
     console.log(`💰 Total sales for period: ₱${totalSales}`);
     console.log(`📊 Transactions found: ${transactions.length}`);
-    console.log(`📦 Sample transaction dates:`, 
+    console.log(`📦 Sample transaction dates:`,
       transactions.slice(0, 3).map(t => t.transactionDate.toISOString())
     );
 
@@ -409,12 +409,12 @@ export const getBestSellingProducts = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error fetching best-selling products:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-};  
+};
 
 // Simple refresh - just recalculates
 export const refreshAndReconcileSales = async (req, res) => {

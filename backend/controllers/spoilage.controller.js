@@ -9,14 +9,14 @@ const unitConversion = {
   ml: { ml: 1, l: 1000, cl: 100, liter: 1000, litre: 1000, milliliters: 1 },
   l: { ml: 0.001, l: 1, cl: 0.01, liter: 1, litre: 1, milliliters: 0.001 },
   cl: { ml: 10, l: 100, cl: 1, liter: 100, litre: 100 },
-  
+
   // Weight
   g: { g: 1, kg: 1000, gram: 1, grams: 1, kilogram: 1000, kilograms: 1000 },
   kg: { g: 0.001, kg: 1, gram: 0.001, grams: 0.001, kilogram: 1, kilograms: 1 },
-  
+
   // Count
   pcs: { pcs: 1, pc: 1, piece: 1, pieces: 1, unit: 1, units: 1 },
-  
+
   // Liquid-specific
   liter: { ml: 1000, l: 1, liter: 1, litre: 1 },
   litre: { ml: 1000, l: 1, liter: 1, litre: 1 },
@@ -33,49 +33,49 @@ function convertToBaseUnit(value, fromUnit, toUnit) {
   // Normalize units to lowercase for comparison
   const from = fromUnit.toLowerCase().trim();
   const to = toUnit.toLowerCase().trim();
-  
+
   // If units are the same (case-insensitive), return original value
   if (from === to) return value;
-  
+
   // Check if conversion is available
   if (unitConversion[to] && unitConversion[to][from]) {
     return value * unitConversion[to][from];
   }
-  
+
   // Try reverse conversion
   if (unitConversion[from] && unitConversion[from][to]) {
     return value / unitConversion[from][to];
   }
-  
+
   // Try to find common aliases
   const aliases = {
     // Volume
     ml: ['milliliter', 'milliliters', 'milli liter'],
     l: ['liter', 'liters', 'litre', 'litres'],
     cl: ['centiliter', 'centiliters'],
-    
+
     // Weight
     g: ['gram', 'grams'],
     kg: ['kilogram', 'kilograms', 'kilo'],
-    
+
     // Count
     pcs: ['piece', 'pieces', 'pc', 'unit', 'units', 'count'],
   };
-  
+
   // Find standard unit for aliases
   let standardFrom = from;
   let standardTo = to;
-  
+
   for (const [std, aliasList] of Object.entries(aliases)) {
     if (aliasList.includes(from)) standardFrom = std;
     if (aliasList.includes(to)) standardTo = std;
   }
-  
+
   // Try conversion with standardized units
   if (unitConversion[standardTo] && unitConversion[standardTo][standardFrom]) {
     return value * unitConversion[standardTo][standardFrom];
   }
-  
+
   // If we still can't convert, throw an error
   throw new Error(`Unit conversion not supported: ${fromUnit} (${from}) → ${toUnit} (${to})`);
 }
@@ -87,16 +87,16 @@ export const createSpoilage = async (req, res) => {
 
     // Validation
     if (!personInCharge) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "NO_PERSON_IN_CHARGE",
-        message: "Person in charge is required." 
+        message: "Person in charge is required."
       });
     }
 
     if (!ingredients || ingredients.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "NO_INGREDIENTS",
-        message: "At least one ingredient is required." 
+        message: "At least one ingredient is required."
       });
     }
 
@@ -110,32 +110,32 @@ export const createSpoilage = async (req, res) => {
     for (const item of ingredients) {
       // Validate ingredient data
       if (!item.ingredient) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           code: "INVALID_INGREDIENT",
-          message: "Ingredient ID is required for all items." 
+          message: "Ingredient ID is required for all items."
         });
       }
 
       if (!item.quantity || item.quantity <= 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           code: "INVALID_QUANTITY",
-          message: `Quantity must be greater than 0 for ingredient ${item.ingredient}` 
+          message: `Quantity must be greater than 0 for ingredient ${item.ingredient}`
         });
       }
 
       if (!item.unit) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           code: "MISSING_UNIT",
-          message: `Unit is required for ingredient ${item.ingredient}` 
+          message: `Unit is required for ingredient ${item.ingredient}`
         });
       }
 
       // Find the ingredient
       const ing = await Ingredient.findById(item.ingredient);
       if (!ing) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           code: "INGREDIENT_NOT_FOUND",
-          message: `Ingredient with ID ${item.ingredient} not found.` 
+          message: `Ingredient with ID ${item.ingredient} not found.`
         });
       }
 
@@ -172,11 +172,11 @@ export const createSpoilage = async (req, res) => {
 
       } catch (batchError) {
         console.error("FIFO batch deduction error:", batchError);
-        
+
         // If no active batches available, handle as non-batch ingredient
         if (batchError.message.includes("No active batches available")) {
           console.log(`⚠️ No batches for ${ing.name}, treating as non-batch ingredient`);
-          
+
           // Convert quantity to ingredient's base unit for consistency
           let convertedQuantity = item.quantity;
           if (item.unit.toLowerCase() !== ing.unit.toLowerCase()) {
@@ -188,19 +188,19 @@ export const createSpoilage = async (req, res) => {
               convertedQuantity = item.quantity;
             }
           }
-          
+
           // Check if ingredient has enough stock (for non-batch ingredients)
           if (ing.quantity < convertedQuantity) {
-            return res.status(400).json({ 
+            return res.status(400).json({
               code: "INSUFFICIENT_STOCK",
               message: `Insufficient stock for ${ing.name}. Available: ${ing.quantity} ${ing.unit}, Requested: ${convertedQuantity} ${ing.unit}`
             });
           }
-          
+
           // Deduct from ingredient total quantity
           ing.quantity = Math.max(0, ing.quantity - convertedQuantity);
           await ing.save();
-          
+
           // Add to spoilage record without batch information
           processedIngredients.push({
             ingredient: item.ingredient,
@@ -217,13 +217,13 @@ export const createSpoilage = async (req, res) => {
             spoilageReason: item.spoilageReason || "other",
             sourceBatch: null
           });
-          
+
           // Add to total waste
           totalWaste += convertedQuantity;
-          
+
         } else {
           // Other batch errors (insufficient stock, etc.)
-          return res.status(400).json({ 
+          return res.status(400).json({
             code: "BATCH_DEDUCTION_ERROR",
             message: batchError.message
           });
@@ -266,23 +266,23 @@ export const createSpoilage = async (req, res) => {
 
   } catch (err) {
     console.error("Error creating spoilage:", err);
-    
+
     // Handle specific errors
     if (err.name === 'ValidationError') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "VALIDATION_ERROR",
-        message: err.message 
+        message: err.message
       });
     }
-    
+
     if (err.code === 11000) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "DUPLICATE_ERROR",
-        message: "Duplicate spoilage record detected" 
+        message: "Duplicate spoilage record detected"
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       code: "SERVER_ERROR",
       message: "Failed to create spoilage record",
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
@@ -293,9 +293,9 @@ export const createSpoilage = async (req, res) => {
 // --- GET all Spoilages ---
 export const getSpoilages = async (req, res) => {
   try {
-    const { 
-      startDate, 
-      endDate, 
+    const {
+      startDate,
+      endDate,
       personInCharge,
       category,
       sortBy = 'createdAt',
@@ -306,19 +306,19 @@ export const getSpoilages = async (req, res) => {
 
     // Build filter
     const filter = {};
-    
+
     // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
-    
+
     // Person in charge filter
     if (personInCharge) {
       filter.personInCharge = personInCharge;
     }
-    
+
     // Category filter (via ingredient category)
     if (category) {
       filter['ingredients.ingredient.category'] = category;
@@ -326,10 +326,10 @@ export const getSpoilages = async (req, res) => {
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Get total count for pagination
     const total = await Spoilage.countDocuments(filter);
-    
+
     // Fetch with pagination and sorting
     const list = await Spoilage.find(filter)
       .populate("personInCharge")
@@ -378,9 +378,9 @@ export const getSpoilages = async (req, res) => {
 
   } catch (err) {
     console.error("Error fetching spoilages:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       code: "SERVER_ERROR",
-      message: "Failed to fetch spoilage records" 
+      message: "Failed to fetch spoilage records"
     });
   }
 };
@@ -389,11 +389,11 @@ export const getSpoilages = async (req, res) => {
 export const getSpoilage = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     if (!id || id === 'undefined' || id === 'null') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "INVALID_ID",
-        message: "Spoilage ID is required" 
+        message: "Spoilage ID is required"
       });
     }
 
@@ -407,9 +407,9 @@ export const getSpoilage = async (req, res) => {
       });
 
     if (!doc) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         code: "NOT_FOUND",
-        message: "Spoilage record not found" 
+        message: "Spoilage record not found"
       });
     }
 
@@ -439,17 +439,17 @@ export const getSpoilage = async (req, res) => {
 
   } catch (err) {
     console.error("Error fetching spoilage:", err);
-    
+
     if (err.name === 'CastError') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "INVALID_ID_FORMAT",
-        message: "Invalid spoilage ID format" 
+        message: "Invalid spoilage ID format"
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       code: "SERVER_ERROR",
-      message: "Failed to fetch spoilage record" 
+      message: "Failed to fetch spoilage record"
     });
   }
 };
@@ -458,20 +458,20 @@ export const getSpoilage = async (req, res) => {
 export const deleteSpoilage = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     if (!id || id === 'undefined' || id === 'null') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "INVALID_ID",
-        message: "Spoilage ID is required" 
+        message: "Spoilage ID is required"
       });
     }
 
     const deleted = await Spoilage.findById(id);
-    
+
     if (!deleted) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         code: "NOT_FOUND",
-        message: "Spoilage record not found" 
+        message: "Spoilage record not found"
       });
     }
 
@@ -512,9 +512,9 @@ export const deleteSpoilage = async (req, res) => {
 
   } catch (err) {
     console.error("Error deleting spoilage:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       code: "SERVER_ERROR",
-      message: "Failed to delete spoilage record" 
+      message: "Failed to delete spoilage record"
     });
   }
 };

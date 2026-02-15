@@ -18,17 +18,17 @@ export const createProduct = async (req, res) => {
       req.body;
 
     // Check for duplicate product name
-    const existingProduct = await Product.findOne({ 
-      productName: productName.trim().toUpperCase() 
+    const existingProduct = await Product.findOne({
+      productName: productName.trim().toUpperCase()
     });
-    
+
     if (existingProduct) {
       // Delete uploaded file if product creation fails
       if (req.file) {
         await deleteCloudinaryImage(req.file.path);
       }
-      return res.status(400).json({ 
-        message: `Product "${productName}" already exists. Please use a different name.` 
+      return res.status(400).json({
+        message: `Product "${productName}" already exists. Please use a different name.`
       });
     }
 
@@ -43,8 +43,8 @@ export const createProduct = async (req, res) => {
       if (req.file) {
         await deleteCloudinaryImage(req.file.path);
       }
-      return res.status(400).json({ 
-        message: "At least one ingredient or material is required" 
+      return res.status(400).json({
+        message: "At least one ingredient or material is required"
       });
     }
 
@@ -63,8 +63,7 @@ export const createProduct = async (req, res) => {
     await logActivity(
       req,
       "CREATE_PRODUCT",
-      `Created ${data.isAddon ? "add-on" : "product"}: ${doc.productName} (${
-        doc.category
+      `Created ${data.isAddon ? "add-on" : "product"}: ${doc.productName} (${doc.category
       })`
     );
 
@@ -146,18 +145,18 @@ export const updateProduct = async (req, res) => {
     }
 
     // Check for duplicate product name (excluding current product)
-    const duplicateProduct = await Product.findOne({ 
+    const duplicateProduct = await Product.findOne({
       productName: productName.trim().toUpperCase(),
       _id: { $ne: req.params.id } // Exclude current product from check
     });
-    
+
     if (duplicateProduct) {
       // Delete uploaded file if validation fails
       if (req.file) {
         await deleteCloudinaryImage(req.file.path);
       }
-      return res.status(400).json({ 
-        message: `Product "${productName}" already exists. Please use a different name.` 
+      return res.status(400).json({
+        message: `Product "${productName}" already exists. Please use a different name.`
       });
     }
 
@@ -172,8 +171,8 @@ export const updateProduct = async (req, res) => {
       if (req.file) {
         await deleteCloudinaryImage(req.file.path);
       }
-      return res.status(400).json({ 
-        message: "At least one ingredient or material is required" 
+      return res.status(400).json({
+        message: "At least one ingredient or material is required"
       });
     }
 
@@ -208,8 +207,7 @@ export const updateProduct = async (req, res) => {
     await logActivity(
       req,
       "UPDATE_PRODUCT",
-      `Updated ${data.isAddon ? "add-on" : "product"}: ${
-        updated.productName
+      `Updated ${data.isAddon ? "add-on" : "product"}: ${updated.productName
       } (${updated.category})`
     );
 
@@ -237,8 +235,7 @@ export const deleteProduct = async (req, res) => {
     await logActivity(
       req,
       "DELETE_PRODUCT",
-      `Deleted ${deleted.isAddon ? "add-on" : "product"}: ${
-        deleted.productName
+      `Deleted ${deleted.isAddon ? "add-on" : "product"}: ${deleted.productName
       } (${deleted.category})`
     );
 

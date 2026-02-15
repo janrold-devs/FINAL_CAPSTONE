@@ -14,6 +14,12 @@ const productSchema = new mongoose.Schema(
       {
         ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
         quantity: { type: Number },
+        quantities: [
+          {
+            size: { type: Number }, // e.g., 16
+            quantity: { type: Number }, // e.g., 10
+          },
+        ],
       },
     ],
     category: { type: String, required: true },

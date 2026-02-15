@@ -341,9 +341,8 @@ const Product = () => {
                                 <span
                                   key={i._id || i.ingredient?._id || idx}
                                   className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 break-words whitespace-normal"
-                                  title={`${i.ingredient?.name || "Unknown"} (${
-                                    i.quantity
-                                  }${i.ingredient?.unit || i.unit || ""})`}
+                                  title={`${i.ingredient?.name || "Unknown"} (${i.quantity
+                                    }${i.ingredient?.unit || i.unit || ""})`}
                                 >
                                   {i.ingredient?.name || "Unknown"} (
                                   {i.quantity}

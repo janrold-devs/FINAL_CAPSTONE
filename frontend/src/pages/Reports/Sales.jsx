@@ -500,31 +500,28 @@ const Sales = () => {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleTimePeriodClick("daily")}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "daily"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "daily"
                     ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Daily
               </button>
               <button
                 onClick={() => handleTimePeriodClick("weekly")}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "weekly"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "weekly"
                     ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Weekly
               </button>
               <button
                 onClick={() => handleTimePeriodClick("monthly")}
-                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${
-                  timePeriod === "monthly"
+                className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium ${timePeriod === "monthly"
                     ? "bg-blue-100 text-blue-700 border-blue-300 shadow-sm"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Monthly
               </button>
@@ -535,9 +532,8 @@ const Sales = () => {
         {/* Export Buttons */}
         <ExportButtons
           data={filteredSales}
-          fileName={`Sales-${timePeriod || "all"}-${
-            new Date().toISOString().split("T")[0]
-          }`}
+          fileName={`Sales-${timePeriod || "all"}-${new Date().toISOString().split("T")[0]
+            }`}
           columns={[
             { key: "batchNumber", label: "Batch Number" },
             { key: "transactionDate", label: "Date" },
@@ -617,13 +613,13 @@ const Sales = () => {
                         <div className="text-sm text-gray-700">
                           {s.transactionDate
                             ? new Date(s.transactionDate).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                },
-                              )
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                              },
+                            )
                             : "N/A"}
                         </div>
                       </td>
