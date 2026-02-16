@@ -913,7 +913,8 @@ const Transactions = () => {
         {/* Export Buttons */}
         <div>
           <ExportButtons
-            data={getExportData()}
+            data={transactions}
+            filteredData={filteredTransactions}
             fileName="Transactions"
             columns={[
               { key: "transactionDate", label: "Date" },

@@ -221,7 +221,8 @@ const Product = () => {
         {/* Export Buttons */}
         <div>
           <ExportButtons
-            data={filteredProducts || products}
+            data={products}
+            filteredData={filteredProducts}
             fileName="Products"
             columns={[
               { key: "productName", label: "Product Name" },

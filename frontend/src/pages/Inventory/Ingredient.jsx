@@ -327,7 +327,8 @@ const Ingredient = () => {
         {/* Export Buttons */}
         <div className="mb-6">
           <ExportButtons
-            data={filteredIngredients || ingredients}
+            data={ingredients}
+            filteredData={filteredIngredients}
             fileName="Ingredients & Materials"
             columns={[
               { key: "name", label: "Name" },

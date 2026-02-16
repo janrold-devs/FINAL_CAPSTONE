@@ -100,7 +100,7 @@ const ExportButtons = ({
   // 🧠 Helper: Format person in charge name from user object
   const formatPersonInCharge = (spoilage) => {
     if (!spoilage) return "—";
-    
+
     // Check if it has recordedBy with nested user info
     if (spoilage.recordedBy && typeof spoilage.recordedBy === 'object') {
       const user = spoilage.recordedBy;
@@ -114,7 +114,7 @@ const ExportButtons = ({
         return user.email.split('@')[0];
       }
     }
-    
+
     // Check if it has createdBy field
     if (spoilage.createdBy && typeof spoilage.createdBy === 'object') {
       const user = spoilage.createdBy;
@@ -126,7 +126,7 @@ const ExportButtons = ({
         return user.firstName;
       }
     }
-    
+
     // Check if it has personInCharge field
     if (spoilage.personInCharge) {
       if (typeof spoilage.personInCharge === 'object') {
@@ -140,15 +140,15 @@ const ExportButtons = ({
         return spoilage.personInCharge;
       }
     }
-    
+
     return "—";
   };
 
   // 🧠 Helper: Clean any value for display
   const cleanValue = (value, item = null, columnKey = null) => {
     // Special handling for person in charge in spoilage
-    if (columnKey === 'recordedBy' || columnKey === 'createdBy' || columnKey === 'personInCharge' || 
-        (item && (columnKey === 'recordedBy' || columnKey === 'createdBy' || columnKey === 'personInCharge'))) {
+    if (columnKey === 'recordedBy' || columnKey === 'createdBy' || columnKey === 'personInCharge' ||
+      (item && (columnKey === 'recordedBy' || columnKey === 'createdBy' || columnKey === 'personInCharge'))) {
       if (item) {
         return formatPersonInCharge(item);
       }
@@ -196,11 +196,24 @@ const ExportButtons = ({
       }
     }
 
-    if (value instanceof Date) {
-      return formatISODate(value.toISOString());
+    return value ?? "—";
+  };
+
+  // 🧠 Helper: Get formatted value for a column
+  const getFormattedValue = (item, col) => {
+    const value = getNestedValue(item, col.key);
+
+    // Use custom format function if provided
+    if (typeof col.format === "function") {
+      try {
+        return col.format(value, item);
+      } catch (err) {
+        console.error(`Format error for column ${col.key}:`, err);
+        return cleanValue(value, item, col.key);
+      }
     }
 
-    return value ?? "—";
+    return cleanValue(value, item, col.key);
   };
 
   // 🧠 Helper: Format price with ₱ sign
@@ -215,12 +228,12 @@ const ExportButtons = ({
   // 🧠 Helper: Format category
   const formatCategory = (category) => {
     if (!category) return "—";
-    
+
     const predefinedCategories = [
-      "iced latte", "bubble tea", "fruit tea", "amerikano", 
+      "iced latte", "bubble tea", "fruit tea", "amerikano",
       "non caffeine", "frappe", "choco Series", "hot drink", "shiro Series"
     ];
-    
+
     const isPredefined = predefinedCategories.some(
       (predefined) => predefined.toLowerCase() === category.toLowerCase()
     );
@@ -246,7 +259,7 @@ const ExportButtons = ({
 
     // Get all keys from the object including nested ones we want to display
     const keys = [];
-    
+
     // Add standard fields
     Object.keys(firstItem).forEach((key) => {
       if (!excludedKeys.includes(key)) {
@@ -270,7 +283,7 @@ const ExportButtons = ({
 
     return keys.map((key) => {
       let label = key.charAt(0).toUpperCase() + key.slice(1);
-      
+
       // Better label formatting for person in charge
       if (key === 'recordedBy' || key === 'createdBy' || key === 'personInCharge') {
         label = 'Person In Charge';
@@ -283,7 +296,7 @@ const ExportButtons = ({
       } else if (key === 'spoilageDate') {
         label = 'Date';
       }
-      
+
       return { key, label };
     });
   };
@@ -302,7 +315,7 @@ const ExportButtons = ({
 
   // 🧠 Transform data for PDF
   const transformedDataPDF = [];
-  
+
   displayData.forEach((item) => {
     // Check if it's a product with multiple sizes
     if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 1) {
@@ -369,7 +382,7 @@ const ExportButtons = ({
   const rowsExcel = transformedDataExcel.map((item) =>
     getEffectiveColumns.map((col) => item[col.key])
   );
-  
+
   const rowsPDF = transformedDataPDF.map((item) =>
     getEffectiveColumns.map((col) => item[col.key])
   );
@@ -383,9 +396,90 @@ const ExportButtons = ({
     });
   };
 
+  // Determine if filtering is active (displayData is different from origin data)
+  // or if filteredData prop was provided and contains a subset
+  const isFiltered = filteredData && filteredData.length > 0 && filteredData.length !== data.length;
+
+  // 🧠 Determine the dynamic title/filename based on active category filters
+  const getDynamicTitle = () => {
+    // Only apply if filtered and we have data
+    if (isFiltered && filteredData.length > 0) {
+      const categories = new Set();
+      filteredData.forEach((item) => {
+        // Try various common paths for category
+        const cat =
+          item.category ||
+          (item.ingredient && item.ingredient.category) ||
+          (item.ingredients && item.ingredients[0]?.ingredient?.category) ||
+          getNestedValue(item, "category");
+        if (cat) categories.add(cat);
+      });
+
+      // If exactly one category is present across all filtered items,
+      // use it as the filename/title
+      if (categories.size === 1) {
+        return formatCategory([...categories][0]);
+      }
+    }
+    return fileName;
+  };
+
+  const dynamicFileName = getDynamicTitle();
+
   // ✅ Export to PDF
   const handleExportPDF = () => {
     try {
+
+      // Filter out category column if a filter is applied
+      let pdfColumns = getEffectiveColumns;
+      if (isFiltered) {
+        pdfColumns = getEffectiveColumns.filter(col => col.key.toLowerCase() !== 'category');
+      }
+
+      const pdfHeaders = pdfColumns.map((col) => col.label);
+
+      // Transform data for the selected columns
+      const pdfRows = [];
+      const currentDisplayData = isFiltered ? filteredData : data;
+
+      currentDisplayData.forEach((item) => {
+        // Check if it's a product with multiple sizes
+        if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 1) {
+          item.sizes.forEach((sizeObj, index) => {
+            const flattened = {};
+            pdfColumns.forEach((col) => {
+              const { key } = col;
+              if (key === "productName") {
+                flattened[key] = index === 0 ? item.productName || "—" : "";
+              } else if (key === "size") {
+                flattened[key] = sizeObj.size ? `${sizeObj.size} oz` : "—";
+              } else if (key === "price") {
+                flattened[key] = sizeObj.price
+                  ? formatPrice(sizeObj.price)
+                  : "—";
+              } else if (key === "category") {
+                flattened[key] =
+                  index === 0 ? formatCategory(item.category) : "";
+              } else if (key === "ingredients.length") {
+                flattened[key] =
+                  index === 0 ? item.ingredients?.length || 0 : "";
+              } else {
+                if (index === 0) {
+                  flattened[key] = getFormattedValue(item, col);
+                } else {
+                  flattened[key] = "";
+                }
+              }
+            });
+            pdfRows.push(pdfColumns.map((col) => flattened[col.key]));
+          });
+        } else {
+          // Single size product or non-product data
+          const row = pdfColumns.map((col) => getFormattedValue(item, col));
+          pdfRows.push(row);
+        }
+      });
+
       const doc = new jsPDF();
 
       // 🎨 Add header with logo
@@ -416,7 +510,7 @@ const ExportButtons = ({
       doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
       doc.setFont("helvetica", "bold");
-      doc.text(fileName, 14, 45);
+      doc.text(dynamicFileName, 14, 45);
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -424,8 +518,8 @@ const ExportButtons = ({
 
       // 🎨 Table with orange styling
       autoTable(doc, {
-        head: [headers],
-        body: rowsPDF,
+        head: [pdfHeaders],
+        body: pdfRows,
         startY: 55,
         theme: "grid",
         styles: {
@@ -464,7 +558,7 @@ const ExportButtons = ({
           doc.internal.pageSize.getHeight() - 20
         );
         doc.text(
-          `KKOPI.Tea - ${fileName} - Page ${i} of ${pageCount}`,
+          `KKOPI.Tea - ${dynamicFileName} - Page ${i} of ${pageCount}`,
           doc.internal.pageSize.getWidth() / 2,
           doc.internal.pageSize.getHeight() - 15,
           { align: "center" }
@@ -477,7 +571,7 @@ const ExportButtons = ({
         );
       }
 
-      doc.save(`${fileName}.pdf`);
+      doc.save(`${dynamicFileName}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Error generating PDF. Please try again.");
@@ -486,11 +580,67 @@ const ExportButtons = ({
 
   // ✅ Print function
   const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    const tableHTML = `
+    try {
+
+      // Filter out category column if a filter is applied
+      let printColumns = getEffectiveColumns;
+      if (isFiltered) {
+        printColumns = getEffectiveColumns.filter(col => col.key.toLowerCase() !== 'category');
+      }
+
+      const printHeaders = printColumns.map((col) => col.label);
+
+      // Transform data for the selected columns
+      const printRows = [];
+      const currentDisplayData = isFiltered ? filteredData : data;
+
+      currentDisplayData.forEach((item) => {
+        // Special multi-size handling (same as handleExportPDF)
+        if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 1) {
+          item.sizes.forEach((sizeObj, index) => {
+            const flattened = {};
+            printColumns.forEach((col) => {
+              const { key } = col;
+              if (key === "productName") {
+                flattened[key] = index === 0 ? item.productName || "—" : "";
+              } else if (key === "size") {
+                flattened[key] = sizeObj.size ? `${sizeObj.size} oz` : "—";
+              } else if (key === "price") {
+                flattened[key] = sizeObj.price
+                  ? formatPrice(sizeObj.price)
+                  : "—";
+              } else if (key === "category") {
+                flattened[key] =
+                  index === 0 ? formatCategory(item.category) : "";
+              } else if (key === "ingredients.length") {
+                flattened[key] =
+                  index === 0 ? item.ingredients?.length || 0 : "";
+              } else {
+                if (index === 0) {
+                  flattened[key] = getFormattedValue(item, col);
+                } else {
+                  flattened[key] = "";
+                }
+              }
+            });
+            printRows.push(printColumns.map((col) => flattened[col.key]));
+          });
+        } else {
+          // Single size product or non-product data
+          const row = printColumns.map((col) => getFormattedValue(item, col));
+          printRows.push(row);
+        }
+      });
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        alert("Pop-up blocked! Please allow pop-ups for this site to use the print feature.");
+        return;
+      }
+      const tableHTML = `
     <html>
       <head>
-        <title>${fileName} - KKOPI.Tea</title>
+        <title>${dynamicFileName} - KKOPI.Tea</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
           
@@ -679,32 +829,31 @@ const ExportButtons = ({
               <p class="company-address">- Congressional ave Dasmariñas Cavite</p>
             </div>
             <div class="report-info">
-              <h2 class="report-title">${fileName}</h2>
+              <h2 class="report-title">${dynamicFileName}</h2>
               <p class="report-date">Generated on ${formatCurrentDate()}</p>
             </div>
           </div>
           
           <table>
             <thead>
-              <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>
+              <tr>${printHeaders.map((h) => `<th>${h}</th>`).join("")}</tr>
             </thead>
             <tbody>
-              ${rowsPDF
-                .map(
-                  (r) => `
+              ${printRows
+          .map(
+            (r) => `
                   <tr>
                     ${r.map((v) => `<td>${v}</td>`).join("")}
                   </tr>
                 `
-                )
-                .join("")}
+          )
+          .join("")}
             </tbody>
           </table>
           
           <div class="print-footer">
-            <strong>KKOPI.Tea</strong> - ${fileName} Report • Total Records: ${
-      rowsPDF.length
-    } • Confidential Business Document
+            <strong>KKOPI.Tea</strong> - ${dynamicFileName} Report • Total Records: ${printRows.length
+        } • Confidential Business Document
           </div>
         </div>
         
@@ -723,8 +872,11 @@ const ExportButtons = ({
       </body>
     </html>
     `;
-    printWindow.document.write(tableHTML);
-    printWindow.document.close();
+      printWindow.document.write(tableHTML);
+      printWindow.document.close();
+    } catch (err) {
+      console.error("Print error:", err);
+    }
   };
 
   // ✅ Export to Excel
@@ -732,7 +884,7 @@ const ExportButtons = ({
     const worksheet = XLSX.utils.json_to_sheet(transformedDataExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    XLSX.writeFile(workbook, `${dynamicFileName}.xlsx`);
   };
 
   return (

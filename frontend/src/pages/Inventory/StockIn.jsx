@@ -178,7 +178,8 @@ const StockIn = () => {
         {/* Export Buttons */}
         <div>
           <ExportButtons
-            data={filteredStockIns || stockIns}
+            data={stockIns}
+            filteredData={filteredStockIns}
             fileName="Stock-In"
             columns={[
               { key: "batchNumber", label: "Batch Number" },

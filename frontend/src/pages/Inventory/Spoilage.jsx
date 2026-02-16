@@ -229,7 +229,8 @@ const Spoilage = () => {
 
         {/* Export - FIXED: Handle ingredients properly */}
         <ExportButtons
-          data={filteredSpoilages}
+          data={spoilages}
+          filteredData={filteredSpoilages}
           fileName="Spoilages"
           columns={[
             {

@@ -545,7 +545,8 @@ const Sales = () => {
 
         {/* Export Buttons */}
         <ExportButtons
-          data={filteredSales}
+          data={sales}
+          filteredData={filteredSales}
           fileName={`Sales-${timePeriod || "all"}-${new Date().toISOString().split("T")[0]
             }`}
           columns={[
