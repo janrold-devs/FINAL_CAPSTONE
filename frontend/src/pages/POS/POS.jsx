@@ -577,7 +577,7 @@ const POS = () => {
             text-transform: uppercase;
           }
           .header h2 {
-            font-size: 14px;
+            font-size: 10px;
             margin: 5px 0;
             font-weight: bold;
             text-transform: uppercase;
@@ -675,7 +675,7 @@ const POS = () => {
       <body>
         <div class="header">
           <h1>KKPOPI.TEA</h1>
-          <h2>DASMARINAS CITY BRANCH</h2>
+          <h2>CONGRESSIONAL AVE., DASMARIÑAS, CAVITE</h2>
           <p>--------------------------------</p>
           <div class="transaction-info">
             <div class="transaction-date">${formattedDate}</div>

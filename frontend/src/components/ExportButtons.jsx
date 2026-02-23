@@ -502,7 +502,7 @@ const ExportButtons = ({
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
-      doc.text("- Congressional ave Dasmariñas Cavite", 45, 27);
+      doc.text("CONGRESSIONAL AVE., DASMARIÑAS, CAVITE", 45, 27);
 
       doc.setDrawColor(255, 140, 0);
       doc.line(14, 35, 196, 35);
@@ -826,7 +826,7 @@ const ExportButtons = ({
             </div>
             <div class="company-info">
               <h1 class="company-name">KKOPI.Tea</h1>
-              <p class="company-address">- Congressional ave Dasmariñas Cavite</p>
+              <p class="company-address">- CONGRESSIONAL AVE., DASMARIÑAS, CAVITE</p>
             </div>
             <div class="report-info">
               <h2 class="report-title">${dynamicFileName}</h2>
