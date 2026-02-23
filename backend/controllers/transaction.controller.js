@@ -101,13 +101,21 @@ export const checkStockAvailability = async (req, res) => {
         // Relaxed Check: Critical Items (Ingredients or Cups)
         const isCritical = ingredient.category !== "Material" || /cup/i.test(ingredient.name);
 
-        if (isCritical && ingredient.quantity < requiredQuantity) {
-          outOfStock.push({
-            productName: product.productName,
-            ingredientName: ingredient.name,
-            requiredQuantity,
-            availableQuantity: ingredient.quantity,
-          });
+        if (ingredient.quantity < requiredQuantity) {
+          if (isCritical) {
+            outOfStock.push({
+              productName: product.productName,
+              ingredientName: ingredient.name,
+              requiredQuantity,
+              availableQuantity: ingredient.quantity,
+            });
+          } else {
+            // Optional material missing – record on the item for reporting (do not block sale)
+            item.missingMaterials = item.missingMaterials || [];
+            if (!item.missingMaterials.includes(ingredient.name)) {
+              item.missingMaterials.push(ingredient.name);
+            }
+          }
         }
       }
 
@@ -143,13 +151,21 @@ export const checkStockAvailability = async (req, res) => {
             // Relaxed Check: Critical Items (Ingredients or Cups)
             const isCritical = addonIngredient.category !== "Material" || /cup/i.test(addonIngredient.name);
 
-            if (isCritical && addonIngredient.quantity < requiredQuantity) {
-              outOfStock.push({
-                productName: `${product.productName} + ${addonProduct.productName}`,
-                ingredientName: addonIngredient.name,
-                requiredQuantity,
-                availableQuantity: addonIngredient.quantity,
-              });
+            if (addonIngredient.quantity < requiredQuantity) {
+              if (isCritical) {
+                outOfStock.push({
+                  productName: `${product.productName} + ${addonProduct.productName}`,
+                  ingredientName: addonIngredient.name,
+                  requiredQuantity,
+                  availableQuantity: addonIngredient.quantity,
+                });
+              } else {
+                // Optional material missing for addon – record it
+                item.missingMaterials = item.missingMaterials || [];
+                if (!item.missingMaterials.includes(addonIngredient.name)) {
+                  item.missingMaterials.push(addonIngredient.name);
+                }
+              }
             }
           }
         }
@@ -234,6 +250,7 @@ export const createTransaction = async (req, res) => {
           quantity: item.quantity,
           totalCost: item.totalCost || item.price * item.quantity,
           snapshot: productSnapshot,
+          missingMaterials: [],
         };
 
         // Add addons to transaction item
@@ -263,6 +280,8 @@ export const createTransaction = async (req, res) => {
       );
       if (!product) continue;
 
+      console.log(`📦 Checking stock for ${product.productName} (${item.quantity}x ${item.size}oz)`);
+
       // Check main product ingredients
       for (const recipe of product.ingredients) {
         if (!recipe.ingredient) continue;
@@ -287,13 +306,25 @@ export const createTransaction = async (req, res) => {
         // Relaxed Check: Critical Items (Ingredients or Cups)
         const isCritical = ingredient.category !== "Material" || /cup/i.test(ingredient.name);
 
-        if (isCritical && ingredient.quantity < requiredQuantity) {
-          outOfStock.push({
-            productName: product.productName,
-            ingredientName: ingredient.name,
-            requiredQuantity,
-            availableQuantity: ingredient.quantity,
-          });
+        console.log(`  - ${ingredient.name}: need ${requiredQuantity}, have ${ingredient.quantity}, critical: ${isCritical}`);
+
+        if (ingredient.quantity < requiredQuantity) {
+          if (isCritical) {
+            outOfStock.push({
+              productName: product.productName,
+              ingredientName: ingredient.name,
+              requiredQuantity,
+              availableQuantity: ingredient.quantity,
+            });
+            console.log(`    ❌ OUT OF STOCK (critical)`);
+          } else {
+            // Optional material missing – record on the item for reporting (do not block sale)
+            item.missingMaterials = item.missingMaterials || [];
+            if (!item.missingMaterials.includes(ingredient.name)) {
+              item.missingMaterials.push(ingredient.name);
+              console.log(`    ⚠️  MISSING (optional): "${ingredient.name}" recorded`);
+            }
+          }
         }
       }
 
@@ -330,13 +361,21 @@ export const createTransaction = async (req, res) => {
             // Relaxed Check: Critical Items (Ingredients or Cups)
             const isCritical = addonIngredient.category !== "Material" || /cup/i.test(addonIngredient.name);
 
-            if (isCritical && addonIngredient.quantity < requiredQuantity) {
-              outOfStock.push({
-                productName: `${product.productName} + ${addonProduct.productName}`,
-                ingredientName: addonIngredient.name,
-                requiredQuantity,
-                availableQuantity: addonIngredient.quantity,
-              });
+            if (addonIngredient.quantity < requiredQuantity) {
+              if (isCritical) {
+                outOfStock.push({
+                  productName: `${product.productName} + ${addonProduct.productName}`,
+                  ingredientName: addonIngredient.name,
+                  requiredQuantity,
+                  availableQuantity: addonIngredient.quantity,
+                });
+              } else {
+                // Optional material missing for addon – record it
+                item.missingMaterials = item.missingMaterials || [];
+                if (!item.missingMaterials.includes(addonIngredient.name)) {
+                  item.missingMaterials.push(addonIngredient.name);
+                }
+              }
             }
           }
         }
@@ -358,6 +397,12 @@ export const createTransaction = async (req, res) => {
       0,
     );
 
+    // Log all missing materials for debugging
+    console.log("📋 Final missingMaterials for all items:");
+    itemsWithSnapshots.forEach((item, idx) => {
+      console.log(`  Item ${idx}: ${item.quantity}x ${item.snapshot?.productName}, missingMaterials: ${JSON.stringify(item.missingMaterials || [])}`);
+    });
+
     // Create transaction
     const transaction = await Transaction.create({
       transactionDate: req.body.transactionDate || Date.now(),
@@ -367,6 +412,8 @@ export const createTransaction = async (req, res) => {
       referenceNumber,
       totalAmount,
     });
+
+    console.log("✅ Transaction created with ID:", transaction._id);
 
     // Deduct ingredients in parallel
     await Promise.all(
@@ -382,6 +429,12 @@ export const createTransaction = async (req, res) => {
 
           const ingredient = await Ingredient.findById(recipe.ingredient._id);
           if (!ingredient) continue;
+
+          // Skip deducting optional materials that are missing
+          const isCritical = ingredient.category !== "Material" || /cup/i.test(ingredient.name);
+          if (!isCritical && item.missingMaterials?.includes(ingredient.name)) {
+            continue; // Don't deduct optional materials that weren't available
+          }
 
           let deductQty = 0;
           const sizeQty = recipe.quantities?.find(q => Number(q.size) === Number(item.size));
@@ -416,6 +469,12 @@ export const createTransaction = async (req, res) => {
                 addonRecipe.ingredient._id,
               );
               if (!addonIngredient) continue;
+
+              // Skip deducting optional materials that are missing
+              const isCritical = addonIngredient.category !== "Material" || /cup/i.test(addonIngredient.name);
+              if (!isCritical && item.missingMaterials?.includes(addonIngredient.name)) {
+                continue; // Don't deduct optional materials that weren't available
+              }
 
               let deductQty = 0;
               const sizeQty = addonRecipe.quantities?.find(q => Number(q.size) === Number(item.size));

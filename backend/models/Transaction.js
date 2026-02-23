@@ -38,6 +38,8 @@ const itemSchema = new mongoose.Schema({
       },
     ],
   },
+  // Track optional materials that were NOT included with this item (e.g. "Straw", "Tissue")
+  missingMaterials: [String],
 });
 
 const transactionSchema = new mongoose.Schema(

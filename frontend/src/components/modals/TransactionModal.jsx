@@ -119,6 +119,22 @@ const TransactionModal = ({ transaction, onClose }) => {
                         </td>
                       </tr>
 
+                      {/* Missing optional materials notice */}
+                      {item.missingMaterials && item.missingMaterials.length > 0 && (
+                        <tr className="bg-amber-50">
+                          <td colSpan={7} className="px-4 py-2">
+                            {item.missingMaterials.map((mat, mi) => (
+                              <span
+                                key={`${idx}-missing-${mi}`}
+                                className="inline-block mr-2 mb-1 px-3 py-1 bg-amber-200 text-amber-900 rounded-md text-xs font-semibold"
+                              >
+                                ⚠️ Sold without {mat}
+                              </span>
+                            ))}
+                          </td>
+                        </tr>
+                      )}
+
                       {/* Add-ons Rows - Use snapshot addons */}
                       {snapshot?.addons?.map((addon, addonIdx) => (
                         <tr

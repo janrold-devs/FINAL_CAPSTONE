@@ -416,7 +416,6 @@ const POS = () => {
             const sizePattern = new RegExp(s + "\\s*OZ", "i");
             return sizePattern.test(name);
           }
-          if (name.includes("STRAW")) return true;
           if (name.includes("LID")) {
             if (cat === "HOT DRINK") return name.includes("HOT");
             return name.includes("95MM");

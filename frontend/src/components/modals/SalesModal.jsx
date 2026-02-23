@@ -257,6 +257,22 @@ const SalesModal = ({ show, onClose, salesData }) => {
                                   </td>
                                 </tr>
 
+                                {/* Missing optional materials notice */}
+                                {item.missingMaterials && item.missingMaterials.length > 0 && (
+                                  <tr className="bg-amber-50">
+                                    <td colSpan={7} className="px-3 py-2">
+                                      {item.missingMaterials.map((mat, mi) => (
+                                        <span
+                                          key={`${tIndex}-${i}-missing-${mi}`}
+                                          className="inline-block mr-2 mb-1 px-3 py-1 bg-amber-200 text-amber-900 rounded-md text-xs font-semibold"
+                                        >
+                                          ⚠️ Sold without {mat}
+                                        </span>
+                                      ))}
+                                    </td>
+                                  </tr>
+                                )}
+
                                 {/* Add-ons Rows */}
                                 {snapshot?.addons?.map((addon, addonIdx) => (
                                   <tr
